@@ -16,13 +16,19 @@ export function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexE
   
   return allCodex.filter(entry => {
     // Check main name
-    if (lowerText.includes(entry.name.toLowerCase())) {
+    const nameRegex = new RegExp(`\\b${escapeRegExp(entry.name)}\\b`, 'i');
+    if (nameRegex.test(lowerText)) {
       return true;
     }
     
     // Check aliases
-    return entry.aliases.some(alias => 
-      lowerText.includes(alias.toLowerCase())
-    );
+    return entry.aliases.some(alias => {
+      const aliasRegex = new RegExp(`\\b${escapeRegExp(alias)}\\b`, 'i');
+      return aliasRegex.test(lowerText);
+    });
   });
+}
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

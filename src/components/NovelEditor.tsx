@@ -33,13 +33,16 @@ import { TimelinePanel } from './TimelinePanel';
 import { ProseInsights } from './ProseInsights';
 import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { CodexEntry } from '../types';
+import { useEditorPanel, EditorPanelProvider } from '../EditorPanelContext';
 
 // Tiptap Imports
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import { Extension } from '@tiptap/core';
+import tippy from 'tippy.js';
+import { MentionList } from './MentionList';
 
 // Custom Keymap Extension
 const CustomAIKeymap = Extension.create({
@@ -65,14 +68,190 @@ interface NovelEditorProps {
 
 /// Floating menu moved to SelectionFloatingMenu.tsx
 
-export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorProps) {
+function NovelFooter({ editor, saveStatus, isTypewriterMode, setIsTypewriterMode }: any) {
+  const { activePanel, setActivePanel } = useEditorPanel();
+  const togglePanel = (panel: any) => {
+    setActivePanel(activePanel === panel ? 'none' : panel);
+  };
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 h-12 border-t border-slate-200 dark:border-slate-800 bg-background/90 backdrop-blur-md px-6 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest z-10" style={{ right: activePanel !== 'none' ? 340 : 0, transition: 'right 0.3s ease' }}>
+      <div className="flex gap-4 items-center">
+        <span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400">
+          Kata: {editor?.state.doc.textContent.trim().split(/\s+/).filter(Boolean).length || 0}
+        </span>
+        <span>Karakter: {editor?.state.doc.textContent.length || 0}</span>
+      </div>
+      <div className="flex gap-4 items-center">
+        <div className="flex gap-1 items-center mr-2">
+          <button
+            onClick={() => editor?.chain().focus().undo().run()}
+            disabled={!editor?.can().undo()}
+            className="p-1.5 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo size={16} />
+          </button>
+          <button
+            onClick={() => editor?.chain().focus().redo().run()}
+            disabled={!editor?.can().redo()}
+            className="p-1.5 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            title="Redo (Ctrl+Y)"
+          >
+            <Redo size={16} />
+          </button>
+        </div>
+        <span className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-300", 
+          saveStatus === 'Menyimpan...' ? 'text-amber-600 bg-amber-50' : 
+          saveStatus === 'Tersimpan' ? 'text-emerald-600 bg-emerald-50 opacity-100' : 'opacity-0 text-emerald-600 bg-emerald-50'
+        )}>
+          <div className={cn("w-1.5 h-1.5 rounded-full", saveStatus === 'Menyimpan...' ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+          {saveStatus || 'Tersimpan'}
+        </span>
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></div>
+        <button
+          onClick={() => setIsTypewriterMode(!isTypewriterMode)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1 rounded-full border transition-colors",
+            isTypewriterMode ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+          )}
+          title="Mode Mesin Tik (Kursor tetap di tengah)"
+        >
+          <Type size={14} />
+          <span className="hidden sm:inline">Mesin Tik</span>
+        </button>
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></div>
+        <button 
+          onClick={() => togglePanel('snapshots')}
+          className={cn(
+            "p-2 rounded-full transition-all border",
+            activePanel === 'snapshots' ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
+          )}
+          title="Riwayat Versi"
+        >
+          <History size={16} />
+        </button>
+        <button 
+          onClick={() => togglePanel('timeline')}
+          className={cn(
+            "p-2 rounded-full transition-all border",
+            activePanel === 'timeline' ? "bg-orange-50 border-orange-200 text-orange-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
+          )}
+          title="Alur Cerita"
+        >
+          <GripVertical size={16} />
+        </button>
+        <button 
+          onClick={() => togglePanel('insights')}
+          className={cn(
+            "p-2 rounded-full transition-all border",
+            activePanel === 'insights' ? "bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
+          )}
+          title="Analisis Prosa"
+        >
+          <Gauge size={16} />
+        </button>
+        <button 
+          onClick={() => togglePanel('assistant')}
+          className={cn(
+            "flex items-center gap-2 px-4 py-1.5 rounded-full transition-all border",
+            activePanel === 'assistant' ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
+          )}
+        >
+          <MessageSquareText size={14} />
+          {activePanel === 'assistant' ? 'Tutup Asisten' : 'Brainstorming AI'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NovelPanels({ projectId, chapterId, editor }: any) {
+  const { activePanel, setActivePanel } = useEditorPanel();
+  return (
+    <AnimatePresence>
+      {activePanel === 'assistant' && (
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 340, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+        >
+          <div className="w-[340px] h-full absolute top-0 right-0">
+            <AIAssistantPanel 
+              projectId={projectId} 
+              currentText={editor?.getText() || ''} 
+              onClose={() => setActivePanel('none')} 
+              onInsertText={(text) => {
+                editor?.commands.insertContent('\n\n' + text);
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {activePanel === 'snapshots' && (
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 340, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+        >
+          <div className="w-[340px] h-full absolute top-0 right-0">
+            <SnapshotPanel 
+              chapterId={chapterId} 
+              currentContent={editor?.getHTML() || ''} 
+              onRestore={(text) => {
+                editor?.commands.setContent(text);
+                db.chapters.update(chapterId, { content: text, lastModified: Date.now() });
+                setActivePanel('none');
+              }} 
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {activePanel === 'timeline' && (
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 340, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+        >
+          <div className="w-[340px] h-full absolute top-0 right-0">
+            <TimelinePanel chapterId={chapterId} projectId={projectId} />
+          </div>
+        </motion.div>
+      )}
+
+      {activePanel === 'insights' && (
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 340, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+        >
+          <div className="w-[340px] h-full absolute top-0 right-0">
+            <ProseInsights content={editor?.getText() || ''} />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function NovelEditor(props: NovelEditorProps) {
+  return (
+    <EditorPanelProvider>
+      <NovelEditorInner {...props} />
+    </EditorPanelProvider>
+  );
+}
+
+function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProps) {
   const chapter = useLiveQuery(() => db.chapters.get(chapterId), [chapterId]);
   const [title, setTitle] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [isSnapshotsOpen, setIsSnapshotsOpen] = useState(false);
-  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
   const [isTypewriterMode, setIsTypewriterMode] = useState(false);
   const [activeInfoPopup, setActiveInfoPopup] = useState<CodexEntry | null>(null);
 
@@ -116,83 +295,53 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
               .slice(0, 5);
           },
           render: () => {
-            let popup: HTMLDivElement | null = null;
+            let component: ReactRenderer;
+            let popup: any;
+
             return {
-              onStart: (props: any) => {
-                if (popup) { popup.remove(); }
-                popup = document.createElement('div');
-                popup.className = 'fixed z-[9999] bg-slate-900 border border-slate-700 rounded-lg shadow-xl flex flex-col min-w-[200px] py-1 text-sm text-slate-100 font-sans overflow-hidden';
-                
-                props.items.forEach((item: any, index: number) => {
-                  const btn = document.createElement('button');
-                  btn.className = 'text-left px-3 py-2 hover:bg-slate-800 transition-colors w-full font-bold flex flex-col gap-0.5';
-                  btn.innerHTML = `<span>${item.name}</span><span class="text-[10px] text-slate-400 font-normal uppercase tracking-widest">${item.category}</span>`;
-                  btn.onclick = () => {
-                    props.command({ id: item.name });
-                  };
-                  popup?.appendChild(btn);
+              onStart: props => {
+                component = new ReactRenderer(MentionList, {
+                  props,
+                  editor: props.editor,
                 });
-                
-                if (props.items.length === 0) {
-                   const span = document.createElement('span');
-                   span.className = 'px-3 py-2 text-slate-500 italic text-xs';
-                   span.innerText = 'No exact matches...';
-                   popup.appendChild(span);
+
+                if (!props.clientRect) {
+                  return;
                 }
 
-                if (props.clientRect) {
-                  const rect = props.clientRect();
-                  if (rect) {
-                    popup.style.left = rect.left + 'px';
-                    popup.style.top = (rect.bottom + 5) + 'px';
-                  }
-                }
-                document.body.appendChild(popup);
+                popup = tippy('body', {
+                  getReferenceClientRect: props.clientRect,
+                  appendTo: () => document.body,
+                  content: component.element,
+                  showOnCreate: true,
+                  interactive: true,
+                  trigger: 'manual',
+                  placement: 'bottom-start',
+                });
               },
-              onUpdate: (props: any) => {
-                if (!popup) return;
-                popup.innerHTML = '';
-                props.items.forEach((item: any, index: number) => {
-                   const btn = document.createElement('button');
-                   btn.className = 'text-left px-3 py-2 hover:bg-slate-800 transition-colors w-full font-bold flex flex-col gap-0.5';
-                   btn.innerHTML = `<span>${item.name}</span><span class="text-[10px] text-slate-400 font-normal uppercase tracking-widest">${item.category}</span>`;
-                   btn.onclick = () => {
-                     props.command({ id: item.name });
-                   };
-                   popup?.appendChild(btn);
-                 });
-                 if (props.items.length === 0) {
-                   const span = document.createElement('span');
-                   span.className = 'px-3 py-2 text-slate-500 italic text-xs';
-                   span.innerText = 'No exact matches...';
-                   popup.appendChild(span);
-                 }
-                if (props.clientRect) {
-                  const rect = props.clientRect();
-                  if (rect) {
-                    popup.style.left = rect.left + 'px';
-                    popup.style.top = (rect.bottom + 5) + 'px';
-                  }
+              onUpdate(props) {
+                component.updateProps(props);
+
+                if (!props.clientRect) {
+                  return;
                 }
+
+                popup[0].setProps({
+                  getReferenceClientRect: props.clientRect,
+                });
               },
-              onKeyDown: (props: any) => {
+              onKeyDown(props) {
                 if (props.event.key === 'Escape') {
-                  if (popup) {
-                    popup.remove();
-                    popup = null;
-                  }
+                  popup[0].hide();
                   return true;
                 }
-                // Enter handling would logically go here but tiptap handles it if command is invoked. 
-                // A full keyboard nav requires tracking selectedIndex, for simplicity we skip full arrow navigation.
-                return false;
+
+                return (component.ref as any)?.onKeyDown(props);
               },
-              onExit: () => {
-                if (popup) {
-                  popup.remove();
-                  popup = null;
-                }
-              }
+              onExit() {
+                popup[0].destroy();
+                component.destroy();
+              },
             };
           },
         },
@@ -399,185 +548,16 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
         </div>
 
         {/* Word Count / Info */}
-        <div className="fixed bottom-0 left-0 right-0 h-12 border-t border-slate-200 dark:border-slate-800 bg-background/90 backdrop-blur-md px-6 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest z-10" style={{ right: (isAssistantOpen || isSnapshotsOpen || isTimelineOpen || isInsightsOpen) ? 340 : 0, transition: 'right 0.3s ease' }}>
-          <div className="flex gap-4 items-center">
-            <span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400">
-              Kata: {editor?.state.doc.textContent.trim().split(/\s+/).filter(Boolean).length || 0}
-            </span>
-            <span>Karakter: {editor?.state.doc.textContent.length || 0}</span>
-          </div>
-          <div className="flex gap-4 items-center">
-            <div className="flex gap-1 items-center mr-2">
-              <button
-                onClick={() => editor?.chain().focus().undo().run()}
-                disabled={!editor?.can().undo()}
-                className="p-1.5 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                title="Undo (Ctrl+Z)"
-              >
-                <Undo size={16} />
-              </button>
-              <button
-                onClick={() => editor?.chain().focus().redo().run()}
-                disabled={!editor?.can().redo()}
-                className="p-1.5 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                title="Redo (Ctrl+Y)"
-              >
-                <Redo size={16} />
-              </button>
-            </div>
-            <span className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-300", 
-              saveStatus === 'Menyimpan...' ? 'text-amber-600 bg-amber-50' : 
-              saveStatus === 'Tersimpan' ? 'text-emerald-600 bg-emerald-50 opacity-100' : 'opacity-0 text-emerald-600 bg-emerald-50'
-            )}>
-              <div className={cn("w-1.5 h-1.5 rounded-full", saveStatus === 'Menyimpan...' ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
-              {saveStatus || 'Tersimpan'}
-            </span>
-            <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></div>
-            <button
-              onClick={() => setIsTypewriterMode(!isTypewriterMode)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-full border transition-colors",
-                isTypewriterMode ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              )}
-              title="Mode Mesin Tik (Kursor tetap di tengah)"
-            >
-              <Type size={14} />
-              <span className="hidden sm:inline">Mesin Tik</span>
-            </button>
-            <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></div>
-            <button 
-              onClick={() => {
-                setIsSnapshotsOpen(!isSnapshotsOpen);
-                setIsAssistantOpen(false);
-                setIsTimelineOpen(false);
-                setIsInsightsOpen(false);
-              }}
-              className={cn(
-                "p-2 rounded-full transition-all border",
-                isSnapshotsOpen ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
-              )}
-              title="Riwayat Versi"
-            >
-              <History size={16} />
-            </button>
-            <button 
-              onClick={() => {
-                setIsTimelineOpen(!isTimelineOpen);
-                setIsAssistantOpen(false);
-                setIsSnapshotsOpen(false);
-                setIsInsightsOpen(false);
-              }}
-              className={cn(
-                "p-2 rounded-full transition-all border",
-                isTimelineOpen ? "bg-orange-50 border-orange-200 text-orange-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
-              )}
-              title="Alur Cerita"
-            >
-              <GripVertical size={16} />
-            </button>
-            <button 
-              onClick={() => {
-                setIsInsightsOpen(!isInsightsOpen);
-                setIsAssistantOpen(false);
-                setIsSnapshotsOpen(false);
-                setIsTimelineOpen(false);
-              }}
-              className={cn(
-                "p-2 rounded-full transition-all border",
-                isInsightsOpen ? "bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
-              )}
-              title="Analisis Prosa"
-            >
-              <Gauge size={16} />
-            </button>
-            <button 
-              onClick={() => {
-                setIsAssistantOpen(!isAssistantOpen);
-                setIsSnapshotsOpen(false);
-                setIsTimelineOpen(false);
-                setIsInsightsOpen(false);
-              }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-1.5 rounded-full transition-all border",
-                isAssistantOpen ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-100"
-              )}
-            >
-              <MessageSquareText size={14} />
-              {isAssistantOpen ? 'Tutup Asisten' : 'Brainstorming AI'}
-            </button>
-          </div>
-        </div>
+        <NovelFooter 
+          editor={editor} 
+          saveStatus={saveStatus} 
+          isTypewriterMode={isTypewriterMode} 
+          setIsTypewriterMode={setIsTypewriterMode} 
+        />
       </div>
 
       {/* Right Sidebar */}
-      <AnimatePresence>
-        {isAssistantOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 340, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-          >
-            <div className="w-[340px] h-full absolute top-0 right-0">
-              <AIAssistantPanel 
-                projectId={projectId} 
-                currentText={editor?.getText() || ''} 
-                onClose={() => setIsAssistantOpen(false)} 
-                onInsertText={(text) => {
-                  editor?.commands.insertContent('\n\n' + text);
-                }}
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {isSnapshotsOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 340, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-          >
-            <div className="w-[340px] h-full absolute top-0 right-0">
-              <SnapshotPanel 
-                chapterId={chapterId} 
-                currentContent={editor?.getHTML() || ''} 
-                onRestore={(text) => {
-                  editor?.commands.setContent(text);
-                  db.chapters.update(chapterId, { content: text, lastModified: Date.now() });
-                  setIsSnapshotsOpen(false);
-                }} 
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {isTimelineOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 340, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-          >
-            <div className="w-[340px] h-full absolute top-0 right-0">
-              <TimelinePanel chapterId={chapterId} projectId={projectId} />
-            </div>
-          </motion.div>
-        )}
-
-        {isInsightsOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 340, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-          >
-            <div className="w-[340px] h-full absolute top-0 right-0">
-              <ProseInsights content={editor?.getText() || ''} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <NovelPanels projectId={projectId} chapterId={chapterId} editor={editor} />
     </div>
   );
 }
