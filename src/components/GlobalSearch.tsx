@@ -1,0 +1,146 @@
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { db } from '../db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Search, FileText, Book, X, Hash } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '../lib/utils';
+
+interface GlobalSearchProps {
+  projectId: number;
+  onSelectChapter: (id: number) => void;
+  onSelectCodex: (id: number) => void;
+  onClose: () => void;
+}
+
+export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClose }: GlobalSearchProps) {
+  const [query, setQuery] = useState('');
+  
+  const chapters = useLiveQuery(() => 
+    db.chapters.where('projectId').equals(projectId).toArray()
+  , [projectId]);
+
+  const codex = useLiveQuery(() => 
+    db.codex.where('projectId').equals(projectId).toArray()
+  , [projectId]);
+
+  const results = useMemo(() => {
+    if (!query.trim()) return { chapters: [], codex: [] };
+    
+    const q = query.toLowerCase();
+    
+    const matchedChapters = chapters?.filter(ch => 
+      ch.title.toLowerCase().includes(q) || ch.content.toLowerCase().includes(q)
+    ) || [];
+
+    const matchedCodex = codex?.filter(ctx => 
+      ctx.name.toLowerCase().includes(q) || 
+      ctx.description.toLowerCase().includes(q) ||
+      ctx.aliases?.some(a => a.toLowerCase().includes(q))
+    ) || [];
+
+    return { chapters: matchedChapters, codex: matchedCodex };
+  }, [query, chapters, codex]);
+
+  useEffect(() => {
+    const handleDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleDown);
+    return () => window.removeEventListener('keydown', handleDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-24 bg-slate-900/40 backdrop-blur-sm p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: -20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+      >
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+          <Search size={20} className="text-slate-400 dark:text-slate-500" />
+          <input 
+            autoFocus
+            className="flex-1 bg-transparent text-lg focus:outline-none placeholder:text-slate-300"
+            placeholder="Search chapters, characters, places..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:bg-slate-800 rounded-md text-slate-400 dark:text-slate-500">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
+          {!query && (
+            <div className="py-12 text-center text-slate-400 dark:text-slate-500">
+              <Search size={32} className="mx-auto mb-3 opacity-20" />
+              <p className="text-sm italic">Type something to search across your manuscript.</p>
+            </div>
+          )}
+
+          {query && results.chapters.length === 0 && results.codex.length === 0 && (
+            <div className="py-12 text-center text-slate-400 dark:text-slate-500">
+              <p className="text-sm">No results found for "{query}"</p>
+            </div>
+          )}
+
+          {results.chapters.length > 0 && (
+            <div className="space-y-1 mb-4">
+              <h3 className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Chapters</h3>
+              {results.chapters.map(ch => (
+                <button 
+                  key={ch.id}
+                  onClick={() => { onSelectChapter(ch.id!); onClose(); }}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-indigo-50 rounded-xl transition-colors group text-left"
+                >
+                  <div className="p-2 bg-indigo-50 text-indigo-500 rounded-lg group-hover:bg-white dark:hover:bg-slate-900 transition-colors">
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{ch.title || 'Untitled Chapter'}</h4>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{ch.content.substring(0, 100)}...</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {results.codex.length > 0 && (
+            <div className="space-y-1">
+              <h3 className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Codex</h3>
+              {results.codex.map(ctx => (
+                <button 
+                  key={ctx.id}
+                  onClick={() => { onSelectCodex(ctx.id!); onClose(); }}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-emerald-50 rounded-xl transition-colors group text-left"
+                >
+                  <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg group-hover:bg-white dark:hover:bg-slate-900 transition-colors">
+                    <Book size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{ctx.name}</h4>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1 italic">{ctx.category} — {ctx.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center gap-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
+          <div className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded shadow-sm">ESC</kbd> to close
+          </div>
+          <div className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded shadow-sm">⏎</kbd> to open
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
