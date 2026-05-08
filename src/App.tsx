@@ -20,10 +20,11 @@ import { GlobalSearch } from './components/GlobalSearch';
 import { ExportManager } from './components/ExportManager';
 import { RelationshipMapper } from './components/RelationshipMapper';
 import { SettingsPanel } from './components/SettingsPanel';
-import { Search, Share2 } from 'lucide-react';
+import { GuidePanel } from './components/GuidePanel';
+import { Search, Share2, HelpCircle, Download } from 'lucide-react';
 import { cn } from './lib/utils';
 
-type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships';
+type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide';
 
 export default function App() {
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -180,6 +181,15 @@ export default function App() {
             >
               <Sparkles size={14} /> AI Snippets
             </button>
+            <button 
+              onClick={() => setViewMode('guide')}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all",
+                viewMode === 'guide' ? "bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+              )}
+            >
+              <HelpCircle size={14} /> Panduan
+            </button>
           </nav>
         </div>
 
@@ -193,31 +203,6 @@ export default function App() {
           )}
           {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Worldbuilding Data</p>}
           {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Core Constraints</p>}
-          
-          <div className="mt-8">
-            {projectId && <WritingStats projectId={projectId} />}
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col gap-2">
-          <button 
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-all shadow-sm dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 dark:hover:border-slate-700"
-          >
-            {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-          </button>
-          <button 
-            onClick={() => setViewMode('settings')}
-            className={cn(
-              "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all shadow-sm",
-              viewMode === 'settings' 
-                ? "bg-white text-indigo-700 border-slate-200 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700" 
-                : "text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 dark:hover:border-slate-700"
-            )}
-          >
-            <Settings size={14} /> Settings
-          </button>
         </div>
       </motion.aside>
       )}
@@ -243,40 +228,65 @@ export default function App() {
 
         {/* Toolbar */}
         {!isFocusMode && (
-          <header className="h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 gap-4 bg-background z-10 shadow-sm transition-colors">
-          <div className="flex items-center gap-3">
+          <header className="h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 gap-2 md:gap-4 bg-background z-[100] shadow-sm transition-colors relative">
+          <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors"
+              className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
+              title="Toggle Sidebar"
             >
-              {sidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+              <ChevronRight size={18} className={cn("transition-transform", sidebarOpen && "rotate-180")} />
             </button>
-            <div className="h-4 w-px bg-slate-200" />
+            <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
             <button 
               onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-400 hover:border-slate-300 transition-all group"
+              className="p-1.5 flex items-center justify-center bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
+              title="Search (Ctrl+K)"
             >
-              <Search size={14} className="group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-medium uppercase tracking-wider">Search</span>
-              <kbd className="ml-1 px-1 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded text-[8px] font-bold shadow-sm">CTRL K</kbd>
+              <Search size={16} />
             </button>
-            <div className="h-4 w-px bg-slate-200" />
-            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]">
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0 mx-1" />
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px] md:max-w-[200px] flex-shrink flex-grow-0">
               {viewMode === 'write' && activeChapter ? `${activeChapter.title}` : viewMode.toUpperCase()}
             </span>
           </div>
           
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-              Local Sync Active
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+            {projectId && <div className="flex-shrink-0 flex items-center mr-1"><WritingStats projectId={projectId} /></div>}
+            
+            <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button 
+                onClick={toggleTheme}
+                className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md"
+                title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+              >
+                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              </button>
+              <button 
+                onClick={() => setViewMode('settings')}
+                className={cn(
+                  "p-1.5 transition-colors rounded-md",
+                  viewMode === 'settings' 
+                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600"
+                    : "text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                )}
+                title="Settings"
+              >
+                <Settings size={16} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center p-1.5" title="Local Sync Active">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse outline outline-2 outline-emerald-500/20"></div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {viewMode === 'write' && (
                 <button 
                   onClick={() => setIsFocusMode(true)} 
-                  className="flex items-center justify-center p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-900/30 rounded-md border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800"
+                  className="flex items-center justify-center p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md"
                   title="Enter Focus Mode"
                 >
                   <Zap size={16} />
@@ -284,9 +294,10 @@ export default function App() {
               )}
               <button 
                 onClick={() => setIsExportOpen(true)} 
-                className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-md hover:border-slate-300 transition-colors shadow-sm bg-white dark:bg-slate-900"
+                className="flex items-center justify-center p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md"
+                title="Export Project"
               >
-                Export
+                <Download size={16} />
               </button>
             </div>
           </div>
@@ -388,6 +399,18 @@ export default function App() {
                 className="h-full p-10 overflow-y-auto custom-scrollbar"
               >
                 <SettingsPanel />
+              </motion.div>
+            )}
+
+            {viewMode === 'guide' && (
+              <motion.div 
+                key="guide"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full p-10 overflow-y-auto custom-scrollbar"
+              >
+                <GuidePanel />
               </motion.div>
             )}
           </AnimatePresence>

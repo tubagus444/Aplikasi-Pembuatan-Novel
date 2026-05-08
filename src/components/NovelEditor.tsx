@@ -19,7 +19,9 @@ import {
   History,
   GripVertical,
   Gauge,
-  Highlighter
+  Highlighter,
+  Undo,
+  Redo
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getRelevantContext } from '../services/contextEngine';
@@ -405,6 +407,24 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
             <span>Karakter: {editor?.state.doc.textContent.length || 0}</span>
           </div>
           <div className="flex gap-4 items-center">
+            <div className="flex gap-1 items-center mr-2">
+              <button
+                onClick={() => editor?.chain().focus().undo().run()}
+                disabled={!editor?.can().undo()}
+                className="p-1.5 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo size={16} />
+              </button>
+              <button
+                onClick={() => editor?.chain().focus().redo().run()}
+                disabled={!editor?.can().redo()}
+                className="p-1.5 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Redo (Ctrl+Y)"
+              >
+                <Redo size={16} />
+              </button>
+            </div>
             <span className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-300", 
               saveStatus === 'Menyimpan...' ? 'text-amber-600 bg-amber-50' : 
               saveStatus === 'Tersimpan' ? 'text-emerald-600 bg-emerald-50 opacity-100' : 'opacity-0 text-emerald-600 bg-emerald-50'

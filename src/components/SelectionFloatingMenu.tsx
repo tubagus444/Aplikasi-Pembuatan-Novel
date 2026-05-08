@@ -12,63 +12,100 @@ interface SelectionFloatingMenuProps {
 
 export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     const handleSelection = () => {
       const { selection } = editor.state;
-      setShow(!selection.empty);
+      if (selection.empty) {
+        setShow(false);
+        return;
+      }
+
+      // Small timeout to allow DOM to paint the selection rect
+      setTimeout(() => {
+        const domSelection = window.getSelection();
+        if (domSelection && domSelection.rangeCount > 0) {
+          const range = domSelection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          
+          // Only show if the selection actually has dimensions
+          if (rect.width > 0 && rect.height > 0) {
+            setPosition({
+              top: rect.top - 8, // 8px above the top of the selection
+              left: rect.left + (rect.width / 2) // Centered over selection
+            });
+            setShow(true);
+          } else {
+            setShow(false);
+          }
+        }
+      }, 0);
     };
 
     editor.on('selectionUpdate', handleSelection);
+    
+    // Update position on scroll/resize
+    const handleScrollOrResize = () => {
+      if (show) handleSelection();
+    };
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
 
     return () => {
       editor.off('selectionUpdate', handleSelection);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [editor]);
+  }, [editor, show]);
 
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-           initial={{ opacity: 0, y: 30, x: '-50%' }}
-           animate={{ opacity: 1, y: 0, x: '-50%' }}
-           exit={{ opacity: 0, y: 30, x: '-50%' }}
-           className="fixed bottom-10 left-1/2 z-[100] flex flex-wrap bg-slate-900/95 backdrop-blur-sm border border-slate-700 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] rounded-full p-2 gap-2 items-center"
+           initial={{ opacity: 0, y: 10, scale: 0.95 }}
+           animate={{ opacity: 1, y: 0, scale: 1 }}
+           exit={{ opacity: 0, y: 10, scale: 0.95 }}
+           transition={{ duration: 0.15, ease: "easeOut" }}
+           className="fixed z-[100] flex flex-nowrap bg-slate-900/95 backdrop-blur-md border border-slate-700/80 shadow-2xl rounded-full p-1 gap-0.5 items-center transform -translate-x-1/2 -translate-y-full"
+           style={{ top: position.top, left: position.left, maxWidth: '90vw' }}
          >
-           <div className="flex border-r border-slate-700 px-2 mr-1 gap-1">
+           <div className="flex px-1 gap-0.5">
              <button 
                onClick={() => editor.chain().focus().toggleBold().run()}
-               className={cn("p-1.5 rounded-full hover:bg-slate-700 transition-colors", editor.isActive('bold') ? "text-indigo-400 bg-slate-800" : "text-slate-200")}
+               className={cn("p-1.5 rounded-full transition-colors", editor.isActive('bold') ? "text-indigo-400 bg-slate-800" : "text-slate-300 hover:text-white hover:bg-slate-800")}
                title="Bold"
              >
                <Bold size={14} />
              </button>
              <button 
                onClick={() => editor.chain().focus().toggleItalic().run()}
-               className={cn("p-1.5 rounded-full hover:bg-slate-700 transition-colors", editor.isActive('italic') ? "text-indigo-400 bg-slate-800" : "text-slate-200")}
+               className={cn("p-1.5 rounded-full transition-colors", editor.isActive('italic') ? "text-indigo-400 bg-slate-800" : "text-slate-300 hover:text-white hover:bg-slate-800")}
                title="Italic"
              >
                <Italic size={14} />
              </button>
            </div>
            
-           <div className="flex items-center gap-1.5 px-1 overflow-x-auto no-scrollbar max-w-[70vw] sm:max-w-none">
+           <div className="w-px h-4 bg-slate-700 mx-1 shrink-0" />
+           
+           <div className="flex items-center gap-0.5 px-1 overflow-x-auto no-scrollbar mask-edges">
              <button 
                onClick={() => onAiAction("Show don't tell")}
-               className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors flex items-center gap-1.5 shrink-0"
+               className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors flex items-center gap-1.5 shrink-0"
              >
-               <Sparkles size={10} className="text-indigo-400" />
-               Show
+               <Sparkles size={12} className="text-indigo-400" />
+               Show, don't tell
              </button>
              <button 
                onClick={() => onAiAction("Focus Senses")}
-               className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
+               className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
              >
                Senses
              </button>
              <button 
                onClick={() => onAiAction("Intensify")}
-               className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
+               className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
              >
                Intensify
              </button>
@@ -76,7 +113,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
                <button 
                  key={action.id}
                  onClick={() => onAiAction(action.prompt)} 
-                 className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
+                 className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
                >
                  {action.label}
                </button>
