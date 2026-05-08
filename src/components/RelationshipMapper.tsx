@@ -6,6 +6,23 @@ import { Plus, Trash2, Link as LinkIcon, Users, Heart, Sword, ShieldAlert, Arrow
 import { motion, AnimatePresence } from 'motion/react';
 import ForceGraph2D from 'react-force-graph-2d';
 
+interface ReactForceGraph2dNode {
+  id?: string | number;
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+  name?: string;
+  [key: string]: any;
+}
+
+interface ReactForceGraph2dLink {
+  source?: string | number | ReactForceGraph2dNode;
+  target?: string | number | ReactForceGraph2dNode;
+  color?: string;
+  [key: string]: any;
+}
+
 interface RelationshipMapperProps {
   projectId: number;
 }
@@ -262,11 +279,11 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                 graphData={graphData}
                 nodeRelSize={6}
                 nodeColor={() => '#6366f1'}
-                linkColor={(link: any) => link.color}
+                linkColor={(link: ReactForceGraph2dLink) => link.color || '#cbd5e1'}
                 linkWidth={3}
                 linkDirectionalArrowLength={4}
                 linkDirectionalArrowRelPos={1}
-                nodeCanvasObject={(node: any, ctx, globalScale) => {
+                nodeCanvasObject={(node: ReactForceGraph2dNode, ctx, globalScale) => {
                   const label = node.name;
                   const fontSize = Math.max(12 / globalScale, 4);
                   const isDark = document.documentElement.classList.contains('dark');

@@ -27,6 +27,30 @@ function getSettings() {
   };
 }
 
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429) {
+        // Rate limit
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`Rate limited. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        attempt++;
+        continue;
+      }
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries - 1) throw error;
+      const delay = Math.pow(2, attempt) * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      attempt++;
+    }
+  }
+  throw new Error("Max retries reached");
+}
+
 async function callAI(systemInstruction: string, userPrompt: string, history?: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
   const settings = getSettings();
   
@@ -63,7 +87,7 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
       { role: "user", content: userPrompt }
     ];
     
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const res = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${settings.keys.groq}`,
@@ -88,7 +112,7 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
       { role: "user", content: userPrompt }
     ];
     
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const res = await fetchWithRetry('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${settings.keys.openrouter}`,
@@ -116,7 +140,7 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
     ];
     
     // Warning: typically Claude API from browser fails due to CORS, but since we are replacing it anyway, this is a best-effort template.
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': settings.keys.claude,

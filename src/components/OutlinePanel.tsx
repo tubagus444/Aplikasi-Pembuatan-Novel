@@ -158,10 +158,10 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
             draggable
-            onDragStart={(e: React.DragEvent) => handleDragStart(e, chapter.id!)}
+            onDragStart={(e: any) => handleDragStart(e, chapter.id!)}
             onDragOver={handleDragOver}
-            onDrop={(e: React.DragEvent) => handleDrop(e, chapter.id!)}
-            onDragEnd={handleDragEnd}
+            onDrop={(e: any) => handleDrop(e, chapter.id!)}
+            onDragEnd={handleDragEnd as any}
             className={cn(
               "group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col relative",
               draggedId === chapter.id ? "opacity-50 border-indigo-500 scale-[0.98]" : "opacity-100"

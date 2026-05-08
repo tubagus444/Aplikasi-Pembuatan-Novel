@@ -29,6 +29,7 @@ import { AIAssistantPanel } from './AIAssistantPanel';
 import { SnapshotPanel } from './SnapshotPanel';
 import { TimelinePanel } from './TimelinePanel';
 import { ProseInsights } from './ProseInsights';
+import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { CodexEntry } from '../types';
 
 // Tiptap Imports
@@ -60,84 +61,7 @@ interface NovelEditorProps {
   isFocusMode?: boolean;
 }
 
-// Separate component for the floating menu to keep things clean
-function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }: { editor: any, onAiAction: (action: string) => void, customActions?: any[] }) {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    const handleSelection = () => {
-      const { selection } = editor.state;
-      setShow(!selection.empty);
-    };
-
-    editor.on('selectionUpdate', handleSelection);
-
-    return () => {
-      editor.off('selectionUpdate', handleSelection);
-    };
-  }, [editor]);
-
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          initial={{ opacity: 0, y: 30, x: '-50%' }}
-          animate={{ opacity: 1, y: 0, x: '-50%' }}
-          exit={{ opacity: 0, y: 30, x: '-50%' }}
-          className="fixed bottom-10 left-1/2 z-[100] flex bg-slate-900/95 backdrop-blur-sm border border-slate-700 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] rounded-full p-2 gap-2 items-center"
-        >
-          <div className="flex border-r border-slate-700 px-2 mr-1 gap-1">
-            <button 
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              className={cn("p-1.5 rounded hover:bg-slate-700", editor.isActive('bold') ? "text-indigo-400" : "text-slate-200")}
-              title="Bold"
-            >
-              <Bold size={14} />
-            </button>
-            <button 
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              className={cn("p-1.5 rounded hover:bg-slate-700", editor.isActive('italic') ? "text-indigo-400" : "text-slate-200")}
-              title="Italic"
-            >
-              <Italic size={14} />
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-1 px-1">
-            <button 
-              onClick={() => onAiAction("Show don't tell")}
-              className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-300 hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <Sparkles size={10} className="text-indigo-400" />
-              Show
-            </button>
-            <button 
-              onClick={() => onAiAction("Focus Senses")}
-              className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-300 hover:text-white transition-colors"
-            >
-              Senses
-            </button>
-            <button 
-              onClick={() => onAiAction("Intensify")}
-              className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-300 hover:text-white transition-colors"
-            >
-              Intensify
-            </button>
-            {customActions?.map((action) => (
-              <button 
-                key={action.id}
-                onClick={() => onAiAction(action.prompt)} 
-                className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-300 hover:text-white transition-colors"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
+/// Floating menu moved to SelectionFloatingMenu.tsx
 
 export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorProps) {
   const chapter = useLiveQuery(() => db.chapters.get(chapterId), [chapterId]);
@@ -162,6 +86,12 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
   , [projectId]);
 
   // Tiptap Editor Initialization
+  const codexEntriesRef = useRef<CodexEntry[]>([]);
+  
+  useEffect(() => {
+    codexEntriesRef.current = codexEntries || [];
+  }, [codexEntries]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -175,8 +105,8 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
         },
         suggestion: {
           items: ({ query }) => {
-            if (!codexEntries) return [];
-            return codexEntries
+            const entries = codexEntriesRef.current;
+            return entries
               .filter(item => 
                 item.name.toLowerCase().startsWith(query.toLowerCase()) ||
                 item.aliases?.some(a => a.toLowerCase().startsWith(query.toLowerCase()))
@@ -184,10 +114,83 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
               .slice(0, 5);
           },
           render: () => {
+            let popup: HTMLDivElement | null = null;
             return {
-              onStart: (props) => {
-                // We'll use the default mention behavior or custom if needed
+              onStart: (props: any) => {
+                if (popup) { popup.remove(); }
+                popup = document.createElement('div');
+                popup.className = 'fixed z-[9999] bg-slate-900 border border-slate-700 rounded-lg shadow-xl flex flex-col min-w-[200px] py-1 text-sm text-slate-100 font-sans overflow-hidden';
+                
+                props.items.forEach((item: any, index: number) => {
+                  const btn = document.createElement('button');
+                  btn.className = 'text-left px-3 py-2 hover:bg-slate-800 transition-colors w-full font-bold flex flex-col gap-0.5';
+                  btn.innerHTML = `<span>${item.name}</span><span class="text-[10px] text-slate-400 font-normal uppercase tracking-widest">${item.category}</span>`;
+                  btn.onclick = () => {
+                    props.command({ id: item.name });
+                  };
+                  popup?.appendChild(btn);
+                });
+                
+                if (props.items.length === 0) {
+                   const span = document.createElement('span');
+                   span.className = 'px-3 py-2 text-slate-500 italic text-xs';
+                   span.innerText = 'No exact matches...';
+                   popup.appendChild(span);
+                }
+
+                if (props.clientRect) {
+                  const rect = props.clientRect();
+                  if (rect) {
+                    popup.style.left = rect.left + 'px';
+                    popup.style.top = (rect.bottom + 5) + 'px';
+                  }
+                }
+                document.body.appendChild(popup);
               },
+              onUpdate: (props: any) => {
+                if (!popup) return;
+                popup.innerHTML = '';
+                props.items.forEach((item: any, index: number) => {
+                   const btn = document.createElement('button');
+                   btn.className = 'text-left px-3 py-2 hover:bg-slate-800 transition-colors w-full font-bold flex flex-col gap-0.5';
+                   btn.innerHTML = `<span>${item.name}</span><span class="text-[10px] text-slate-400 font-normal uppercase tracking-widest">${item.category}</span>`;
+                   btn.onclick = () => {
+                     props.command({ id: item.name });
+                   };
+                   popup?.appendChild(btn);
+                 });
+                 if (props.items.length === 0) {
+                   const span = document.createElement('span');
+                   span.className = 'px-3 py-2 text-slate-500 italic text-xs';
+                   span.innerText = 'No exact matches...';
+                   popup.appendChild(span);
+                 }
+                if (props.clientRect) {
+                  const rect = props.clientRect();
+                  if (rect) {
+                    popup.style.left = rect.left + 'px';
+                    popup.style.top = (rect.bottom + 5) + 'px';
+                  }
+                }
+              },
+              onKeyDown: (props: any) => {
+                if (props.event.key === 'Escape') {
+                  if (popup) {
+                    popup.remove();
+                    popup = null;
+                  }
+                  return true;
+                }
+                // Enter handling would logically go here but tiptap handles it if command is invoked. 
+                // A full keyboard nav requires tracking selectedIndex, for simplicity we skip full arrow navigation.
+                return false;
+              },
+              onExit: () => {
+                if (popup) {
+                  popup.remove();
+                  popup = null;
+                }
+              }
             };
           },
         },
@@ -197,39 +200,74 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      setSaveStatus('Menyimpan...');
       saveTimeoutRef.current = setTimeout(() => {
-        db.chapters.update(chapterId, { content: html, lastModified: Date.now() });
+        db.chapters.update(chapterId, { content: html, lastModified: Date.now() }).then(() => {
+          setSaveStatus('Tersimpan');
+          setTimeout(() => setSaveStatus(''), 2000);
+        });
       }, 1000);
-
-      if (isTypewriterMode && containerRef.current) {
-        const { view } = editor;
-        const { selection } = view.state;
-        const coords = view.coordsAtPos(selection.from);
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const relativeTop = coords.top - containerRect.top + containerRef.current.scrollTop;
-        const targetScroll = relativeTop - containerRef.current.clientHeight / 2;
-        containerRef.current.scrollTo({ top: targetScroll, behavior: 'smooth' });
-      }
     },
     editorProps: {
       attributes: {
         class: cn(
-          "relative w-full font-serif text-lg leading-relaxed text-foreground bg-transparent focus:outline-none min-h-[500px]",
-          isTypewriterMode ? "pt-[40vh] pb-[40vh]" : "pb-48 pt-0"
+          "relative w-full font-serif text-lg leading-relaxed text-foreground bg-transparent focus:outline-none min-h-[500px]"
         ),
       },
     },
-  }, [chapterId, isTypewriterMode, codexEntries]);
+  }, []); // Empty deps to prevent unmount/remount flickering
 
-  // Load chapter data
+  const [saveStatus, setSaveStatus] = useState('');
+
+  // Is Typewriter mode toggle affect classes dynamically
+  useEffect(() => {
+    if (editor) {
+      if (isTypewriterMode) {
+        editor.view.dom.classList.add('pt-[40vh]', 'pb-[40vh]');
+        editor.view.dom.classList.remove('pb-48', 'pt-0');
+      } else {
+        editor.view.dom.classList.remove('pt-[40vh]', 'pb-[40vh]');
+        editor.view.dom.classList.add('pb-48', 'pt-0');
+      }
+    }
+  }, [editor, isTypewriterMode]);
+
+  // Load chapter data manually when ID changes to avoid full reconstruction
   useEffect(() => {
     if (chapter && editor) {
       if (editor.getHTML() !== chapter.content) {
+        // preserve history if jumping between chapters? actually we probably want to clear history, but since we don't use full history extension cross-session, just set content.
         editor.commands.setContent(chapter.content);
       }
-      setTitle(chapter.title);
+      if (title !== chapter.title) {
+         setTitle(chapter.title);
+      }
     }
-  }, [chapter?.id, editor]);
+  }, [chapter?.id, editor]); // intentionally omitted chapter.title so it doesn't revert user typings
+
+  // Handle auto-scroll for typewriter mode
+  useEffect(() => {
+    if (!editor) return;
+    const handleUpdate = () => {
+      if (isTypewriterMode && containerRef.current) {
+        const { view } = editor;
+        const { selection } = view.state;
+        try {
+          const coords = view.coordsAtPos(selection.from);
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const relativeTop = coords.top - containerRect.top + containerRef.current.scrollTop;
+          const targetScroll = relativeTop - containerRef.current.clientHeight / 2;
+          containerRef.current.scrollTo({ top: targetScroll, behavior: 'smooth' });
+        } catch(e) {}
+      }
+    };
+    editor.on('selectionUpdate', handleUpdate);
+    editor.on('update', handleUpdate);
+    return () => {
+      editor.off('selectionUpdate', handleUpdate);
+      editor.off('update', handleUpdate);
+    }
+  }, [editor, isTypewriterMode]);
 
   if (chapter === undefined) {
     return (
@@ -362,14 +400,17 @@ export function NovelEditor({ chapterId, projectId, isFocusMode }: NovelEditorPr
         <div className="fixed bottom-0 left-0 right-0 h-12 border-t border-slate-200 dark:border-slate-800 bg-background/90 backdrop-blur-md px-6 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest z-10" style={{ right: (isAssistantOpen || isSnapshotsOpen || isTimelineOpen || isInsightsOpen) ? 340 : 0, transition: 'right 0.3s ease' }}>
           <div className="flex gap-4 items-center">
             <span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400">
-              Kata: {editor?.storage.characterCount?.words?.() || editor?.state.doc.textContent.split(/\s+/).filter(Boolean).length || 0}
+              Kata: {editor?.state.doc.textContent.trim().split(/\s+/).filter(Boolean).length || 0}
             </span>
             <span>Karakter: {editor?.state.doc.textContent.length || 0}</span>
           </div>
           <div className="flex gap-4 items-center">
-            <span className="text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Tersimpan
+            <span className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-300", 
+              saveStatus === 'Menyimpan...' ? 'text-amber-600 bg-amber-50' : 
+              saveStatus === 'Tersimpan' ? 'text-emerald-600 bg-emerald-50 opacity-100' : 'opacity-0 text-emerald-600 bg-emerald-50'
+            )}>
+              <div className={cn("w-1.5 h-1.5 rounded-full", saveStatus === 'Menyimpan...' ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+              {saveStatus || 'Tersimpan'}
             </span>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></div>
             <button

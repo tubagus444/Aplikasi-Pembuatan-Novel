@@ -161,10 +161,17 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     setFormData({ name: '', category: 'character', description: '', aliases: [], tags: [] });
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
   const deleteEntry = async (id: number) => {
-    // Note: window.confirm doesn't reliably work in this app's iframe preview
-    // We simply delete the item directly here for slicker UX without blocking.
-    await db.codex.delete(id);
+    setConfirmDeleteId(id);
+  };
+  
+  const confirmDelete = async () => {
+    if (confirmDeleteId !== null) {
+      await db.codex.delete(confirmDeleteId);
+      setConfirmDeleteId(null);
+    }
   };
 
   const cancelEdit = () => {
@@ -558,6 +565,37 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               viewMode="codex"
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {confirmDeleteId !== null && (
+           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+               exit={{ opacity: 0, scale: 0.95 }}
+               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full"
+             >
+               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Hapus Entri?</h3>
+               <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">Apakah Anda yakin ingin menghapus entri ini? Tindakan ini tidak dapat dibatalkan.</p>
+               <div className="flex gap-3 justify-end">
+                 <button 
+                   onClick={() => setConfirmDeleteId(null)}
+                   className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm"
+                 >
+                   Batal
+                 </button>
+                 <button 
+                   onClick={confirmDelete}
+                   className="px-4 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-sm text-sm"
+                 >
+                   Hapus
+                 </button>
+               </div>
+             </motion.div>
+           </div>
         )}
       </AnimatePresence>
     </div>

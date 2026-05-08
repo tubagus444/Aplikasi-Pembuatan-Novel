@@ -302,7 +302,15 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
   );
 }
 
-function RuleForm({ type, rule, setRule, onSave, onCancel }: any) {
+interface RuleFormProps {
+  type: string;
+  rule: { key: string; instruction: string };
+  setRule: (rule: { key: string; instruction: string }) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+function RuleForm({ type, rule, setRule, onSave, onCancel }: RuleFormProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: -10 }}
@@ -347,7 +355,14 @@ function RuleForm({ type, rule, setRule, onSave, onCancel }: any) {
   );
 }
 
-function RuleCard({ rule, onDelete, icon, isFullWidth = false }: any) {
+interface RuleCardProps {
+  rule: { id?: number; key: string; instruction: string };
+  onDelete: () => void;
+  icon: React.ReactNode;
+  isFullWidth?: boolean;
+}
+
+function RuleCard({ rule, onDelete, icon, isFullWidth = false }: RuleCardProps) {
   return (
     <div className={cn("group flex p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition-all", isFullWidth ? "items-center justify-between" : "flex-col")}>
       <div className={cn("flex gap-6", isFullWidth ? "items-center" : "flex-col")}>
