@@ -24,7 +24,7 @@ import {
   Redo
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getRelevantContext } from '../services/contextEngine';
+import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import { processRewrite } from '../services/aiService';
 import { cn } from '../lib/utils';
 import { AIAssistantPanel } from './AIAssistantPanel';
@@ -454,13 +454,15 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     setIsAiProcessing(true);
     try {
       const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
-      const BibleRules = await db.bible.where('projectId').equals(projectId).toArray();
+      const allBibleRules = await db.bible.where('projectId').equals(projectId).toArray();
+      
       const relevantCodex = getRelevantContext(selectedText, allCodex);
+      const relevantBible = getRelevantBibleRules(selectedText, allBibleRules);
 
       const result = await processRewrite({
         action,
         selection: selectedText,
-        bibleRules: BibleRules,
+        bibleRules: relevantBible,
         codexEntries: relevantCodex,
         prompt: ''
       });

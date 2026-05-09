@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check } from 'lucide-react';
 import { db } from '../db';
 import { processChat } from '../services/aiService';
-import { getRelevantContext } from '../services/contextEngine';
+import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -89,10 +89,11 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
 
     try {
       const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
-      const bibleRules = await db.bible.where('projectId').equals(projectId).toArray();
+      const allBibleRules = await db.bible.where('projectId').equals(projectId).toArray();
 
       const combinedTextForContext = currentText + "\n\n" + input;
       const relevantCodex = getRelevantContext(combinedTextForContext, allCodex);
+      const relevantBible = getRelevantBibleRules(combinedTextForContext, allBibleRules);
 
       const history = messages.filter(m => m.id !== '1').map(m => ({
         role: m.role,
@@ -102,7 +103,7 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       const reply = await processChat({
         message: userMsg.text,
         history,
-        bibleRules,
+        bibleRules: relevantBible,
         codexEntries: relevantCodex,
         contextText: currentText
       });

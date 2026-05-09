@@ -13,6 +13,10 @@ interface CodexHighlighterProps {
   projectId: number;
 }
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function CodexHighlighter({ text, projectId }: CodexHighlighterProps) {
   const codex = useLiveQuery(() => 
     db.codex.where('projectId').equals(projectId).toArray()
@@ -29,7 +33,17 @@ export function CodexHighlighter({ text, projectId }: CodexHighlighterProps) {
     sortedCodex.forEach(entry => {
       const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
       names.forEach(name => {
-        const regex = new RegExp(`\\b(${name})\\b`, 'gi');
+        const escapedName = escapeRegExp(name);
+        const startChar = name[0];
+        const endChar = name[name.length - 1];
+        
+        const requireStartBoundary = startChar && /\\w/.test(startChar);
+        const requireEndBoundary = endChar && /\\w/.test(endChar);
+        
+        const prefix = requireStartBoundary ? '\\b' : '';
+        const suffix = requireEndBoundary ? '\\b' : '';
+        
+        const regex = new RegExp(`(${prefix}${escapedName}${suffix})`, 'gi');
         
         const newSegments: (string | React.ReactNode)[] = [];
         segments.forEach(segment => {
