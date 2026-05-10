@@ -40,6 +40,7 @@ import Mention from '@tiptap/extension-mention';
 import { Extension, Editor } from '@tiptap/core';
 import tippy from 'tippy.js';
 import { MentionList } from './MentionList';
+import { PassiveCodexHighlight } from '../extensions/PassiveCodexHighlight';
 
 // Custom Keymap Extension
 const CustomAIKeymap = Extension.create({
@@ -284,9 +285,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
   // Tiptap Editor Initialization
   const codexEntriesRef = useRef<CodexEntry[]>([]);
   
-  useEffect(() => {
-    codexEntriesRef.current = codexEntries || [];
-  }, [codexEntries]);
+  const [activeCodexPopup, setActiveCodexPopup] = useState<{ id: number; x: number; y: number } | null>(null);
 
   const chapterIdRef = useRef(chapterId);
   useEffect(() => {
@@ -297,6 +296,16 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     extensions: [
       StarterKit,
       CustomAIKeymap,
+      PassiveCodexHighlight.configure({
+        getCodexEntries: () => codexEntriesRef.current,
+        onCodexClick: (entryId, event) => {
+          setActiveCodexPopup({
+            id: entryId,
+            x: event.clientX,
+            y: event.clientY,
+          });
+        }
+      }),
       Placeholder.configure({
         placeholder: 'Mulai menulis cerita Anda...',
       }),
@@ -388,6 +397,13 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     },
   }, []); // Empty deps to prevent unmount/remount flickering
 
+  useEffect(() => {
+    codexEntriesRef.current = codexEntries || [];
+    if (editor && !editor.isDestroyed) {
+      editor.view.dispatch(editor.state.tr.setMeta('updateCodexHighlights', true));
+    }
+  }, [codexEntries, editor]);
+
   const [saveStatus, setSaveStatus] = useState('');
 
   // Is Typewriter mode toggle affect classes dynamically
@@ -416,10 +432,11 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     }
   }, [chapter?.id, editor]); // intentionally omitted chapter.title so it doesn't revert user typings
 
-  // Handle auto-scroll for typewriter mode
+  // Handle auto-scroll for typewriter mode and popup close
   useEffect(() => {
     if (!editor) return;
     const handleUpdate = () => {
+      setActiveCodexPopup(null); // Close popup when typing or selecting
       if (isTypewriterMode && containerRef.current) {
         const { view } = editor;
         const { selection } = view.state;
@@ -525,6 +542,35 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
               <SelectionFloatingMenu editor={editor} onAiAction={runAiAction} customActions={customActions} />
             )}
             
+            <AnimatePresence>
+              {activeCodexPopup && (() => {
+                const entry = codexEntries?.find(e => e.id === activeCodexPopup.id);
+                if (!entry) return null;
+                return (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="fixed z-[100] bg-slate-900 border border-slate-700 text-white p-4 rounded-xl shadow-2xl w-64 text-sm pointer-events-auto"
+                    style={{ left: Math.min(activeCodexPopup.x + 10, window.innerWidth - 280), top: activeCodexPopup.y + 15 }}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-indigo-400 uppercase text-[10px] tracking-widest">{entry.category}</span>
+                      <button onClick={() => setActiveCodexPopup(null)} className="text-slate-400 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700 rounded-full p-0.5"><X size={12} /></button>
+                    </div>
+                    <h4 className="font-bold text-base mb-1 text-slate-100">{entry.name}</h4>
+                    <p className="font-serif italic text-slate-300 text-xs leading-relaxed line-clamp-4">{entry.description || 'No description available.'}</p>
+                    {entry.aliases && entry.aliases.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap gap-1">
+                        <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500 w-full mb-1">Aliases</span>
+                        {entry.aliases.map(a => <span key={a} className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">{a}</span>)}
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
+
             <EditorContent editor={editor} />
 
             {/* AI Progress overlay */}

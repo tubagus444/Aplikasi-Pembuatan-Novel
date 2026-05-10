@@ -1,156 +1,289 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Book, FileText, Database, Sparkles, LayoutList, Share2, Settings as SettingsIcon, MessageSquareHeart, BarChart3 } from 'lucide-react';
+import { 
+  Book, FileText, Database, LayoutList, Share2, 
+  Settings as SettingsIcon, MessageSquareHeart, BarChart3, 
+  Zap, Cpu, Target, PenTool, Key, Sparkles, Coins, Lightbulb
+} from 'lucide-react';
 
 export function GuidePanel() {
   const features = [
     {
-      icon: <FileText className="text-indigo-500" />,
-      title: "1. Editor Utama & Fitur Mention (@)",
-      description: "Kanvas utama tempat Anda menulis naskah. Dilengkapi dengan asisten AI terintegrasi dan sistem mention interaktif.",
-      howItWorks: "Teks yang Anda ketik disimpan secara otomatis per bab. Mengetik '@' akan memicu pencarian ke database Codex.",
+      icon: <FileText className="w-6 h-6 text-indigo-500" />,
+      bg: "bg-indigo-50 dark:bg-indigo-500/10",
+      title: "1. Editor Utama & Mentions (@)",
+      description: "Kanvas utama untuk menulis. Fokus pada teks dengan asisten tanpa batas.",
+      howItWorks: "Ketik '@' untuk memanggil nama Karakter/Lokasi dari Codex. Data tersimpan otomatis dan AI akan melihat 'Mention' ini sebagai kunci pengingat memori.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li><strong>Menulis Biasa:</strong> Ketik cerita Anda seperti biasa di area editor. Di pojok ada toggle untuk Mode Fokus (menyembunyikan menu lain) dan Mode Mesin Tik.</li>
-          <li><strong>Fitur Mention (@):</strong> Ketik simbol <strong>@</strong> langsung di dalam teks, diikuti nama Karakter atau Lokasi yang sudah Anda buat di Codex (Contoh: <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded text-cyan-600 dark:text-cyan-400">@Budi</code>). Pop-up akan muncul, klik namanya. Teks akan berubah menjadi link informasi. Jika Anda klik link tersebut, akan muncul detail karakternya tanpa harus pindah halaman.</li>
-          <li><strong>Edit via AI (Sparkles):</strong> Blok teks/paragraf tertentu dengan mouse, lalu klik ikon ✨ yang melayang di atasnya untuk meminta AI mengubah gaya bahasa (contoh: ubah jadi "Show, Don't Tell" atau buat dialog jadi lebih emosional).</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li><strong>Menulis Bebas:</strong> Gunakan Mode Fokus di kanan atas editor saat butuh ruang tenang tanpa distraksi visual.</li>
+          <li><strong>Mentions (@):</strong> Ketik <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono text-xs">@NamaKarakter</code>. Hasilnya menjadi tautan; saat diklik, memunculkan popup biodata cepat karakter tersebut.</li>
+          <li><strong>Magic Edit (✨):</strong> Blok bagian teks yang terasa kurang pas, klik ikon Sparkles, dan perintahkan AI: <em>"Ubah gaya bahasanya jadi lebih melankolis"</em>.</li>
         </ul>
       )
     },
     {
-      icon: <Database className="text-emerald-500" />,
-      title: "2. Codex (Worldbuilding)",
-      description: "Database ensiklopedia duniamu. Tempat menyimpan informasi Karakter, Lokasi, Item, Faksi, dan Lore.",
-      howItWorks: "Data di sini bersifat global dan menjadi sumber 'jawaban' bagi Editor saat Anda mengetik @, serta memberikan konteks pada AI Assistant.",
+      icon: <Database className="w-6 h-6 text-emerald-500" />,
+      bg: "bg-emerald-50 dark:bg-emerald-500/10",
+      title: "2. Codex (Ensiklopedia Dunia)",
+      description: "Tempat Anda membangun profil Karakter, Lokasi, Item, Faksi, dan Lore.",
+      howItWorks: "Kumpulan data global yang dibaca otomatis oleh AI ketika dipanggil dalam teks atau chat.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Masuk ke menu Codex, klik <strong>"Tambah Entri"</strong>.</li>
-          <li>Pilih kategori (misalnya Karakter), isi Nama, dan deskripsinya sedetail mungkin (penampilan, sifat, latar belakang). Konfirmasi simpan.</li>
-          <li>Setelah tersimpan di Codex, entri ini siap dipanggil di Editor menggunakan simbol <strong>@</strong>.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li>Tambahkan entri melalui menu Codex. Isi deskripsi (penampilan, motivasi, latar belakang) dengan padat dan jelas.</li>
+          <li>Info Codex menjadi 'otak' asisten. Selama karakter terdaftar, AI takkan melupakan siapa dia.</li>
         </ul>
       )
     },
     {
-      icon: <LayoutList className="text-fuchsia-500" />,
-      title: "3. Planning Board / Outline",
-      description: "Papan perencanaan cerita visual bergaya Kanban.",
-      howItWorks: "Membagi alur cerita besar menjadi kartu-kartu ringkasan per-bab, memudahkan menyusun pacing.",
+      icon: <LayoutList className="w-6 h-6 text-fuchsia-500" />,
+      bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10",
+      title: "3. Planning Board (Outline Kanban)",
+      description: "Visualisasi tata letak bab dan plot cerita secara menyeluruh.",
+      howItWorks: "Bentuk kartu-kartu yang bisa dipindahkan (Drag & Drop) untuk mengatur struktur bab (Draft, Review, Final).",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Tambahkan kartu bab baru, berikan judul dan tulis poin-poin penting (outline) apa saja yang akan terjadi di bab tersebut.</li>
-          <li>Ubah Status (Draft, Revisi, Selesai) untuk melacak progress penulisan Anda. Anda bisa menggeser urutannya jika ada perubahan plot.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li>Buat kartu untuk titik pijak plot (misal: "Bab 3 - Pelarian sihir dari menara"). Tulis ringkasannya di dalam.</li>
+          <li>Gunakan fitur ini sebagai kompas agar tak kehilangan arah ketika menulis dokumen naskah yang terlampau panjang.</li>
         </ul>
       )
     },
     {
-      icon: <MessageSquareHeart className="text-red-500" />,
+      icon: <MessageSquareHeart className="w-6 h-6 text-pink-500" />,
+      bg: "bg-pink-50 dark:bg-pink-500/10",
       title: "4. AI Assistant",
-      description: "Co-pilot penulisan yang pintar dan paham konteks cerita Anda.",
-      howItWorks: "Chatbot yang akan membaca Bab Anda yang aktif, data karakter di Codex terkait, dan aturan dari Story Bible sebelum menjawab pertanyaan.",
+      description: "Rekan diskusi virtual (Co-pilot) yang paham seluk-beluk cerita yang sedang ditulis.",
+      howItWorks: "Setiap pertanyaan yang Anda ketik, akan dievaluasi AI berdasarkan narasi bab aktif, profil tokoh Codex, dan aturan dari Story Bible.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Buka panel AI Assistant di sebelah kanan.</li>
-          <li>Karena dia paham konteks, Anda bisa bertanya langsung: <em>"Berdasarkan cerita bab ini, kira-kira plot twist apa yang pas agar @KarakterA terlihat mengkhianati tokoh utama?"</em></li>
-          <li>Gunakan ide dari Assistant tersebut, atau perintahkan AI untuk mengkritik alur tulisan Anda.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li>Tanya soal plot: <em>"Bantu saya menemukan alasan logis mengapa @Elya harus membohongi protagonis di bab ini."</em></li>
+          <li>Gunakan sebagai kritikus: <em>"Tolong kritisi pacing dialog di bab ini, apakah terlalu lambat?"</em></li>
         </ul>
       )
     },
     {
-      icon: <Book className="text-amber-500" />,
+      icon: <Book className="w-6 h-6 text-amber-500" />,
+      bg: "bg-amber-50 dark:bg-amber-500/10",
       title: "5. Story Bible",
-      description: "Dokumen pondasi atau aturan absolut untuk dunia dan cerita Anda.",
-      howItWorks: "Jika Codex menyimpan entri satuan (Karakter, Item), Story Bible menyimpan 'Hukum Alam' cerita. Dokumen ini memaksa AI mematuhi aturan cerita Anda.",
+      description: "Kitab suci pondasi tema dan gaya penulisan literatur Anda.",
+      howItWorks: "Aturan absolut yang akan memaksa (prompt-inject) AI agar selalu berada di jalur genre dan mood yang Anda tentukan.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Tulis pedoman utama cerita Anda. Contoh: <em>"Genre cerita ini dark-fantasy petualangan, di mana sihir terlarang. Nada penceritaan suram / grimdark."</em></li>
-          <li>Dengan adanya pedoman ini, AI Assistant tidak akan memberikan saran ide cerita yang konyol atau keluar jalur dari tone yang sudah Anda asaskan.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li>Isikan instruksi tema secara konkret. Contoh: <em>"Tone: Horor Cosmic. Jangan berikan solusi bahagia. Buat dialog terdengar misterius abad pertengahan."</em></li>
         </ul>
       )
     },
     {
-      icon: <Share2 className="text-pink-500" />,
-      title: "6. Relasi (Relationships)",
-      description: "Grafik jaring laba-laba untuk melihat koneksi setiap tokoh.",
-      howItWorks: "Secara visual memetakan hubungan dua entri di Codex ke dalam kanvas yang bisa digeser.",
+      icon: <Share2 className="w-6 h-6 text-orange-500" />,
+      bg: "bg-orange-50 dark:bg-orange-500/10",
+      title: "6. Relationship Mapper",
+      description: "Jaring visualisasi dinamika hubungan antar kelompok atau ras.",
+      howItWorks: "Merender entri Codex yang saling terhubung dalam grafis Node 2D.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Buka entri Codex atau panel Relasi, lalu tambahkan hubungan. Contoh: <em>"Jon Snow" -&gt; "Musuh" -&gt; "Night King"</em>.</li>
-          <li>Tabel dan grafik ini membantu Anda mengingat siapa benci siapa, siapa sekutu siapa dalam cerita berskala besar.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li>Catat relasi di dalam profil Karakter (Misal: Arya -&gt; Membenci -&gt; Hound).</li>
+          <li>Buka menu Relasi untuk melihat gambaran utuh intrik politik dunia cerita Anda.</li>
         </ul>
       )
     },
     {
-      icon: <BarChart3 className="text-blue-500" />,
+      icon: <BarChart3 className="w-6 h-6 text-blue-500" />,
+      bg: "bg-blue-50 dark:bg-blue-500/10",
       title: "7. Prose Insights",
-      description: "Penganalisis statistik teks (kualitas narasi).",
-      howItWorks: "Memindai teks pada bab yang sedang aktif untuk mencari adverbia (-ly), pemborosan kata, atau kalimat pasif dalam tata bahasa.",
+      description: "Pengecek gramatikal dan kualitas prosa (tanpa AI).",
+      howItWorks: "Algoritme scanning lokal yang cepat mendeteksi kalimat keriting, pasif, atau adverbs (keterangan) berlebihan.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-1 mt-2">
-          <li>Buka panel Insights, klik <strong>Analyze</strong>.</li>
-          <li>Aplikasi akan menyoroti kata-kata lemah yang mungkin ingin Anda ganti atau buang agar tulisan Anda terasa lebih 'padat' dan profesional.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2">
+          <li>Pindai bab, lihat highlight kalimat yang terdeteksi, lalu edit jika memang mengurangi keindahan bahasa ("Show, Don't Tell").</li>
         </ul>
       )
     }
   ];
 
+  const aiEfficiencyTips = [
+    {
+      icon: <Cpu className="w-5 h-5 text-sky-500" />,
+      title: "Blok Seperlunya Saja (Sparkles ✨)",
+      description: "Fitur Sparkles mengolah area yang Anda blok. Alih-alih memblok seluruh bab berisi ribuan kata untuk memperbaiki sedikit percakapan, sorotlah paragraf yang relevan saja. Respons akan lebih cepat dan sangat hemat Token API."
+    },
+    {
+      icon: <Coins className="w-5 h-5 text-amber-500" />,
+      title: "Batasi Ukuran Output",
+      description: "AI secara alami suka berbicara panjang lebar. Tambahkan batasan pada prompt di Chat, misal: \"Berikan 3 ide nama senjata mematikan (maksimal 20 kata per poin)\". Mencegah AI boros limit output API."
+    },
+    {
+      icon: <Database className="w-5 h-5 text-emerald-500" />,
+      title: "Poin Singkat (Bullet Points)",
+      description: "Karena instruksi Story Bible selalu ikut dikirim ke AI setiap saat, berhentilah menuliskan essay paragraf di sana. Gunakan susunan ringkas bernomor/bullet. Konteks terbaca sama, tapi konsumsi token menurun drastis."
+    },
+    {
+      icon: <Zap className="w-5 h-5 text-violet-500" />,
+      title: "Mention Adalah Kunci Efisiensi",
+      description: "AI membaca Codex *hanya* jika karakter itu di-mention (@) atau ditulis tepat pada editor yang sedang aktif. Tidak perlu khawatir AI membaca ratusan profil karakter lain yang tidak relevan dengan bab tersebut."
+    }
+  ];
+
+  const generalTips = [
+    {
+      icon: <Target className="w-5 h-5 text-indigo-500" />,
+      title: "Tulis Kasar, Edit Pintar",
+      description: "Jangan memoles setiap akhir kalimat dengan AI secara impulsif. Tulis dulu sampai draf 0 bab tersebut tamat (Gunakan Mode Fokus). Saat momen perenungan tiba barulah bedah struktur kalimat menggunakan Prose Insights atau Chat AI."
+    },
+    {
+      icon: <PenTool className="w-5 h-5 text-rose-500" />,
+      title: "Bangun Codex Organik",
+      description: "Kesalahan umum penulis fantasi adalah memeras otak mengisi puluhan kota dan nama leluhur di Worldbuilding tanpa menulis plot babnya sama sekali. Isi Codex secukupnya hanya pada hal krusial; perbanyak ia sambil jalan."
+    }
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto pb-20">
-      <div className="mb-10">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-3">
-          <Book size={24} className="text-indigo-600" />
-          Panduan Lengkap Fitur AetherScribe
-        </h2>
-        <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-          Pelajari bagaimana setiap fitur bekerja dan cara memaksimalkannya untuk mempercepat proses penulisan Anda.
-        </p>
-      </div>
-
-      <div className="space-y-8">
-        {features.map((item, idx) => (
-          <motion.div 
-            key={idx}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 md:p-8 rounded-2xl shadow-sm"
-          >
-            <div className="flex gap-4 items-start mb-4">
-              <div className="w-12 h-12 shrink-0 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center rounded-xl">
-                {item.icon}
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mt-2">{item.title}</h3>
-            </div>
-            
-            <p className="text-slate-600 dark:text-slate-400 text-base leading-relaxed mb-6 font-medium">
-              {item.description}
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 border border-slate-100 dark:border-slate-800">
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Cara Kerja</h4>
-                <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{item.howItWorks}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Cara Menggunakan</h4>
-                <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
-                  {item.howToUse}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+    <div className="max-w-5xl mx-auto pb-24 px-4 sm:px-6">
       
-      <div className="mt-12 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 p-6 rounded-2xl">
-         <h3 className="font-bold text-indigo-900 dark:text-indigo-200 mb-2 flex items-center gap-2">
-           <SettingsIcon size={18} /> Persyaratan API Key AI
-         </h3>
-         <p className="text-indigo-700/80 dark:text-indigo-300/80 text-sm leading-relaxed">
-           Seluruh fitur yang menggunakan <strong>AI</strong> (AI Assistant, Sparkles Edit, dan Story Brainstorming) <strong>memerlukan API Key</strong> agar dapat berfungsi. <br/>
-           Silakan klik icon Gear (Pengaturan) di bagian menu atas, pilih Provider AI pilihan Anda (misalnya Gemini, OpenAI, Claude, atau Groq), lalu tempelkan kunci rahasia API Anda di kolom yang tersedia. Data API Key disimpan secara lokal di perangkat Anda.
-         </p>
+      {/* Header Section */}
+      <header className="mb-14 text-center md:text-left mt-4 md:mt-0">
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-full mb-6 text-sm font-semibold tracking-widest uppercase"
+        >
+          <Sparkles size={16} /> Pusat Bantuan
+        </motion.div>
+        
+        <motion.h1 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+          className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-5"
+        >
+          Kuasai Alur Kerjamu.
+        </motion.h1>
+        
+        <motion.p 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+          className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed max-w-2xl"
+        >
+          Jelajahi fungsionalitas AetherScribe, dari pengaturan penuangan narasi dasar hingga strategi pro-literatur menggunakan kekuatan kecerdasan buatan.
+        </motion.p>
+      </header>
+
+      <div className="space-y-16">
+        
+        {/* Section 1: Tutorial Fitur */}
+        <section>
+          <div className="flex items-center gap-3 mb-8 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <LayoutList className="text-slate-800 dark:text-slate-200" size={24} />
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Ekosistem Fitur Utama</h2>
+          </div>
+
+          <div className="space-y-6">
+            {features.map((item, idx) => (
+              <motion.div 
+                key={idx}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+              >
+                <div className="p-6 md:p-8">
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className={`p-3 rounded-2xl ${item.bg} shrink-0`}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white capitalize leading-tight">{item.title}</h3>
+                      <p className="text-slate-500 dark:text-slate-400 mt-1.5 font-medium">{item.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-5 border border-slate-100 dark:border-slate-800/60">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
+                        <Lightbulb size={14} /> Cara Sistem Bekerja
+                      </h4>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{item.howItWorks}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Panduan Aksi</h4>
+                      <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+                        {item.howToUse}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Section 2: AI Efficiency & Tokens */}
+        <section>
+          <div className="flex items-center gap-3 mb-8 border-b border-amber-200 dark:border-amber-900/50 pb-3">
+            <Zap className="text-amber-500" size={24} />
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Cerdas Hemat Token AI (API Key)</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {aiEfficiencyTips.map((tip, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, x: i % 2 === 0 ? -15 : 15 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-6 rounded-2xl relative overflow-hidden group hover:border-amber-400 dark:hover:border-amber-500/50 transition-colors shadow-sm"
+              >
+                <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 transition-all duration-500 pointer-events-none">
+                  {React.cloneElement(tip.icon, { className: "w-32 h-32 text-slate-900 dark:text-white" })}
+                </div>
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 w-12 h-12 shadow-sm rounded-xl flex items-center justify-center mb-5 relative z-10">
+                  {tip.icon}
+                </div>
+                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2 relative z-10">{tip.title}</h4>
+                <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed relative z-10">{tip.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Section 3: Writer's Wisdom/Tips Penulisan */}
+        <section>
+          <div className="flex items-center gap-3 mb-8 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <PenTool className="text-indigo-500" size={24} />
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Pola Pikir Sang Arsitek Teks</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {generalTips.map((tip, i) => (
+              <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+                 <div className="flex items-center gap-3 mb-3">
+                    <div className="shrink-0">{tip.icon}</div>
+                    <h4 className="font-bold text-slate-800 dark:text-slate-200">{tip.title}</h4>
+                 </div>
+                 <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{tip.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Alert/Reminder Bottom */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/60 p-6 md:p-8 rounded-2xl flex flex-col sm:flex-row gap-6 relative overflow-hidden shadow-sm"
+        >
+          <div className="shrink-0 p-3 bg-blue-100 dark:bg-blue-800/50 rounded-xl w-14 h-14 flex items-center justify-center">
+            <Key className="w-7 h-7 text-blue-700 dark:text-blue-300" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">Persyaratan Penggunaan API Key</h3>
+            <p className="text-blue-800/80 dark:text-blue-200/70 text-sm leading-relaxed mb-5 max-w-3xl">
+              Agar asisten pintar AetherScribe dapat memahami teks, membedah tokoh, dan berbicara kepada Anda, aplikasi membutuhkan akses Model Bahasa Besar (LLM). Pastikan Anda telah menaruh <strong>Secret Token API</strong> milik spesifikasi AI yang Anda inginkan sebelum memulai.
+            </p>
+            <div className="inline-flex flex-wrap items-center gap-2 text-blue-900 dark:text-blue-300 text-sm font-semibold bg-blue-100/50 dark:bg-blue-900/40 py-2 px-3 rounded-lg border border-blue-200 dark:border-blue-700/50">
+              <SettingsIcon size={16} /> Klik Settings (kanan atas) &rarr; Konfigurasi AI Provider &rarr; Paste API Key (Token disimpan lokal).
+            </div>
+          </div>
+        </motion.div>
+
       </div>
     </div>
   );
 }
-
