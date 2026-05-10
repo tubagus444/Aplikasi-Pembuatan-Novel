@@ -80,8 +80,8 @@
 }
 
 /* Tiptap Styles */
-.tiptap {
-  @apply min-h-[500px] outline-none;
+.tiptap, .ProseMirror {
+  @apply min-h-[500px] outline-none whitespace-pre-wrap break-words;
 }
 
 .tiptap p.is-editor-empty:first-child::before {

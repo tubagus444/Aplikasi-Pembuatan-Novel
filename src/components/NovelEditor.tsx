@@ -282,10 +282,20 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     db.codex.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
+  const bibleRules = useLiveQuery(() =>
+    db.bible.where('projectId').equals(projectId).toArray()
+  , [projectId]);
+
   // Tiptap Editor Initialization
   const codexEntriesRef = useRef<CodexEntry[]>([]);
   
   const [activeCodexPopup, setActiveCodexPopup] = useState<{ id: number; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   const chapterIdRef = useRef(chapterId);
   useEffect(() => {
@@ -490,11 +500,8 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
 
     setIsAiProcessing(true);
     try {
-      const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
-      const allBibleRules = await db.bible.where('projectId').equals(projectId).toArray();
-      
-      const relevantCodex = getRelevantContext(selectedText, allCodex);
-      const relevantBible = getRelevantBibleRules(selectedText, allBibleRules);
+      const relevantCodex = getRelevantContext(selectedText, codexEntries || []);
+      const relevantBible = getRelevantBibleRules(selectedText, bibleRules || []);
 
       const result = await processRewrite({
         action,
@@ -523,8 +530,8 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
           "w-full max-w-2xl mx-auto flex flex-col min-h-full px-8 sm:px-0 transition-all duration-700",
           isFocusMode && "max-w-xl"
         )}>
-          {/* Sticky Header: Title + Toolbar */}
-          <div className="sticky top-0 z-sticky bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm pt-8 pb-4 mb-4 border-b border-transparent group-focus-within:border-slate-100 dark:group-focus-within:border-slate-800 transition-all">
+          {/* Header: Title */}
+          <div className="pt-8 pb-4 mb-4 border-b border-transparent group-focus-within:border-slate-100 dark:group-focus-within:border-slate-800 transition-all">
             <div className="mb-6 group">
               <input 
                 type="text" 
@@ -546,13 +553,18 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
               {activeCodexPopup && (() => {
                 const entry = codexEntries?.find(e => e.id === activeCodexPopup.id);
                 if (!entry) return null;
+                const POPUP_HEIGHT = 180;
+                const rawY = activeCodexPopup.y + 15;
+                const safeY = rawY + POPUP_HEIGHT > window.innerHeight
+                  ? activeCodexPopup.y - POPUP_HEIGHT - 10
+                  : rawY;
                 return (
                   <motion.div 
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="fixed z-[100] bg-slate-900 border border-slate-700 text-white p-4 rounded-xl shadow-2xl w-64 text-sm pointer-events-auto"
-                    style={{ left: Math.min(activeCodexPopup.x + 10, window.innerWidth - 280), top: activeCodexPopup.y + 15 }}
+                    style={{ left: Math.min(activeCodexPopup.x + 10, window.innerWidth - 280), top: safeY }}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-bold text-indigo-400 uppercase text-[10px] tracking-widest">{entry.category}</span>

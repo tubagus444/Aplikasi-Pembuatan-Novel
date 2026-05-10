@@ -7,7 +7,7 @@ import React, { useCallback } from 'react';
 import { db } from '../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { cn } from '../lib/utils';
-import { useHighlightedSegments } from './CodexPanel';
+import { useHighlightedSegments } from '../hooks/useHighlightedSegments';
 import { CodexEntry } from '../types';
 
 interface CodexHighlighterProps {

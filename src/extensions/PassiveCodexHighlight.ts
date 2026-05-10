@@ -8,6 +8,18 @@ interface PassiveCodexHighlightOptions {
   onCodexClick?: (entryId: number, event: MouseEvent) => void;
 }
 
+const regexCache = new Map<string, RegExp>();
+
+function getRegex(name: string): RegExp {
+  if (!regexCache.has(name)) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const start = name[0] && /\w/.test(name[0]) ? '\\b' : '';
+    const end = name[name.length - 1] && /\w/.test(name[name.length - 1]) ? '\\b' : '';
+    regexCache.set(name, new RegExp(`(${start}${escaped}${end})`, 'gi'));
+  }
+  return new RegExp(regexCache.get(name)!.source, 'gi'); // return fresh instance to reset lastIndex
+}
+
 export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptions>({
   name: 'passiveCodexHighlight',
 
@@ -87,12 +99,7 @@ function getDecorations(doc: ProseMirrorNode, entries: any[]): DecorationSet {
     }
 
     searchItems.forEach(item => {
-      // Regex for exact word match
-      // escape regex special characters
-      const escaped = item.matchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const start = item.matchName[0] && /\w/.test(item.matchName[0]) ? '\\b' : '';
-      const end = item.matchName[item.matchName.length-1] && /\w/.test(item.matchName[item.matchName.length-1]) ? '\\b' : '';
-      const regex = new RegExp(`(${start}${escaped}${end})`, 'gi');
+      const regex = getRegex(item.matchName);
 
       while ((match = regex.exec(text)) !== null) {
         const startPos = pos + match.index;
