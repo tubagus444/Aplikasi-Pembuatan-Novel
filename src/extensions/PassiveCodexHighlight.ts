@@ -40,9 +40,11 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
             return getDecorations(doc, options.getCodexEntries());
           },
           apply(tr, old, oldState, newState) {
-            if (!tr.docChanged && !tr.getMeta('updateCodexHighlights')) {
-              return old;
-            }
+            if (!tr.docChanged && !tr.getMeta('updateCodexHighlights')) return old;
+            
+            // Invalidasi cache saat codex diupdate dari luar
+            if (tr.getMeta('updateCodexHighlights')) regexCache.clear();
+            
             return getDecorations(newState.doc, options.getCodexEntries());
           },
         },

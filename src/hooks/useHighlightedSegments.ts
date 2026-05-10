@@ -1,6 +1,18 @@
 import React, { useMemo } from 'react';
 import { CodexEntry } from '../types';
 
+const segmentRegexCache = new Map<string, RegExp>();
+
+function getSegmentRegex(name: string): RegExp {
+  if (!segmentRegexCache.has(name)) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const start = name[0] && /\w/.test(name[0]) ? '\\b' : '';
+    const end = name[name.length - 1] && /\w/.test(name[name.length - 1]) ? '\\b' : '';
+    segmentRegexCache.set(name, new RegExp(`(${start}${escaped}${end})`, 'gi'));
+  }
+  return new RegExp(segmentRegexCache.get(name)!.source, 'gi');
+}
+
 export function useHighlightedSegments(
   text: string,
   entries: CodexEntry[],
@@ -13,10 +25,7 @@ export function useHighlightedSegments(
     sorted.forEach(entry => {
       const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
       names.forEach(name => {
-        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const start = name[0] && /\w/.test(name[0]) ? '\\b' : '';
-        const end = name[name.length-1] && /\w/.test(name[name.length-1]) ? '\\b' : '';
-        const regex = new RegExp(`(${start}${escaped}${end})`, 'gi');
+        const regex = getSegmentRegex(name);
         const next: (string | React.ReactNode)[] = [];
         let idx = 0;
         segments.forEach((seg, si) => {
