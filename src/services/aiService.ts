@@ -30,7 +30,7 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[]): string
     ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
     : 'No specific rules set.';
   const lore = codex.length
-    ? codex.map(e => `[${e.name}]: ${e.description}`).join('\n')
+    ? codex.map(e => `[${e.name}]: ${e.description.substring(0, 200) + (e.description.length > 200 ? '...' : '')}`).join('\n')
     : 'No specific lore relevant to this passage.';
   return `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
 }
@@ -284,7 +284,7 @@ ${buildContextBlock(relevantRules, relevantCodex)}
 
 CURRENT CHAPTER DRAFT:
 """
-${contextText}
+${contextText?.substring(0, 2000)}
 """
 
 Answer the user's questions, suggest plots, or help them break writer's block based on their worldbuilding. Format your answers clearly using Markdown.

@@ -7,8 +7,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check } from 'lucide-react';
 import { db } from '../db';
 import { processChat } from '../services/aiService';
-// Fix 1: Removed unused imports getRelevantContext, getRelevantBibleRules
+import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import ReactMarkdown from 'react-markdown';
+import { PANEL_WIDTH } from '../lib/constants';
 
 interface Message {
   id: string;
@@ -17,6 +18,7 @@ interface Message {
   isActionable?: boolean;
   // Fix 3: Add isWelcome flag
   isWelcome?: boolean;
+  isError?: boolean;
 }
 
 interface AIAssistantPanelProps {
@@ -44,6 +46,8 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
   
   // Fix 2: Add timeoutRef to prevent memory leak
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hasReceivedReply = messages.some(m => m.role === 'model' && !m.isWelcome);
 
   // Fix 2: Cleanup timeout on unmount
   useEffect(() => {
@@ -111,13 +115,15 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
       const allBibleRules = await db.bible.where('projectId').equals(projectId).toArray();
 
-      // Fix 1: Removed double context filtering here
+      const contextSource = currentText + " " + userMsg.text;
+      const filteredCodex = getRelevantContext(contextSource, allCodex);
+      const filteredBibleRules = getRelevantBibleRules(contextSource, allBibleRules);
 
       // Fix 3: Use isWelcome flag instead of hardcoded id filter
-      // Fix 4: Add history sliding window slice(-10)
+      // Fix 4: Add history sliding window slice(-6)
       const history = messages
         .filter(m => !m.isWelcome)
-        .slice(-10)
+        .slice(-6)
         .map(m => ({
           role: m.role,
           parts: [{ text: m.text }]
@@ -126,23 +132,22 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       const reply = await processChat({
         message: userMsg.text,
         history,
-        // Fix 1: Pass raw arrays instead of applying getRelevantContext
-        bibleRules: allBibleRules,
-        codexEntries: allCodex,
+        bibleRules: filteredBibleRules,
+        codexEntries: filteredCodex,
         contextText: currentText
       });
 
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, isActionable: true }]);
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Sorry, I encountered an error checking the lore.', isActionable: false }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Maaf, saya mengalami kesalahan saat memeriksa lore.', isActionable: false, isError: true }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="w-[340px] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-2xl relative z-30 shrink-0">
+    <div style={{ width: PANEL_WIDTH }} className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-2xl relative z-30 shrink-0">
       <div className="h-14 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-5 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-md flex items-center justify-center shadow-sm">
@@ -150,12 +155,12 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
           </div>
           <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 tracking-tight">Nova Assistant</h3>
         </div>
-        <button onClick={onClose} className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-200 rounded-md transition-colors">
+        <button onClick={onClose} aria-label="Tutup asisten" className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-200 rounded-md transition-colors">
           <X size={16} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-50 dark:bg-slate-800/50 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 dark:bg-slate-800/50 custom-scrollbar">
         {messages.map(m => (
           <div key={m.id} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow-sm ${m.role === 'user' ? 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400' : 'bg-indigo-600 text-white'}`}>
@@ -164,7 +169,9 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
              <div className={`text-[13px] p-3.5 rounded-2xl max-w-[85%] leading-relaxed shadow-sm ${
                m.role === 'user' 
                  ? 'bg-indigo-600 text-white rounded-tr-none' 
-                 : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none font-serif [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:text-slate-900 dark:[&_strong]:text-slate-100 [&_strong]:font-bold'
+                 : m.isError
+                   ? 'bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 rounded-tl-none font-serif'
+                   : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none font-serif [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:text-slate-900 dark:[&_strong]:text-slate-100 [&_strong]:font-bold'
                }`}>
                {m.role === 'user' ? (
                  m.text
@@ -182,12 +189,12 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                           {copiedId === m.id ? (
                             <>
                               <Check size={12} className="text-emerald-500" />
-                              <span className="text-emerald-600">Ter-copy</span>
+                              <span className="text-emerald-600">Tersalin ✓</span>
                             </>
                           ) : (
                             <>
                               <Copy size={12} />
-                              Salin ke Clipboard
+                              Salin
                             </>
                           )}
                         </button>
@@ -203,6 +210,17 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                         )}
                       </div>
                     )}
+                    {m.isError && (
+                      <button 
+                        onClick={() => {
+                          const lastUser = messages.filter(msg => msg.role === 'user').pop();
+                          if (lastUser) handleSend(lastUser.text);
+                        }}
+                        className="mt-2 text-[10px] font-bold uppercase tracking-widest text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 underline"
+                      >
+                        Coba Lagi
+                      </button>
+                    )}
                  </div>
                )}
              </div>
@@ -214,7 +232,7 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                <Bot size={14} />
              </div>
              <div className="text-[13px] p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-indigo-500 rounded-tl-none flex items-center gap-2 shadow-sm italic font-serif">
-               <Loader2 size={14} className="animate-spin" /> Cross-referencing story bible...
+               <Loader2 size={14} className="animate-spin" /> Menghubungkan ke story bible...
              </div>
           </div>
         )}
@@ -222,7 +240,7 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       </div>
 
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
-        {messages.length < 3 && !isLoading && (
+        {!hasReceivedReply && !isLoading && (
           <div className="mb-3 flex flex-wrap gap-2">
             {suggestedPrompts.map((prompt, i) => (
               <button
@@ -245,7 +263,7 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                 handleSend();
               }
             }}
-            placeholder="Ask anything about your lore..."
+            placeholder="Tanyakan apa saja tentang lore-mu..."
             className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 resize-none h-24 placeholder:text-slate-400 dark:text-slate-500 text-slate-800 dark:text-slate-200"
           />
           <button

@@ -7,11 +7,12 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { db } from '../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Trash2, Tag, User, MapPin, Sparkles, BookOpen, Database, Search, Edit2, X, Check, Wand2, MessageSquareText, Link2 } from 'lucide-react';
-import { CodexEntry, CodexCategory, StoryBibleRule } from '../types';
+import { CodexEntry, CodexCategory } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { expandCodexEntry } from '../services/aiService';
 import { AIAssistantPanel } from './AIAssistantPanel';
+import { useToast } from '../hooks/useToast';
 
 export function useHighlightedSegments(
   text: string,
@@ -74,6 +75,8 @@ function LinkifiedDescription({ text, allEntries }: { text: string; allEntries: 
 }
 
 export function CodexPanel({ projectId }: CodexPanelProps) {
+  const { toast } = useToast();
+  
   const entries = useLiveQuery(() => 
     db.codex.where('projectId').equals(projectId).toArray()
   , [projectId]);
@@ -122,6 +125,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     setFormData({ name: '', category: 'character', description: '', aliases: [], tags: [] });
     setEditingId(null);
     setIsAdding(true);
+    setTimeout(() => {
+      document.querySelector('[data-codex-form]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const startEditing = (entry: CodexEntry) => {
@@ -134,6 +140,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     });
     setEditingId(entry.id!);
     setIsAdding(true);
+    setTimeout(() => {
+      document.querySelector('[data-codex-form]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const saveEntry = async () => {
@@ -222,7 +231,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
       );
       setFormData(prev => ({ ...prev, description: expandedDesc }));
     } catch (e) {
-      alert('Failed to expand: ' + (e as Error).message);
+      toast.error('Failed to expand: ' + (e as Error).message);
     } finally {
       setIsExpanding(false);
     }
@@ -276,6 +285,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
         <AnimatePresence>
           {isAdding && (
             <motion.div 
+              data-codex-form
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -397,24 +407,24 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 transition-opacity">
                   <button 
                     onClick={() => handleToggleLinking(entry.id!)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
+                    className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
                     title="Add Bond"
                   >
                     <Link2 size={16} />
                   </button>
                   <button 
                     onClick={() => startEditing(entry)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
+                    className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
                     title="Edit Entry"
                   >
                     <Edit2 size={16} />
                   </button>
                   <button 
                     onClick={() => deleteEntry(entry.id!)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-all"
+                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-all"
                     title="Delete Entry"
                   >
                     <Trash2 size={16} />
@@ -586,12 +596,16 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {confirmDeleteId !== null && (
-           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+           <div 
+             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm"
+             onClick={() => setConfirmDeleteId(null)}
+           >
              <motion.div 
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
                exit={{ opacity: 0, scale: 0.95 }}
                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full"
+               onClick={(e) => e.stopPropagation()}
              >
                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Hapus Entri?</h3>
                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">Apakah Anda yakin ingin menghapus entri ini? Tindakan ini tidak dapat dibatalkan.</p>
