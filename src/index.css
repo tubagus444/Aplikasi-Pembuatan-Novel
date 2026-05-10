@@ -8,17 +8,16 @@
   --font-serif: "Libre Baskerville", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-stone-950: #0c0a09;
-  --color-stone-900: #1c1917;
-  --color-stone-800: #292524;
-  --color-stone-700: #44403c;
-  --color-stone-600: #57534e;
-  --color-stone-500: #78716c;
-  --color-stone-400: #a8a29e;
-  --color-stone-300: #d6d3d1;
-  --color-stone-200: #e7e5e4;
-  --color-stone-100: #f5f5f4;
-  --color-stone-50: #fafaf9;
+  --bg-secondary: var(--bg-secondary);
+  --bg-tertiary: var(--bg-tertiary);
+  --border-primary: var(--border-primary);
+
+  --z-base: 10;
+  --z-panel: 20;
+  --z-sticky: 30;
+  --z-dropdown: 50;
+  --z-modal: 60;
+  --z-overlay: 100;
 
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
@@ -44,7 +43,11 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased transition-colors duration-300;
+    @apply bg-background text-foreground antialiased;
+  }
+
+  *:focus-visible { 
+    @apply ring-2 ring-indigo-500 ring-offset-2 outline-none;
   }
 }
 
@@ -84,6 +87,10 @@
 .tiptap p.is-editor-empty:first-child::before {
   @apply text-slate-300 dark:text-slate-700 italic float-left h-0 pointer-events-none;
   content: attr(data-placeholder);
+}
+
+.tiptap p {
+  @apply dark:text-slate-200; /* Assuming we want text to be legible in dark mode based on request text */
 }
 
 .tiptap strong {

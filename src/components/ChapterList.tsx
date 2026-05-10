@@ -10,20 +10,13 @@ import { Plus, FileText, Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-rea
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChapterStatus } from '../types';
+import { STATUS_DOTS } from '../lib/constants';
 
 interface ChapterListProps {
   projectId: number;
   activeChapterId: number | null;
   onSelect: (id: number | null) => void;
 }
-
-const STATUS_DOTS: Record<ChapterStatus, string> = {
-  outline: 'bg-slate-300',
-  draft: 'bg-indigo-400',
-  edit: 'bg-amber-400',
-  polish: 'bg-emerald-400',
-  done: 'bg-blue-500'
-};
 
 export function ChapterList({ projectId, activeChapterId, onSelect }: ChapterListProps) {
   const chapters = useLiveQuery(() => 

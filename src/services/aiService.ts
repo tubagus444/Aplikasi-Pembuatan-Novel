@@ -7,6 +7,24 @@ import { GoogleGenAI } from "@google/genai";
 import { StoryBibleRule, CodexEntry } from "../types";
 import { getRelevantContext, getRelevantBibleRules } from "./contextEngine";
 
+export class AIError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+    this.name = 'AIError';
+  }
+}
+
+let activeAbortController: AbortController | null = null;
+
+export function cancelAI() {
+  if (activeAbortController) {
+    activeAbortController.abort();
+    activeAbortController = null;
+  }
+}
+
 function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[]): string {
   const bible = rules.length
     ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
@@ -65,39 +83,40 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
       attempt++;
     }
   }
-  throw new Error("Max retries reached");
+  throw new AIError("Max retries reached", "API_ERROR");
 }
 
-async function callAI(systemInstruction: string, userPrompt: string, history?: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
+async function callAI(
+  systemInstruction: string, 
+  userPrompt: string, 
+  history?: { role: 'user' | 'model', parts: { text: string }[] }[],
+  temperature = 0.7,
+  signal?: AbortSignal
+): Promise<string> {
   const settings = getSettings();
   
   if (settings.provider === 'google') {
-    if (!settings.keys.google) throw new Error("Google AI Studio API key is not set. Please check settings.");
+    if (!settings.keys.google) throw new AIError("Google AI Studio API key is not set. Please check settings.", "API_KEY_MISSING");
     const ai = new GoogleGenAI({ apiKey: settings.keys.google });
     
-    const contents = history ? [...history, { role: 'user', parts: [{ text: userPrompt }] }] : [{ role: 'user', parts: [{ text: userPrompt }] }];
-    
-    // We are converting the type to match GoogleGenAI expected shape.
-    let mappedContents: any[] = [];
-    if(history) {
-       mappedContents = contents.map(c => ({ role: c.role, parts: [{ text: c.parts[0].text }] }));
-    } else {
-       mappedContents = [{ role: 'user', parts: [{ text: userPrompt }] }];
-    }
+    // Convert directly from history + userPrompt
+    const mappedContents = history 
+      ? [...history.map(c => ({ role: c.role, parts: [{ text: c.parts[0].text }] })), { role: 'user', parts: [{ text: userPrompt }] }]
+      : [{ role: 'user', parts: [{ text: userPrompt }] }];
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: mappedContents,
       config: {
         systemInstruction,
-        temperature: 0.7,
+        temperature,
       },
     });
     return response.text || '';
   }
   
   else if (settings.provider === 'groq') {
-    if (!settings.keys.groq) throw new Error("Groq API key is not set. Please check settings.");
+    if (!settings.keys.groq) throw new AIError("Groq API key is not set. Please check settings.", "API_KEY_MISSING");
     const messages = [
       { role: "system", content: systemInstruction },
       ...(history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
@@ -113,16 +132,17 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages,
-        temperature: 0.7
-      })
+        temperature
+      }),
+      signal
     });
-    if (!res.ok) throw new Error(`Groq API Error: ${await res.text()}`);
+    if (!res.ok) throw new AIError(`Groq API Error: ${await res.text()}`, "API_ERROR");
     const data = await res.json();
     return data.choices[0].message.content;
   }
   
   else if (settings.provider === 'openrouter') {
-    if (!settings.keys.openrouter) throw new Error("OpenRouter API key is not set. Please check settings.");
+    if (!settings.keys.openrouter) throw new AIError("OpenRouter API key is not set. Please check settings.", "API_KEY_MISSING");
     const messages = [
       { role: "system", content: systemInstruction },
       ...(history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
@@ -140,16 +160,17 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
       body: JSON.stringify({
         model: 'anthropic/claude-3.5-sonnet',
         messages,
-        temperature: 0.7
-      })
+        temperature
+      }),
+      signal
     });
-    if (!res.ok) throw new Error(`OpenRouter API Error: ${await res.text()}`);
+    if (!res.ok) throw new AIError(`OpenRouter API Error: ${await res.text()}`, "API_ERROR");
     const data = await res.json();
     return data.choices[0].message.content;
   }
   
   else if (settings.provider === 'claude') {
-    if (!settings.keys.claude) throw new Error("Claude API key is not set. Please check settings.");
+    if (!settings.keys.claude) throw new AIError("Claude API key is not set. Please check settings.", "API_KEY_MISSING");
     // Claude requires system as a separate param
     const messages = [
       ...(history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
@@ -177,15 +198,16 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
           }
         ],
         messages,
-        temperature: 0.7
-      })
+        temperature
+      }),
+      signal
     });
-    if (!res.ok) throw new Error(`Claude API Error: ${await res.text()}`);
+    if (!res.ok) throw new AIError(`Claude API Error: ${await res.text()}`, "API_ERROR");
     const data = await res.json();
     return data.content[0].text;
   }
   
-  throw new Error("Unknown AI Provider");
+  throw new AIError("Unknown AI Provider", "API_ERROR");
 }
 
 export async function processRewrite({
@@ -225,10 +247,15 @@ Rewritten Text:
 `.trim();
 
   try {
-    return await callAI(systemInstruction, userPrompt);
+    activeAbortController = new AbortController();
+    const res = await callAI(systemInstruction, userPrompt, undefined, 0.85, activeAbortController.signal);
+    activeAbortController = null;
+    return res;
   } catch (error) {
+    activeAbortController = null;
     console.error('AI Error:', error);
-    throw new Error(error instanceof Error ? error.message : 'AI processing failed. Check your connection.');
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'AI processing failed. Check your connection.', "API_ERROR");
   }
 }
 
@@ -264,10 +291,15 @@ Answer the user's questions, suggest plots, or help them break writer's block ba
 `.trim();
 
   try {
-    return await callAI(systemInstruction, message, history);
+    activeAbortController = new AbortController();
+    const res = await callAI(systemInstruction, message, history, 0.7, activeAbortController.signal);
+    activeAbortController = null;
+    return res;
   } catch (error) {
+    activeAbortController = null;
     console.error('AI Chat Error:', error);
-    throw new Error(error instanceof Error ? error.message : 'AI chat failed.');
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'AI chat failed.', "API_ERROR");
   }
 }
 
@@ -309,13 +341,28 @@ ${extractCandidateSentences(text)}
 `.trim();
 
   try {
-    const response = await callAI(systemInstruction, userPrompt);
+    activeAbortController = new AbortController();
+    const response = await callAI(systemInstruction, userPrompt, undefined, 0.3, activeAbortController.signal);
+    activeAbortController = null;
+    
     // basic cleanup just in case there's markdown wrapping
-    const textData = response.replace(/^```json/m, '').replace(/^```/m, '').trim();
-    return JSON.parse(textData);
+    let textData = response.replace(/^```json/m, '').replace(/^```/m, '').trim();
+    const startIdx = textData.indexOf('[');
+    const endIdx = textData.lastIndexOf(']');
+    if (startIdx !== -1 && endIdx !== -1) {
+      textData = textData.substring(startIdx, endIdx + 1);
+    }
+    
+    try {
+      return JSON.parse(textData);
+    } catch(e) {
+      throw new AIError('AI returned invalid JSON format. Please try again.', 'PARSE_ERROR');
+    }
   } catch (error) {
+    activeAbortController = null;
     console.error('AI Codex Extraction Error:', error);
-    throw new Error(error instanceof Error ? error.message : 'AI extraction failed.');
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'AI extraction failed.', "API_ERROR");
   }
 }
 
@@ -351,9 +398,14 @@ Please expand this entry into a rich, detailed lore description suitable for a s
 `.trim();
 
   try {
-    return await callAI(systemInstruction, userPrompt);
+    activeAbortController = new AbortController();
+    const res = await callAI(systemInstruction, userPrompt, undefined, 0.9, activeAbortController.signal);
+    activeAbortController = null;
+    return res;
   } catch (error) {
+    activeAbortController = null;
     console.error('AI Expansion Error:', error);
-    throw new Error(error instanceof Error ? error.message : 'AI expansion failed.');
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'AI expansion failed.', "API_ERROR");
   }
 }

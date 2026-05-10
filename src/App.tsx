@@ -23,6 +23,8 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { GuidePanel } from './components/GuidePanel';
 import { Search, Share2, HelpCircle, Download } from 'lucide-react';
 import { cn } from './lib/utils';
+import { ToastProvider } from './hooks/useToast';
+import { ToastContainer } from './components/Toast';
 
 type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide';
 
@@ -100,19 +102,20 @@ export default function App() {
   if (!projectId) return <div className="h-screen w-screen flex items-center justify-center bg-background text-slate-400 dark:text-slate-500 font-mono text-xs uppercase tracking-widest">Initialising AetherScribe...</div>;
 
   return (
-    <div className={cn(
-      "flex h-screen bg-background text-foreground overflow-hidden font-sans transition-all duration-700",
-      isFocusMode && "bg-secondary"
-    )}>
-      {/* Sidebar Navigation */}
-      <AnimatePresence>
-        {!isFocusMode && (
-          <motion.aside 
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col relative z-20 overflow-hidden shadow-sm shrink-0"
-          >
+    <ToastProvider>
+      <div className={cn(
+        "flex h-screen bg-background text-foreground overflow-hidden font-sans transition-all duration-700",
+        isFocusMode && "bg-secondary"
+      )}>
+        {/* Sidebar Navigation */}
+        <AnimatePresence>
+          {!isFocusMode && (
+            <motion.aside 
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col relative z-[var(--z-panel)] overflow-hidden shadow-sm shrink-0"
+            >
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white shrink-0 shadow-sm">
@@ -126,7 +129,7 @@ export default function App() {
           </div>
           <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em] ml-10">Writer Pro v1.0</p>
           
-          <nav className="mt-6 space-y-1">
+          <nav role="navigation" className="mt-6 space-y-1">
             <button 
               onClick={() => setViewMode('write')}
               className={cn(
@@ -218,7 +221,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               onClick={() => setIsFocusMode(false)}
-              className="fixed top-6 right-6 z-[60] p-3 rounded-full shadow-2xl transition-all duration-300 bg-slate-900 dark:bg-slate-800 text-white hover:scale-110 border border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700"
+              className="fixed top-6 right-6 z-[var(--z-modal)] p-3 rounded-full shadow-2xl transition-all duration-300 bg-slate-900 dark:bg-slate-800 text-white hover:scale-110 border border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700"
               title="Exit Focus Mode"
             >
               <Plus className="rotate-45" size={24} />
@@ -228,11 +231,12 @@ export default function App() {
 
         {/* Toolbar */}
         {!isFocusMode && (
-          <header className="h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 gap-2 md:gap-4 bg-background z-[100] shadow-sm transition-colors relative">
+          <header className="h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 gap-2 md:gap-4 bg-background z-[var(--z-overlay)] shadow-sm transition-colors relative">
           <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
+              aria-label="Toggle Sidebar"
               title="Toggle Sidebar"
             >
               <ChevronRight size={18} className={cn("transition-transform", sidebarOpen && "rotate-180")} />
@@ -259,6 +263,7 @@ export default function App() {
             <div className="flex items-center gap-1 flex-shrink-0">
               <button 
                 onClick={toggleTheme}
+                aria-label="Toggle Theme"
                 className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md"
                 title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
               >
@@ -438,6 +443,8 @@ export default function App() {
           />
         )}
       </main>
+      <ToastContainer />
     </div>
+    </ToastProvider>
   );
 }

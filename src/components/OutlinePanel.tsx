@@ -11,18 +11,11 @@ import { motion } from 'motion/react';
 import { processChat } from '../services/aiService';
 import { ChapterStatus } from '../types';
 import { cn } from '../lib/utils';
+import { STATUS_COLORS } from '../lib/constants';
 
 interface OutlinePanelProps {
   projectId: number;
 }
-
-const STATUS_COLORS: Record<ChapterStatus, string> = {
-  outline: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400',
-  draft: 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400',
-  edit: 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400',
-  polish: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400',
-  done: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
-};
 
 export function OutlinePanel({ projectId }: OutlinePanelProps) {
   const chapters = useLiveQuery(() => 
