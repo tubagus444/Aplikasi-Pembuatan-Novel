@@ -71,12 +71,13 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
     const [moved] = newChapters.splice(oldIndex, 1);
     newChapters.splice(newIndex, 0, moved);
 
-    // Update orders in DB
-    const updates = newChapters.map((ch, index) => 
-      db.chapters.update(ch.id!, { order: index })
-    );
-
-    await Promise.all(updates);
+    // Update orders in DB atomically
+    await db.transaction('rw', db.chapters, async () => {
+      const updates = newChapters.map((ch, index) => 
+        db.chapters.update(ch.id!, { order: index })
+      );
+      await Promise.all(updates);
+    });
   };
 
   const updateField = (id: number, field: string, value: any) => {

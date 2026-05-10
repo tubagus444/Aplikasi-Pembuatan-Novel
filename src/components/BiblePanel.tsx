@@ -84,12 +84,12 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
     notes: '__AUTHOR_NOTES__',
   };
 
-  const initialized = useRef(false);
+  const lastLoadedProjectId = useRef<number | null>(null);
 
   // Load from DB
   useEffect(() => {
-    if (allRules && !initialized.current) {
-      initialized.current = true;
+    if (allRules && lastLoadedProjectId.current !== projectId) {
+      lastLoadedProjectId.current = projectId;
       const getVal = (k: string) => allRules.find(r => r.key === k)?.instruction || '';
       const getArr = (k: string) => {
         const val = getVal(k);
@@ -109,7 +109,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         notes: getVal('__AUTHOR_NOTES__')
       });
     }
-  }, [allRules]);
+  }, [allRules, projectId]);
 
   const saveField = async (key: string, value: string) => {
     try {

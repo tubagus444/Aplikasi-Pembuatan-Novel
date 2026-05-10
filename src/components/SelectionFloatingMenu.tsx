@@ -3,16 +3,22 @@ import { Bold, Italic, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Editor } from '@tiptap/react';
+import { AIAction } from '../types';
 
 interface SelectionFloatingMenuProps {
   editor: Editor;
   onAiAction: (action: string) => void;
-  customActions?: any[];
+  customActions?: AIAction[];
 }
 
 export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const showRef = React.useRef(show);
+
+  useEffect(() => {
+    showRef.current = show;
+  }, [show]);
 
   useEffect(() => {
     const handleSelection = () => {
@@ -47,7 +53,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
     
     // Update position on scroll/resize
     const handleScrollOrResize = () => {
-      if (show) handleSelection();
+      if (showRef.current) handleSelection();
     };
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize);
@@ -57,7 +63,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [editor, show]);
+  }, [editor]);
 
   return (
     <AnimatePresence>

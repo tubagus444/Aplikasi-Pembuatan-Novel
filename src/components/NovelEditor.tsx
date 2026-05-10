@@ -273,6 +273,11 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     codexEntriesRef.current = codexEntries || [];
   }, [codexEntries]);
 
+  const chapterIdRef = useRef(chapterId);
+  useEffect(() => {
+    chapterIdRef.current = chapterId;
+  }, [chapterId]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -353,7 +358,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus('Menyimpan...');
       saveTimeoutRef.current = setTimeout(() => {
-        db.chapters.update(chapterId, { content: html, lastModified: Date.now() }).then(() => {
+        db.chapters.update(chapterIdRef.current, { content: html, lastModified: Date.now() }).then(() => {
           setSaveStatus('Tersimpan');
           setTimeout(() => setSaveStatus(''), 2000);
         });
