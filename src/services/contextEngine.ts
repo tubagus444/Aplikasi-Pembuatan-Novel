@@ -53,11 +53,26 @@ function getBoundaryRegex(name: string): RegExp {
  * Filters the story bible rules to prevent context bottlenecks
  * during AI generation by capping irrelevant rules.
  */
-export function getRelevantBibleRules(text: string, allRules: StoryBibleRule[]): StoryBibleRule[] {
-  if (!text) return allRules;
-  const lowerText = text.toLowerCase();
+export function getRelevantBibleRules(
+  text: string,
+  allRules: StoryBibleRule[],
+  maxChars: number = 1500
+): StoryBibleRule[] {
+  const ALWAYS_INCLUDE = [
+    '__STORY_TITLE__',
+    '__GENRES__',
+    '__TONES__',
+    '__POV__',
+    '__PACING__',
+    '__THEMES__',
+    '__TARGET_AUDIENCE__'
+  ];
   
-  const ALWAYS_INCLUDE = ['__STORY_TITLE__', '__GENRES__', '__TONES__', '__POV__', '__PACING__'];
+  if (!text) {
+    return allRules.filter(r => ALWAYS_INCLUDE.includes(r.key));
+  }
+
+  const lowerText = text.toLowerCase();
   
   const scoredRules = allRules.map(rule => {
     let score = 0;
@@ -68,27 +83,50 @@ export function getRelevantBibleRules(text: string, allRules: StoryBibleRule[]):
     } else {
       // Find overlap with the current text
       const words = rule.instruction.toLowerCase().split(/[\s\W]+/);
-      const uniqueWords = [...new Set(words)].filter(w => w.length > 3);
+      const uniqueWords = [...new Set(words)].filter(w => w.length > 4); // require longer words for better relevance
       
       uniqueWords.forEach(w => {
         if (lowerText.includes(w)) {
-          score += 10;
+          score += 15;
         }
       });
       
-      // Give a slight boost if it's very short, to not lose small contextual rules
-      if (rule.instruction.length < 150) {
-        score += 5;
-      }
+      // Bonus if rule key words are mentioned
+      const keyWords = rule.key.toLowerCase().split(/[\s_+]+/);
+      keyWords.forEach(kw => {
+        if (kw.length > 3 && lowerText.includes(kw)) {
+          score += 30;
+        }
+      });
     }
     
     return { rule, score };
   });
 
-  // Filter to keep core rules + top 5 relevant long rules to avoid token bloat
-  return scoredRules
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10) 
-    .map(item => item.rule);
+  // Sort by score descending
+  // Require at least a score of 15 (one matched word) to include non-core rules
+  const sortedRules = scoredRules
+    .filter(item => item.score >= 15 || item.score === 1000)
+    .sort((a, b) => b.score - a.score);
+
+  const finalRules: StoryBibleRule[] = [];
+  let currentChars = 0;
+
+  for (const item of sortedRules) {
+    const ruleChars = item.rule.key.length + item.rule.instruction.length;
+    
+    if (item.score === 1000) {
+      // Always include global rules, even if they bypass the max characters
+      finalRules.push(item.rule);
+      currentChars += ruleChars;
+    } else {
+      // For context specific rules, respect the character limit limit
+      if (currentChars + ruleChars <= maxChars) {
+        finalRules.push(item.rule);
+        currentChars += ruleChars;
+      }
+    }
+  }
+
+  return finalRules;
 }

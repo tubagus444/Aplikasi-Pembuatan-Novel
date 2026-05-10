@@ -5,6 +5,23 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { StoryBibleRule, CodexEntry } from "../types";
+import { getRelevantContext, getRelevantBibleRules } from "./contextEngine";
+
+function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[]): string {
+  const bible = rules.length
+    ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
+    : 'No specific rules set.';
+  const lore = codex.length
+    ? codex.map(e => `[${e.name}]: ${e.description}`).join('\n')
+    : 'No specific lore relevant to this passage.';
+  return `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
+}
+
+function extractCandidateSentences(text: string): string {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const candidates = sentences.filter(s => /\b[A-Z][a-z]{2,}/.test(s));
+  return candidates.slice(0, 60).join(' ');
+}
 
 interface GenerateParams {
   prompt: string;
@@ -146,12 +163,19 @@ async function callAI(systemInstruction: string, userPrompt: string, history?: {
         'x-api-key': settings.keys.claude,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 4000,
-        system: systemInstruction,
+        system: [
+          {
+            type: 'text',
+            text: systemInstruction,
+            cache_control: { type: 'ephemeral' }
+          }
+        ],
         messages,
         temperature: 0.7
       })
@@ -171,18 +195,15 @@ export async function processRewrite({
   codexEntries,
   action
 }: GenerateParams): Promise<string> {
-  const bibleContext = bibleRules.map(r => `${r.key}: ${r.instruction}`).join('\n');
-  const codexContext = codexEntries.map(e => `[${e.name}]: ${e.description}`).join('\n');
+  const contextSource = selection || '';
+  const relevantCodex = getRelevantContext(contextSource, codexEntries);
+  const relevantRules = getRelevantBibleRules(contextSource, bibleRules);
 
   const systemInstruction = `
 You are a professional novel editor and writing assistant. 
 Your goal is to rewrite the text provided based on the specific action requested, while strictly adhering to the Story Bible and maintaining consistency with the character/world lore (Codex).
 
-STORY BIBLE:
-${bibleContext || 'No specific rules set.'}
-
-CODEX LORE:
-${codexContext || 'No specific lore relevant to this passage.'}
+${buildContextBlock(relevantRules, relevantCodex)}
 
 GUIDELINES:
 1. Maintain the existing point of view and style unless the Story Bible says otherwise.
@@ -224,18 +245,15 @@ export async function processChat({
   codexEntries: CodexEntry[];
   contextText: string;
 }): Promise<string> {
-  const bibleContext = bibleRules.map(r => `${r.key}: ${r.instruction}`).join('\n');
-  const codexContext = codexEntries.map(e => `[${e.name}]: ${e.description}`).join('\n');
+  const contextSource = contextText || '';
+  const relevantCodex = getRelevantContext(contextSource, codexEntries);
+  const relevantRules = getRelevantBibleRules(contextSource, bibleRules);
 
   const systemInstruction = `
 You are a brilliant developmental editor and creative writing assistant.
 The user is writing a novel. You act as their sounding board, lore-keeper, and brainstorming partner.
 
-STORY BIBLE:
-${bibleContext || 'No specific rules set.'}
-
-CODEX LORE:
-${codexContext || 'No specific lore relevant to this passage.'}
+${buildContextBlock(relevantRules, relevantCodex)}
 
 CURRENT CHAPTER DRAFT:
 """
@@ -257,12 +275,13 @@ export async function extractToCodex(
   text: string,
   bibleRules: StoryBibleRule[]
 ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
-  const bibleContext = bibleRules.map(r => `${r.key}: ${r.instruction}`).join('\n');
+  const contextSource = text || '';
+  const relevantRules = getRelevantBibleRules(contextSource, bibleRules);
 
   const systemInstruction = `
 You are an expert worldbuilder assistant. Your job is to extract character, location, or lore information from the text provided by the AI assistant and format it as JSON.
 Theme & Constraints for context:
-${bibleContext || 'No specific rules set.'}
+${buildContextBlock(relevantRules, [])}
 
 Return ONLY a valid JSON array of objects, with no markdown formatting or extra text.
 Each object MUST have the following keys:
@@ -285,7 +304,7 @@ Example valid output:
   const userPrompt = `
 Extract codex entries from the following text:
 """
-${text}
+${extractCandidateSentences(text)}
 """
 `.trim();
 
@@ -306,12 +325,13 @@ export async function expandCodexEntry(
   currentDescription: string,
   bibleRules: StoryBibleRule[]
 ): Promise<string> {
-  const bibleContext = bibleRules.map(r => `${r.key}: ${r.instruction}`).join('\n');
+  const contextSource = currentDescription || '';
+  const relevantRules = getRelevantBibleRules(contextSource, bibleRules);
 
   const systemInstruction = `
 You are an expert worldbuilder and novelist. Expand the lore entry for a story element.
 Theme & Constraints:
-${bibleContext || 'No specific rules set.'}
+${buildContextBlock(relevantRules, [])}
 
 Guidelines:
 1. Provide a detailed, vivid, and structured description based on the initial input.
