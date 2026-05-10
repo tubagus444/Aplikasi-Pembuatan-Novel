@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { db } from '../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Trash2, Tag, User, MapPin, Sparkles, BookOpen, Database, Search, Edit2, X, Check, Wand2, MessageSquareText, Link2 } from 'lucide-react';
@@ -13,60 +13,62 @@ import { motion, AnimatePresence } from 'motion/react';
 import { expandCodexEntry } from '../services/aiService';
 import { AIAssistantPanel } from './AIAssistantPanel';
 
+export function useHighlightedSegments(
+  text: string,
+  entries: CodexEntry[],
+  renderMatch: (entry: CodexEntry, part: string, key: string) => React.ReactNode
+): (string | React.ReactNode)[] {
+  return useMemo(() => {
+    if (!text || !entries?.length) return [text];
+    let segments: (string | React.ReactNode)[] = [text];
+    const sorted = [...entries].sort((a, b) => b.name.length - a.name.length);
+    sorted.forEach(entry => {
+      const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
+      names.forEach(name => {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const start = name[0] && /\w/.test(name[0]) ? '\\b' : '';
+        const end = name[name.length-1] && /\w/.test(name[name.length-1]) ? '\\b' : '';
+        const regex = new RegExp(`(${start}${escaped}${end})`, 'gi');
+        const next: (string | React.ReactNode)[] = [];
+        let idx = 0;
+        segments.forEach((seg, si) => {
+          if (typeof seg !== 'string') { next.push(seg); return; }
+          seg.split(regex).forEach((part, pi) => {
+            if (part.toLowerCase() === name.toLowerCase()) {
+              next.push(renderMatch(entry, part, `${entry.id}-${si}-${pi}-${idx++}`));
+            } else if (part) {
+              next.push(part);
+            }
+          });
+        });
+        segments = next;
+      });
+    });
+    return segments;
+  }, [text, entries, renderMatch]);
+}
+
 interface CodexPanelProps {
   projectId: number;
 }
 
 // Helper component to render descriptions with references auto-linked
 function LinkifiedDescription({ text, allEntries }: { text: string; allEntries: CodexEntry[] }) {
-  const highlightedContent = useMemo(() => {
-    if (!text || !allEntries?.length) return text;
+  const renderMatch = useCallback((entry: CodexEntry, part: string, key: string) => (
+    <span 
+      key={key}
+      className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1 py-0.5 rounded-md cursor-help border border-indigo-100 dark:border-indigo-900/50 relative group transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-900"
+    >
+      {part}
+      {/* Tooltip */}
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-slate-900 dark:bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none border border-slate-700">
+        <span className="block font-bold text-indigo-300 uppercase tracking-widest text-[10px] mb-1">{entry.category}</span>
+        <span className="block font-serif line-clamp-3 opacity-90 leading-relaxed text-slate-200">{entry.description || 'No description available.'}</span>
+      </span>
+    </span>
+  ), []);
 
-    let segments: (string | React.ReactNode)[] = [text];
-
-    // Sort by name length descending to catch longer names first
-    const sortedCodex = [...allEntries].sort((a, b) => b.name.length - a.name.length);
-
-    sortedCodex.forEach(entry => {
-      const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
-      names.forEach(name => {
-        // Only match full words, case insensitive
-        const regex = new RegExp(`\\b(${name})\\b`, 'gi');
-        
-        const newSegments: (string | React.ReactNode)[] = [];
-        segments.forEach((segment) => {
-          if (typeof segment !== 'string') {
-            newSegments.push(segment);
-            return;
-          }
-
-          const parts = segment.split(regex);
-          parts.forEach((part) => {
-            if (part.toLowerCase() === name.toLowerCase()) {
-              newSegments.push(
-                <span 
-                  key={`${entry.id}-${Math.random()}`}
-                  className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1 py-0.5 rounded-md cursor-help border border-indigo-100 dark:border-indigo-900/50 relative group transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-900"
-                >
-                  {part}
-                  {/* Tooltip */}
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-slate-900 dark:bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none border border-slate-700">
-                    <span className="block font-bold text-indigo-300 uppercase tracking-widest text-[10px] mb-1">{entry.category}</span>
-                    <span className="block font-serif line-clamp-3 opacity-90 leading-relaxed text-slate-200">{entry.description || 'No description available.'}</span>
-                  </span>
-                </span>
-              );
-            } else if (part) {
-              newSegments.push(part);
-            }
-          });
-        });
-        segments = newSegments;
-      });
-    });
-
-    return segments;
-  }, [allEntries, text]);
+  const highlightedContent = useHighlightedSegments(text, allEntries, renderMatch);
 
   return <span className="whitespace-pre-wrap">{highlightedContent}</span>;
 }
@@ -170,6 +172,10 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
   const confirmDelete = async () => {
     if (confirmDeleteId !== null) {
       await db.codex.delete(confirmDeleteId);
+      if (linkingId === confirmDeleteId) {
+        setLinkingId(null);
+        setLinkingTarget(null);
+      }
       setConfirmDeleteId(null);
     }
   };
@@ -193,6 +199,15 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
 
   const deleteRelationship = async (id: number) => {
     await db.relationships.delete(id);
+  };
+
+  const handleToggleLinking = (id: number) => {
+    setLinkingId(prev => {
+      if (prev === id) return null;
+      setLinkingTarget(null);
+      setLinkingType('Friend');
+      return id;
+    });
   };
 
   const handleExpand = async () => {
@@ -384,7 +399,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
-                    onClick={() => setLinkingId(linkingId === entry.id ? null : entry.id!)}
+                    onClick={() => handleToggleLinking(entry.id!)}
                     className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
                     title="Add Bond"
                   >

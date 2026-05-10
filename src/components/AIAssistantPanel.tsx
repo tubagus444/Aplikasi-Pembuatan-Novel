@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check } from 'lucide-react';
 import { db } from '../db';
 import { processChat } from '../services/aiService';
-import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
+// Fix 1: Removed unused imports getRelevantContext, getRelevantBibleRules
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -15,6 +15,8 @@ interface Message {
   role: 'user' | 'model';
   text: string;
   isActionable?: boolean;
+  // Fix 3: Add isWelcome flag
+  isWelcome?: boolean;
 }
 
 interface AIAssistantPanelProps {
@@ -27,18 +29,36 @@ interface AIAssistantPanelProps {
 
 export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText, viewMode = 'write' }: AIAssistantPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'model', text: 'Halo! Saya asisten penulis AI Anda. Tanyakan tentang cerita Anda, lore karakter, atau mari brainstorming bersama.' }
+    { 
+      id: '1', 
+      role: 'model', 
+      text: 'Halo! Saya asisten penulis AI Anda. Tanyakan tentang cerita Anda, lore karakter, atau mari brainstorming bersama.',
+      // Fix 3: Mark initial welcome message
+      isWelcome: true 
+    }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Fix 2: Add timeoutRef to prevent memory leak
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fix 2: Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const handleCopy = async (id: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
+      // Fix 2: Clear existing timeout before setting new one
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
@@ -91,20 +111,24 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
       const allBibleRules = await db.bible.where('projectId').equals(projectId).toArray();
 
-      const combinedTextForContext = currentText + "\n\n" + input;
-      const relevantCodex = getRelevantContext(combinedTextForContext, allCodex);
-      const relevantBible = getRelevantBibleRules(combinedTextForContext, allBibleRules);
+      // Fix 1: Removed double context filtering here
 
-      const history = messages.filter(m => m.id !== '1').map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
-      }));
+      // Fix 3: Use isWelcome flag instead of hardcoded id filter
+      // Fix 4: Add history sliding window slice(-10)
+      const history = messages
+        .filter(m => !m.isWelcome)
+        .slice(-10)
+        .map(m => ({
+          role: m.role,
+          parts: [{ text: m.text }]
+        }));
 
       const reply = await processChat({
         message: userMsg.text,
         history,
-        bibleRules: relevantBible,
-        codexEntries: relevantCodex,
+        // Fix 1: Pass raw arrays instead of applying getRelevantContext
+        bibleRules: allBibleRules,
+        codexEntries: allCodex,
         contextText: currentText
       });
 
@@ -150,7 +174,7 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                      <ReactMarkdown>{m.text}</ReactMarkdown>
                    </div>
                    {m.isActionable && (
-                      <div className="mt-3 flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div className="mt-3 flex flex-wrap gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                         <button 
                           onClick={() => handleCopy(m.id, m.text)}
                           className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -167,6 +191,16 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                             </>
                           )}
                         </button>
+                        
+                        {/* Fix 5: Handle unused onInsertText prop */}
+                        {onInsertText && (
+                          <button 
+                            onClick={() => onInsertText(m.text)}
+                            className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
+                          >
+                            Masukkan ke editor
+                          </button>
+                        )}
                       </div>
                     )}
                  </div>
