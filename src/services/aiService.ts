@@ -245,7 +245,7 @@ export async function processChat({
   codexEntries: CodexEntry[];
   contextText: string;
 }): Promise<string> {
-  const contextSource = contextText || '';
+  const contextSource = `${contextText || ''} ${message || ''}`;
   const relevantCodex = getRelevantContext(contextSource, codexEntries);
   const relevantRules = getRelevantBibleRules(contextSource, bibleRules);
 
