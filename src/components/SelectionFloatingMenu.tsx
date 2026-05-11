@@ -63,7 +63,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
     
     // Update position on scroll/resize
     const handleScrollOrResize = () => {
-      if (show) handleSelection();
+      if (showRef.current) handleSelection();
     };
 
     window.addEventListener('scroll', handleScrollOrResize, true);
@@ -74,7 +74,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [editor, handleSelection, show]);
+  }, [editor, handleSelection]);
 
   return (
     <AnimatePresence>

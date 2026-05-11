@@ -400,9 +400,8 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus('Menyimpan...');
       
-      const capturedId = chapterId;
       saveTimeoutRef.current = setTimeout(() => {
-        db.chapters.update(capturedId, { content: html, lastModified: Date.now() }).then(() => {
+        db.chapters.update(chapterIdRef.current, { content: html, lastModified: Date.now() }).then(() => {
           setSaveStatus('Tersimpan');
           setTimeout(() => setSaveStatus(''), 2000);
         });

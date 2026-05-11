@@ -178,6 +178,8 @@ export async function extractToCodex(
 You are an expert worldbuilder assistant. Your job is to extract character, location, or lore information from the text provided and format it as JSON.
 Format: Array of {name, category, description, aliases}.
 Categories: character, location, magic, item, other.
+
+${buildContextBlock(bibleRules, [])}
 `.trim();
 
   const userPrompt = `Extract codex entries from: ${extractCandidateSentences(text)}`;
@@ -203,7 +205,13 @@ export async function expandCodexEntry(
   currentDescription: string,
   bibleRules: StoryBibleRule[]
 ): Promise<string> {
-  const systemInstruction = `You are an expert worldbuilder. Expand this lore entry vividly.`;
+  const systemInstruction = `
+You are an expert worldbuilder. Expand this lore entry vividly.
+Maintain consistency with the project's overall rules and style.
+
+${buildContextBlock(bibleRules, [])}
+`.trim();
+
   const userPrompt = `Entity: ${name}\nCategory: ${category}\nDetails: ${currentDescription}`;
   
   return await callAI({ systemInstruction, userPrompt, temperature: 0.9 });
