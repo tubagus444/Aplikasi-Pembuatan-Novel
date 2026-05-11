@@ -20,7 +20,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
-import { processRewrite } from '../services/aiService';
+import { 
+  processRewrite, 
+  processChat, 
+  cancelAI, 
+  AIError, 
+  extractToCodex, 
+  expandCodexEntry 
+} from '../services/ai';
 import { cn } from '../lib/utils';
 import { AIAssistantPanel } from './AIAssistantPanel';
 import { SnapshotPanel } from './SnapshotPanel';
@@ -189,11 +196,11 @@ function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
       {activePanel === 'assistant' && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 340, opacity: 1 }}
+          animate={{ width: PANEL_WIDTH, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
         >
-          <div className="w-[340px] h-full absolute top-0 right-0">
+          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
             <AIAssistantPanel 
               projectId={projectId} 
               currentText={editor?.getText() || ''} 
@@ -209,11 +216,11 @@ function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
       {activePanel === 'snapshots' && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 340, opacity: 1 }}
+          animate={{ width: PANEL_WIDTH, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
         >
-          <div className="w-[340px] h-full absolute top-0 right-0">
+          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
             <SnapshotPanel 
               chapterId={chapterId} 
               currentContent={editor?.getHTML() || ''} 
@@ -230,11 +237,11 @@ function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
       {activePanel === 'timeline' && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 340, opacity: 1 }}
+          animate={{ width: PANEL_WIDTH, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
         >
-          <div className="w-[340px] h-full absolute top-0 right-0">
+          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
             <TimelinePanel chapterId={chapterId} projectId={projectId} />
           </div>
         </motion.div>
@@ -243,11 +250,11 @@ function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
       {activePanel === 'insights' && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 340, opacity: 1 }}
+          animate={{ width: PANEL_WIDTH, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
         >
-          <div className="w-[340px] h-full absolute top-0 right-0">
+          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
             <ProseInsights content={editor?.getText() || ''} />
           </div>
         </motion.div>
@@ -294,6 +301,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      cancelAI('rewrite');
     };
   }, []);
 
@@ -391,8 +399,10 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
       const html = editor.getHTML();
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus('Menyimpan...');
+      
+      const capturedId = chapterId;
       saveTimeoutRef.current = setTimeout(() => {
-        db.chapters.update(chapterIdRef.current, { content: html, lastModified: Date.now() }).then(() => {
+        db.chapters.update(capturedId, { content: html, lastModified: Date.now() }).then(() => {
           setSaveStatus('Tersimpan');
           setTimeout(() => setSaveStatus(''), 2000);
         });

@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check } from 'lucide-react';
 import { db } from '../db';
-import { processChat } from '../services/aiService';
+import { processChat, cancelAI } from '../services/ai';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '../lib/constants';
@@ -16,7 +16,6 @@ interface Message {
   role: 'user' | 'model';
   text: string;
   isActionable?: boolean;
-  // Fix 3: Add isWelcome flag
   isWelcome?: boolean;
   isError?: boolean;
 }
@@ -35,7 +34,6 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       id: '1', 
       role: 'model', 
       text: 'Halo! Saya asisten penulis AI Anda. Tanyakan tentang cerita Anda, lore karakter, atau mari brainstorming bersama.',
-      // Fix 3: Mark initial welcome message
       isWelcome: true 
     }
   ]);
@@ -43,16 +41,15 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Fix 2: Add timeoutRef to prevent memory leak
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasReceivedReply = messages.some(m => m.role === 'model' && !m.isWelcome);
 
-  // Fix 2: Cleanup timeout on unmount
+  // Fix 2: Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      cancelAI('chat');
     };
   }, []);
 
@@ -60,7 +57,6 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
-      // Fix 2: Clear existing timeout before setting new one
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
@@ -119,8 +115,6 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       const filteredCodex = getRelevantContext(contextSource, allCodex);
       const filteredBibleRules = getRelevantBibleRules(contextSource, allBibleRules);
 
-      // Fix 3: Use isWelcome flag instead of hardcoded id filter
-      // Fix 4: Add history sliding window slice(-6)
       const history = messages
         .filter(m => !m.isWelcome)
         .slice(-6)
@@ -199,7 +193,6 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
                           )}
                         </button>
                         
-                        {/* Fix 5: Handle unused onInsertText prop */}
                         {onInsertText && (
                           <button 
                             onClick={() => onInsertText(m.text)}

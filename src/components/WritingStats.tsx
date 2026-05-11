@@ -42,7 +42,8 @@ export function WritingStats({ projectId }: WritingStatsProps) {
   const totalWords = useMemo(() => {
     if (!chapters) return 0;
     return chapters.reduce((acc, ch) => {
-      const words = ch.content.trim() ? ch.content.trim().split(/\s+/).length : 0;
+      const plainText = ch.content.replace(/<[^>]*>/g, ' ').trim();
+      const words = plainText ? plainText.split(/\s+/).length : 0;
       return acc + words;
     }, 0);
   }, [chapters]);

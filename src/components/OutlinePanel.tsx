@@ -8,7 +8,7 @@ import { db } from '../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Sparkles, LayoutList, GripVertical, Trash2, UserCircle } from 'lucide-react';
 import { motion } from 'motion/react';
-import { processChat } from '../services/aiService';
+import { processChat } from '../services/ai';
 import { ChapterStatus } from '../types';
 import { cn } from '../lib/utils';
 import { STATUS_COLORS } from '../lib/constants';

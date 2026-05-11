@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Check, Database, Upload, Download, AlertTriangle } from 'lucide-react';
+import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { db } from '../db';
+import { testConnection } from '../services/ai';
+import { cn } from '../lib/utils';
 
 export function SettingsPanel() {
   const [provider, setProvider] = useState('google');
@@ -14,28 +16,71 @@ export function SettingsPanel() {
   const [isSaved, setIsSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [testStatuses, setTestStatuses] = useState<Record<string, 'idle' | 'loading' | 'success' | 'error'>>({
+    google: 'idle',
+    groq: 'idle',
+    openrouter: 'idle',
+    claude: 'idle'
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Load from localStorage on mount
+    // Load from localStorage on mount with minimal obfuscation
+    const loadKey = (name: string) => {
+      try {
+        const stored = localStorage.getItem(`ai_key_${name}`);
+        return stored ? atob(stored) : '';
+      } catch (e) {
+        return '';
+      }
+    };
+
     setProvider(localStorage.getItem('ai_provider') || 'google');
     setKeys({
-      google: localStorage.getItem('ai_key_google') || '',
-      groq: localStorage.getItem('ai_key_groq') || '',
-      openrouter: localStorage.getItem('ai_key_openrouter') || '',
-      claude: localStorage.getItem('ai_key_claude') || ''
+      google: loadKey('google'),
+      groq: loadKey('groq'),
+      openrouter: loadKey('openrouter'),
+      claude: loadKey('claude')
     });
   }, []);
 
   const handleSave = () => {
     localStorage.setItem('ai_provider', provider);
-    localStorage.setItem('ai_key_google', keys.google);
-    localStorage.setItem('ai_key_groq', keys.groq);
-    localStorage.setItem('ai_key_openrouter', keys.openrouter);
-    localStorage.setItem('ai_key_claude', keys.claude);
+    
+    const saveKey = (name: string, value: string) => {
+      if (value) {
+        localStorage.setItem(`ai_key_${name}`, btoa(value));
+        sessionStorage.setItem(`ai_key_${name}`, value); // Active session usage
+      } else {
+        localStorage.removeItem(`ai_key_${name}`);
+        sessionStorage.removeItem(`ai_key_${name}`);
+      }
+    };
+
+    saveKey('google', keys.google);
+    saveKey('groq', keys.groq);
+    saveKey('openrouter', keys.openrouter);
+    saveKey('claude', keys.claude);
     
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  const handleTestStatus = async (prov: string) => {
+    const key = keys[prov as keyof typeof keys];
+    if (!key) return;
+
+    setTestStatuses(prev => ({ ...prev, [prov]: 'loading' }));
+    try {
+      const ok = await testConnection(prov, key);
+      setTestStatuses(prev => ({ ...prev, [prov]: ok ? 'success' : 'error' }));
+    } catch (error) {
+      setTestStatuses(prev => ({ ...prev, [prov]: 'error' }));
+    } finally {
+      setTimeout(() => {
+        setTestStatuses(prev => ({ ...prev, [prov]: 'idle' }));
+      }, 3000);
+    }
   };
 
   const handleBackup = async () => {
@@ -167,57 +212,51 @@ export function SettingsPanel() {
         <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">API Keys</h3>
           
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-              Google AI Studio Key (Gemini)
-            </label>
-            <input 
-              type="password" 
-              value={keys.google}
-              onChange={(e) => setKeys({...keys, google: e.target.value})}
-              placeholder="AIzaSy..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-              Groq Cloud API Key
-            </label>
-            <input 
-              type="password" 
-              value={keys.groq}
-              onChange={(e) => setKeys({...keys, groq: e.target.value})}
-              placeholder="gsk_..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-              OpenRouter API Key
-            </label>
-            <input 
-              type="password" 
-              value={keys.openrouter}
-              onChange={(e) => setKeys({...keys, openrouter: e.target.value})}
-              placeholder="sk-or-..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-              Claude API Key (Anthropic)
-            </label>
-            <input 
-              type="password" 
-              value={keys.claude}
-              onChange={(e) => setKeys({...keys, claude: e.target.value})}
-              placeholder="sk-ant-..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
+          {[
+            { id: 'google', name: 'Google AI Studio (Gemini)', placeholder: 'AIzaSy...' },
+            { id: 'groq', name: 'Groq Cloud', placeholder: 'gsk_...' },
+            { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-...' },
+            { id: 'claude', name: 'Claude (Anthropic)', placeholder: 'sk-ant-...' },
+          ].map((item) => (
+            <div key={item.id}>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                {item.name}
+              </label>
+              <div className="flex gap-2">
+                <input 
+                  type="password" 
+                  value={keys[item.id as keyof typeof keys]}
+                  onChange={(e) => setKeys({...keys, [item.id]: e.target.value})}
+                  placeholder={item.placeholder}
+                  className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleTestStatus(item.id)}
+                  disabled={!keys[item.id as keyof typeof keys] || testStatuses[item.id] === 'loading'}
+                  title="Check Connection"
+                  className={cn(
+                    "px-3 py-2 rounded-md border transition-all flex items-center justify-center min-w-[80px]",
+                    testStatuses[item.id] === 'idle' && "bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700 hover:bg-slate-50",
+                    testStatuses[item.id] === 'loading' && "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700",
+                    testStatuses[item.id] === 'success' && "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border-emerald-200 dark:border-emerald-900/50",
+                    testStatuses[item.id] === 'error' && "bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-900/50"
+                  )}
+                >
+                  {testStatuses[item.id] === 'loading' && <Loader2 size={16} className="animate-spin" />}
+                  {testStatuses[item.id] === 'success' && <Check size={16} />}
+                  {testStatuses[item.id] === 'error' && <XCircle size={16} />}
+                  {testStatuses[item.id] === 'idle' && <RefreshCcw size={14} className="mr-1.5" />}
+                  <span className="text-xs font-medium">
+                    {testStatuses[item.id] === 'idle' && 'Check'}
+                    {testStatuses[item.id] === 'loading' && '...'}
+                    {testStatuses[item.id] === 'success' && 'Connected'}
+                    {testStatuses[item.id] === 'error' && 'Failed'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="pt-4 flex justify-end">

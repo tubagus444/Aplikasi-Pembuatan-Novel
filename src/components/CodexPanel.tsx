@@ -10,7 +10,7 @@ import { Plus, Trash2, Tag, User, MapPin, Sparkles, BookOpen, Database, Search, 
 import { CodexEntry, CodexCategory } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { expandCodexEntry } from '../services/aiService';
+import { expandCodexEntry } from '../services/ai';
 import { AIAssistantPanel } from './AIAssistantPanel';
 import { useToast } from '../hooks/useToast';
 import { useHighlightedSegments } from '../hooks/useHighlightedSegments';

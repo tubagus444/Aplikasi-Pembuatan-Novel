@@ -27,6 +27,8 @@ export class AetherScribeDB extends Dexie {
       snapshots: '++id, chapterId, timestamp',
       timeline: '++id, chapterId, projectId, type',
       relationships: '++id, projectId, sourceId, targetId'
+    }).upgrade(() => {
+      // Future migrations go here
     });
   }
 }

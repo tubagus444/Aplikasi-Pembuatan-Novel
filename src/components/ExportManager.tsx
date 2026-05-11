@@ -113,8 +113,6 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
     try {
       const chapters = await getAllChaptersPath();
       
-      await new Promise(r => setTimeout(r, 1500));
-
       switch (format) {
         case 'md': await exportMarkdown(chapters); break;
         case 'pdf': await exportPDF(chapters); break;

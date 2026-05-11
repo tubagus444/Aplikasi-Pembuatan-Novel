@@ -20,41 +20,52 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
     showRef.current = show;
   }, [show]);
 
-  useEffect(() => {
-    const handleSelection = () => {
-      const { selection } = editor.state;
-      if (selection.empty) {
-        setShow(false);
-        return;
-      }
+  const selectionTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-      // Small timeout to allow DOM to paint the selection rect
-      setTimeout(() => {
-        const domSelection = window.getSelection();
-        if (domSelection && domSelection.rangeCount > 0) {
-          const range = domSelection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          
-          // Only show if the selection actually has dimensions
-          if (rect.width > 0 && rect.height > 0) {
-            setPosition({
-              top: rect.top - 8, // 8px above the top of the selection
-              left: rect.left + (rect.width / 2) // Centered over selection
-            });
-            setShow(true);
-          } else {
-            setShow(false);
-          }
+  const handleSelection = React.useCallback(() => {
+    const { selection } = editor.state;
+    if (selection.empty) {
+      setShow(false);
+      return;
+    }
+
+    if (selectionTimerRef.current) clearTimeout(selectionTimerRef.current);
+
+    // Small timeout to allow DOM to paint the selection rect
+    selectionTimerRef.current = setTimeout(() => {
+      const domSelection = window.getSelection();
+      if (domSelection && domSelection.rangeCount > 0) {
+        const range = domSelection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        
+        // Only show if the selection actually has dimensions
+        if (rect.width > 0 && rect.height > 0) {
+          setPosition({
+            top: rect.top - 8, // 8px above the top of the selection
+            left: rect.left + (rect.width / 2) // Centered over selection
+          });
+          setShow(true);
+        } else {
+          setShow(false);
         }
-      }, 0);
-    };
+      }
+    }, 0);
+  }, [editor]);
 
+  useEffect(() => {
+    return () => {
+      if (selectionTimerRef.current) clearTimeout(selectionTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     editor.on('selectionUpdate', handleSelection);
     
     // Update position on scroll/resize
     const handleScrollOrResize = () => {
-      if (showRef.current) handleSelection();
+      if (show) handleSelection();
     };
+
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize);
 
@@ -63,7 +74,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [editor]);
+  }, [editor, handleSelection, show]);
 
   return (
     <AnimatePresence>
@@ -119,7 +130,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
                <button 
                  key={action.id}
                  onClick={() => onAiAction(action.prompt)} 
-                 className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors shrink-0"
+                 className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-full transition-colors shrink-0"
                >
                  {action.label}
                </button>
