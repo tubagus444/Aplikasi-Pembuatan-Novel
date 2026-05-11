@@ -9,6 +9,7 @@ export interface AIProviderConfig {
 export interface AIRenderParams {
   systemInstruction: string;
   userPrompt: string;
+  model?: string;
   history?: { role: 'user' | 'model', parts: { text: string }[] }[];
   temperature?: number;
   signal?: AbortSignal;

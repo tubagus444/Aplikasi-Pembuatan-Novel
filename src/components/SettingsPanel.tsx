@@ -13,6 +13,12 @@ export function SettingsPanel() {
     openrouter: '',
     claude: ''
   });
+  const [models, setModels] = useState({
+    google: '',
+    groq: '',
+    openrouter: '',
+    claude: ''
+  });
   const [isSaved, setIsSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -35,12 +41,22 @@ export function SettingsPanel() {
       }
     };
 
+    const loadModel = (name: string) => {
+      return localStorage.getItem(`ai_model_${name}`) || '';
+    };
+
     setProvider(localStorage.getItem('ai_provider') || 'google');
     setKeys({
       google: loadKey('google'),
       groq: loadKey('groq'),
       openrouter: loadKey('openrouter'),
       claude: loadKey('claude')
+    });
+    setModels({
+      google: loadModel('google'),
+      groq: loadModel('groq'),
+      openrouter: loadModel('openrouter'),
+      claude: loadModel('claude')
     });
   }, []);
 
@@ -57,10 +73,23 @@ export function SettingsPanel() {
       }
     };
 
+    const saveModel = (name: string, value: string) => {
+      if (value) {
+        localStorage.setItem(`ai_model_${name}`, value);
+      } else {
+        localStorage.removeItem(`ai_model_${name}`);
+      }
+    };
+
     saveKey('google', keys.google);
     saveKey('groq', keys.groq);
     saveKey('openrouter', keys.openrouter);
     saveKey('claude', keys.claude);
+
+    saveModel('google', models.google);
+    saveModel('groq', models.groq);
+    saveModel('openrouter', models.openrouter);
+    saveModel('claude', models.claude);
     
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
@@ -223,13 +252,22 @@ export function SettingsPanel() {
                 {item.name}
               </label>
               <div className="flex gap-2">
-                <input 
-                  type="password" 
-                  value={keys[item.id as keyof typeof keys]}
-                  onChange={(e) => setKeys({...keys, [item.id]: e.target.value})}
-                  placeholder={item.placeholder}
-                  className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <div className="flex-1 space-y-2">
+                  <input 
+                    type="password" 
+                    value={keys[item.id as keyof typeof keys]}
+                    onChange={(e) => setKeys({...keys, [item.id]: e.target.value})}
+                    placeholder={`API Key: ${item.placeholder}`}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input 
+                    type="text" 
+                    value={models[item.id as keyof typeof models]}
+                    onChange={(e) => setModels({...models, [item.id]: e.target.value})}
+                    placeholder="Model name (e.g. gpt-4o, claude-3-5-sonnet...)"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => handleTestStatus(item.id)}

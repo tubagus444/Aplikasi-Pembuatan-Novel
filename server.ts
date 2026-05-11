@@ -31,6 +31,8 @@ async function startServer() {
         apiKey = process.env.OPENROUTER_API_KEY || (customHeaders?.['Authorization']?.replace('Bearer ', '')) || '';
         url = 'https://openrouter.ai/api/v1/chat/completions';
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['HTTP-Referer'] = 'http://localhost:3000';
+        headers['X-Title'] = 'AetherScribe IWE';
         break;
       case 'claude':
         apiKey = process.env.CLAUDE_API_KEY || customHeaders?.['x-api-key'] || '';

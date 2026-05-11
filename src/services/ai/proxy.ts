@@ -2,19 +2,13 @@ import { AIRenderParams } from "./types";
 
 export async function callProxy(provider: string, params: AIRenderParams, apiKey?: string): Promise<string> {
   const body: any = {
-    model: getModelForProvider(provider),
+    model: params.model || getModelForProvider(provider),
   };
 
   if (provider === 'claude') {
     body.temperature = params.temperature || 0.7;
     body.max_tokens = 4000;
-    body.system = [
-      {
-        type: 'text',
-        text: params.systemInstruction,
-        cache_control: { type: 'ephemeral' }
-      }
-    ];
+    body.system = params.systemInstruction;
     body.messages = [
       ...(params.history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
       { role: "user", content: params.userPrompt }
@@ -79,7 +73,7 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
 function getModelForProvider(provider: string) {
   switch (provider) {
     case 'groq': return 'llama-3.3-70b-versatile';
-    case 'openrouter': return 'anthropic/claude-3.5-sonnet';
+    case 'openrouter': return 'meta-llama/llama-3.3-70b-instruct:free';
     case 'claude': return 'claude-3-5-sonnet-20241022';
     case 'google': return 'gemini-1.5-flash'; // Fixed default model for rest api
     default: return '';

@@ -48,6 +48,12 @@ function getSettings() {
       groq: loadKey('groq'),
       openrouter: loadKey('openrouter'),
       claude: loadKey('claude')
+    },
+    models: {
+      google: localStorage.getItem('ai_model_google') || '',
+      groq: localStorage.getItem('ai_model_groq') || '',
+      openrouter: localStorage.getItem('ai_model_openrouter') || '',
+      claude: localStorage.getItem('ai_model_claude') || ''
     }
   };
 }
@@ -66,8 +72,12 @@ async function callAI(params: AIRenderParams): Promise<string> {
   const settings = getSettings();
   
   try {
+    // Inject custom model if available for the provider
+    if (!params.model) {
+      params.model = settings.models[settings.provider as keyof typeof settings.models];
+    }
+
     // Prefer proxy for all providers to hide keys if possible and avoid CORS
-    // Explicitly use callGemini SDK only if explicitly desired or as fallback
     return await callProxy(settings.provider, params, settings.keys[settings.provider as keyof typeof settings.keys]);
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
