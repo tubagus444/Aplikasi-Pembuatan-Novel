@@ -41,8 +41,11 @@ async function startServer() {
         headers['anthropic-version'] = '2023-06-01';
         break;
       case 'google':
-        apiKey = process.env.GEMINI_API_KEY || customHeaders?.['x-api-key'] || ''; // Client should send x-api-key for consistency in proxy
-        url = `https://generativelanguage.googleapis.com/v1beta/models/${body.model}:generateContent?key=${apiKey}`;
+        apiKey = customHeaders?.['x-api-key'] || process.env.GEMINI_API_KEY || '';
+        // Ensure model name is correctly formatted for the URL
+        const modelName = body.model || 'gemini-1.5-flash';
+        const sanitizedModel = modelName.includes('/') ? modelName : `models/${modelName}`;
+        url = `https://generativelanguage.googleapis.com/v1beta/${sanitizedModel}:generateContent?key=${apiKey}`;
         break;
       default:
         return res.status(400).json({ error: "Unsupported provider" });

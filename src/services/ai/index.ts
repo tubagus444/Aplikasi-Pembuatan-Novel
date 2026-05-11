@@ -227,12 +227,13 @@ ${buildContextBlock(bibleRules, [])}
   return await callAI({ systemInstruction, userPrompt, temperature: 0.9 });
 }
 
-export async function testConnection(provider: string, apiKey: string): Promise<boolean> {
+export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {
   try {
     const params: AIRenderParams = {
       systemInstruction: "You are a connectivity tester. Reply only with 'OK'.",
       userPrompt: "Hi",
-      temperature: 0.1
+      temperature: 0.1,
+      model: model || undefined
     };
 
     let result = '';

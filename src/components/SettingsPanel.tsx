@@ -64,9 +64,10 @@ export function SettingsPanel() {
     localStorage.setItem('ai_provider', provider);
     
     const saveKey = (name: string, value: string) => {
-      if (value) {
-        localStorage.setItem(`ai_key_${name}`, btoa(value));
-        sessionStorage.setItem(`ai_key_${name}`, value); // Active session usage
+      const trimmedValue = value.trim();
+      if (trimmedValue) {
+        localStorage.setItem(`ai_key_${name}`, btoa(trimmedValue));
+        sessionStorage.setItem(`ai_key_${name}`, trimmedValue); // Active session usage
       } else {
         localStorage.removeItem(`ai_key_${name}`);
         sessionStorage.removeItem(`ai_key_${name}`);
@@ -96,12 +97,14 @@ export function SettingsPanel() {
   };
 
   const handleTestStatus = async (prov: string) => {
-    const key = keys[prov as keyof typeof keys];
+    const key = keys[prov as keyof typeof keys]?.trim();
     if (!key) return;
+
+    const model = models[prov as keyof typeof models]?.trim();
 
     setTestStatuses(prev => ({ ...prev, [prov]: 'loading' }));
     try {
-      const ok = await testConnection(prov, key);
+      const ok = await testConnection(prov, key, model);
       setTestStatuses(prev => ({ ...prev, [prov]: ok ? 'success' : 'error' }));
     } catch (error) {
       setTestStatuses(prev => ({ ...prev, [prov]: 'error' }));
