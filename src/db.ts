@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship } from './types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship, AppError } from './types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -15,10 +15,11 @@ export class AetherScribeDB extends Dexie {
   snapshots!: Table<Snapshot>;
   timeline!: Table<StoryBeat>;
   relationships!: Table<Relationship>;
+  errors!: Table<AppError>;
 
   constructor() {
     super('AetherScribeDB');
-    this.version(6).stores({
+    this.version(7).stores({
       projects: '++id, name, lastOpened',
       chapters: '++id, projectId, order',
       codex: '++id, projectId, name, category, *aliases',
@@ -26,7 +27,8 @@ export class AetherScribeDB extends Dexie {
       aiActions: '++id, projectId, label',
       snapshots: '++id, chapterId, timestamp',
       timeline: '++id, chapterId, projectId, type',
-      relationships: '++id, projectId, sourceId, targetId'
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type'
     }).upgrade(() => {
       // Future migrations go here
     });

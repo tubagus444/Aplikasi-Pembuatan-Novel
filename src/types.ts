@@ -95,3 +95,13 @@ export interface AISettings {
   model: string;
   temperature: number;
 }
+
+export interface AppError {
+  id?: number;
+  message: string;
+  stack?: string;
+  timestamp: number;
+  type: 'error' | 'warning' | 'info';
+  source?: string;
+  metadata?: any;
+}

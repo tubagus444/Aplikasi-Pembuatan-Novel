@@ -1,14 +1,12 @@
 import React, { useMemo } from 'react';
 import { CodexEntry } from '../types';
+import { getCodexRegex } from '../lib/utils';
 
 const segmentRegexCache = new Map<string, RegExp>();
 
 function getSegmentRegex(name: string): RegExp {
   if (!segmentRegexCache.has(name)) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const start = name[0] && /\w/.test(name[0]) ? '\\b' : '';
-    const end = name[name.length - 1] && /\w/.test(name[name.length - 1]) ? '\\b' : '';
-    segmentRegexCache.set(name, new RegExp(`(${start}${escaped}${end})`, 'gi'));
+    segmentRegexCache.set(name, getCodexRegex(name));
   }
   return new RegExp(segmentRegexCache.get(name)!.source, 'gi');
 }
@@ -31,7 +29,8 @@ export function useHighlightedSegments(
         segments.forEach((seg, si) => {
           if (typeof seg !== 'string') { next.push(seg); return; }
           seg.split(regex).forEach((part, pi) => {
-            if (part.toLowerCase() === name.toLowerCase()) {
+            // Check if part starts with the name, indicating it might have a suffix
+            if (part && part.toLowerCase().startsWith(name.toLowerCase())) {
               next.push(renderMatch(entry, part, `${entry.id}-${si}-${pi}-${idx++}`));
             } else if (part) {
               next.push(part);

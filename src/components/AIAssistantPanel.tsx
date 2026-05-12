@@ -10,6 +10,7 @@ import { processChat, cancelAI } from '../services/ai';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '../lib/constants';
+import { cn } from '../lib/utils';
 
 interface Message {
   id: string;
@@ -37,9 +38,25 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       isWelcome: true 
     }
   ]);
+  const [selectedProvider, setSelectedProvider] = useState<string>(localStorage.getItem('ai_provider') || 'google');
+  const [availableProviders, setAvailableProviders] = useState<string[]>(['google']);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check which providers have keys
+    const checkProviders = () => {
+      const providers = ['google', 'claude', 'groq', 'openrouter'];
+      const active = providers.filter(p => {
+        if (p === 'google' && process.env.GEMINI_API_KEY) return true;
+        const key = localStorage.getItem(`ai_key_${p}`);
+        return !!key;
+      });
+      setAvailableProviders(active.length > 0 ? active : ['google']);
+    };
+    checkProviders();
+  }, []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,7 +145,8 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
         history,
         bibleRules: filteredBibleRules,
         codexEntries: filteredCodex,
-        contextText: currentText
+        contextText: currentText,
+        provider: selectedProvider
       });
 
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, isActionable: true }]);
@@ -143,11 +161,32 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
   return (
     <div style={{ width: PANEL_WIDTH }} className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-2xl relative z-30 shrink-0">
       <div className="h-14 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-5 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-md flex items-center justify-center shadow-sm">
-            <Sparkles size={14} />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-md flex items-center justify-center shadow-sm">
+              <Sparkles size={14} />
+            </div>
+            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 tracking-tight">Nova Assistant</h3>
           </div>
-          <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 tracking-tight">Nova Assistant</h3>
+          
+          {availableProviders.length > 1 && (
+            <div className="flex bg-slate-200/50 dark:bg-slate-700/50 p-0.5 rounded-lg ml-2">
+              {availableProviders.map(p => (
+                <button
+                  key={p}
+                  onClick={() => setSelectedProvider(p)}
+                  className={cn(
+                    "px-2 py-0.5 text-[9px] font-bold rounded-md transition-all uppercase",
+                    selectedProvider === p 
+                      ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                >
+                  {p === 'google' ? 'Gemini' : p}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button onClick={onClose} aria-label="Tutup asisten" className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-200 rounded-md transition-colors">
           <X size={16} />

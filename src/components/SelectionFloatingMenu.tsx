@@ -7,13 +7,30 @@ import { AIAction } from '../types';
 
 interface SelectionFloatingMenuProps {
   editor: Editor;
-  onAiAction: (action: string) => void;
+  onAiAction: (action: string, provider?: string) => void;
   customActions?: AIAction[];
 }
 
 export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<string>(localStorage.getItem('ai_provider') || 'google');
+  const [availableProviders, setAvailableProviders] = useState<string[]>(['google']);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    // Check which providers have keys
+    const checkProviders = () => {
+      const providers = ['google', 'claude', 'groq', 'openrouter'];
+      const active = providers.filter(p => {
+        if (p === 'google' && process.env.GEMINI_API_KEY) return true;
+        const key = localStorage.getItem(`ai_key_${p}`);
+        return !!key;
+      });
+      setAvailableProviders(active.length > 0 ? active : ['google']);
+    };
+    checkProviders();
+  }, []);
+
   const showRef = React.useRef(show);
 
   useEffect(() => {
@@ -84,9 +101,31 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
            animate={{ opacity: 1, y: 0, scale: 1 }}
            exit={{ opacity: 0, y: 10, scale: 0.95 }}
            transition={{ duration: 0.15, ease: "easeOut" }}
-           className="fixed z-[100] flex flex-nowrap bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 shadow-xl rounded-full p-1 gap-0.5 items-center transform -translate-x-1/2 -translate-y-full"
+           className="fixed z-[100] flex flex-nowrap bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 shadow-2xl rounded-full p-1 gap-0.5 items-center transform -translate-x-1/2 -translate-y-full"
            style={{ top: position.top, left: position.left, maxWidth: '90vw' }}
          >
+           {availableProviders.length > 1 && (
+             <>
+               <div className="flex gap-1 px-1.5 border-r border-slate-200 dark:border-slate-700 mr-0.5">
+                  {availableProviders.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setSelectedProvider(p)}
+                      title={`Use ${p}`}
+                      className={cn(
+                        "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all uppercase",
+                        selectedProvider === p 
+                          ? "ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-indigo-500 bg-indigo-600 text-white" 
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      )}
+                    >
+                      {p[0]}
+                    </button>
+                  ))}
+               </div>
+             </>
+           )}
+
            <div className="flex px-1 gap-0.5">
              <button 
                onClick={() => editor.chain().focus().toggleBold().run()}
@@ -108,20 +147,20 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
            
            <div className="flex items-center gap-0.5 px-1 overflow-x-auto no-scrollbar mask-edges">
              <button 
-               onClick={() => onAiAction("Show don't tell")}
+               onClick={() => onAiAction("Show don't tell", selectedProvider)}
                className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-full transition-colors flex items-center gap-1.5 shrink-0"
              >
                <Sparkles size={12} className="text-indigo-500 dark:text-indigo-400" />
                Show, don't tell
              </button>
              <button 
-               onClick={() => onAiAction("Focus Senses")}
+               onClick={() => onAiAction("Focus Senses", selectedProvider)}
                className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-full transition-colors shrink-0"
              >
                Senses
              </button>
              <button 
-               onClick={() => onAiAction("Intensify")}
+               onClick={() => onAiAction("Intensify", selectedProvider)}
                className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-full transition-colors shrink-0"
              >
                Intensify
@@ -129,7 +168,7 @@ export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }
              {customActions?.map((action) => (
                <button 
                  key={action.id}
-                 onClick={() => onAiAction(action.prompt)} 
+                 onClick={() => onAiAction(action.prompt, selectedProvider)} 
                  className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-full transition-colors shrink-0"
                >
                  {action.label}

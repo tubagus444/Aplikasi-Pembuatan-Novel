@@ -70,15 +70,16 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[]): string
 
 async function callAI(params: AIRenderParams): Promise<string> {
   const settings = getSettings();
+  const provider = params.provider || settings.provider;
   
   try {
     // Inject custom model if available for the provider
     if (!params.model) {
-      params.model = settings.models[settings.provider as keyof typeof settings.models];
+      params.model = settings.models[provider as keyof typeof settings.models];
     }
 
     // Prefer proxy for all providers to hide keys if possible and avoid CORS
-    return await callProxy(settings.provider, params, settings.keys[settings.provider as keyof typeof settings.keys]);
+    return await callProxy(provider, params, settings.keys[provider as keyof typeof settings.keys]);
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
     throw new AIError(error.message || 'AI processing failed', 'API_ERROR');
@@ -129,6 +130,7 @@ Rewritten Text:
     const res = await callAI({
       systemInstruction,
       userPrompt,
+      provider: params.provider,
       temperature: 0.85,
       signal: controller.signal
     });
@@ -167,6 +169,7 @@ Answer the user's questions, suggest plots, or help them break writer's block ba
     const res = await callAI({
       systemInstruction,
       userPrompt: params.message,
+      provider: params.provider,
       history: params.history,
       temperature: 0.7,
       signal: controller.signal

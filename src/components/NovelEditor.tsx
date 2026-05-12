@@ -500,7 +500,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     db.chapters.update(chapterId, { title: newTitle });
   };
 
-  const runAiAction = async (action: string) => {
+  const runAiAction = async (action: string, provider?: string) => {
     if (!editor) return;
     const { from, to } = editor.state.selection;
     const selectedText = editor.state.doc.textBetween(from, to, ' ');
@@ -517,7 +517,8 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
         selection: selectedText,
         bibleRules: relevantBible,
         codexEntries: relevantCodex,
-        prompt: ''
+        prompt: '',
+        provider
       });
 
       editor.commands.insertContentAt({ from, to }, result);

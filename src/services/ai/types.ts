@@ -9,6 +9,7 @@ export interface AIProviderConfig {
 export interface AIRenderParams {
   systemInstruction: string;
   userPrompt: string;
+  provider?: string;
   model?: string;
   history?: { role: 'user' | 'model', parts: { text: string }[] }[];
   temperature?: number;
@@ -21,6 +22,7 @@ export interface GenerateParams {
   bibleRules: StoryBibleRule[];
   codexEntries: CodexEntry[];
   action: string;
+  provider?: string;
 }
 
 export interface ChatParams {
@@ -29,4 +31,5 @@ export interface ChatParams {
   bibleRules: StoryBibleRule[];
   codexEntries: CodexEntry[];
   contextText: string;
+  provider?: string;
 }

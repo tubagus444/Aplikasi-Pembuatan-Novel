@@ -4,6 +4,7 @@
  */
 
 import { CodexEntry, StoryBibleRule } from "../types";
+import { getCodexRegex } from "../lib/utils";
 
 const ALWAYS_INCLUDE = [
   '__STORY_TITLE__',
@@ -63,17 +64,7 @@ export function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexE
 function getBoundaryRegex(name: string): RegExp {
   if (regexCache.has(name)) return regexCache.get(name)!;
 
-  const escapedName = escapeRegExp(name);
-  const startChar = name[0];
-  const endChar = name[name.length - 1];
-  
-  const requireStartBoundary = startChar && /\w/.test(startChar);
-  const requireEndBoundary = endChar && /\w/.test(endChar);
-  
-  const prefix = requireStartBoundary ? '\\b' : '';
-  const suffix = requireEndBoundary ? '\\b' : '';
-  
-  const regex = new RegExp(`${prefix}${escapedName}${suffix}`, 'i');
+  const regex = getCodexRegex(name);
   
   regexCache.set(name, regex);
   if (regexCache.size > 500) {

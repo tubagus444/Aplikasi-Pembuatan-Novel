@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
+import { getCodexRegex } from '../lib/utils';
 
 interface PassiveCodexHighlightOptions {
   getCodexEntries: () => { id?: number; name: string; aliases?: string[]; description?: string; category?: string }[];
@@ -12,10 +13,7 @@ const regexCache = new Map<string, RegExp>();
 
 function getRegex(name: string): RegExp {
   if (!regexCache.has(name)) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const start = name[0] && /\w/.test(name[0]) ? '\\b' : '';
-    const end = name[name.length - 1] && /\w/.test(name[name.length - 1]) ? '\\b' : '';
-    regexCache.set(name, new RegExp(`(${start}${escaped}${end})`, 'gi'));
+    regexCache.set(name, getCodexRegex(name));
   }
   return new RegExp(regexCache.get(name)!.source, 'gi'); // return fresh instance to reset lastIndex
 }

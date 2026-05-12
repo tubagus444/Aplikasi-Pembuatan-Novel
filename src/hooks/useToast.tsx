@@ -1,4 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback } from 'react';
+import { ErrorService } from '../services/errorService';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -27,6 +28,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback((type: ToastType, message: string) => {
     const id = Date.now().toString() + Math.random().toString();
     setToasts(prev => [...prev, { id, type, message }]);
+
+    // Log non-success messages to the Error DB
+    if (type !== 'success') {
+      ErrorService.log({
+        message,
+        type: type,
+        source: 'Toast Notification'
+      });
+    }
   }, []);
 
   const removeToast = useCallback((id: string) => {

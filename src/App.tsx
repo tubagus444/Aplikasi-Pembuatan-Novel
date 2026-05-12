@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, ensureDefaultProject } from './db';
-import { Book, FileText, Settings, Sparkles, Database, ChevronLeft, ChevronRight, Plus, ScrollText, LayoutList, Zap, Moon, Sun, Monitor } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, ChevronLeft, ChevronRight, Plus, ScrollText, LayoutList, Zap, Moon, Sun, Monitor, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from './ThemeContext';
 import { ChapterList } from './components/ChapterList';
@@ -26,7 +26,10 @@ import { cn } from './lib/utils';
 import { ToastProvider } from './hooks/useToast';
 import { ToastContainer } from './components/Toast';
 
-type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide';
+import { ErrorLogPanel } from './components/ErrorLogPanel';
+import { ErrorService } from './services/errorService';
+
+type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors';
 
 export default function App() {
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -39,6 +42,29 @@ export default function App() {
 
   // Initialize DB and Project
   useEffect(() => {
+    // Global Error Handling
+    const handleGlobalError = (event: ErrorEvent) => {
+      ErrorService.log({
+        message: event.message,
+        type: 'error',
+        source: 'Global (Window)',
+        stack: event.error?.stack
+      });
+    };
+
+    const handlePromiseRejection = (event: PromiseRejectionEvent) => {
+      ErrorService.log({
+        message: event.reason?.message || String(event.reason),
+        type: 'error',
+        source: 'Promise Rejection',
+        stack: event.reason?.stack,
+        metadata: { reason: event.reason }
+      });
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handlePromiseRejection);
+
     ensureDefaultProject().then(id => {
       if (id) {
         setProjectId(id);
@@ -55,7 +81,11 @@ export default function App() {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handlePromiseRejection);
+    };
   }, []);
 
   const project = useLiveQuery(() => 
@@ -193,6 +223,24 @@ export default function App() {
             >
               <HelpCircle size={14} /> Panduan
             </button>
+            <button 
+              onClick={() => setViewMode('settings')}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all",
+                viewMode === 'settings' ? "bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+              )}
+            >
+              <Settings size={14} /> Pengaturan
+            </button>
+            <button 
+              onClick={() => setViewMode('errors')}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all",
+                viewMode === 'errors' ? "bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+              )}
+            >
+              <AlertTriangle size={14} /> Log Error
+            </button>
           </nav>
         </div>
 
@@ -268,18 +316,6 @@ export default function App() {
                 title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
               >
                 {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
-              <button 
-                onClick={() => setViewMode('settings')}
-                className={cn(
-                  "p-1.5 transition-colors rounded-md",
-                  viewMode === 'settings' 
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600"
-                    : "text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                )}
-                title="Settings"
-              >
-                <Settings size={16} />
               </button>
             </div>
 
@@ -416,6 +452,18 @@ export default function App() {
                 className="h-full p-10 overflow-y-auto custom-scrollbar"
               >
                 <GuidePanel />
+              </motion.div>
+            )}
+
+            {viewMode === 'errors' && (
+              <motion.div 
+                key="errors"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full p-10 overflow-y-auto custom-scrollbar"
+              >
+                <ErrorLogPanel />
               </motion.div>
             )}
           </AnimatePresence>

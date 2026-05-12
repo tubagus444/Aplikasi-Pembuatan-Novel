@@ -161,7 +161,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           <div>
             <div className="flex items-center">
               <input 
-                className="w-full bg-transparent border-none p-0 text-4xl sm:text-5xl font-serif font-bold text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700/50 focus:ring-0 focus:outline-none transition-colors"
+                className="w-full bg-transparent border-none p-0 text-4xl sm:text-5xl font-serif font-bold text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:ring-0 focus:outline-none transition-colors"
                 placeholder="Judul Novel..."
                 value={formData.title}
                 onChange={e => handleFieldChange('title', e.target.value)}
@@ -200,7 +200,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           </div>
           <div className="relative">
             <textarea 
-              className="w-full bg-slate-50 dark:bg-bg-tertiary border-0 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500/50 min-h-[160px] resize-none transition-all"
+              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[160px] resize-none transition-all outline-none"
               placeholder="mis. Seorang pencuri yatim piatu menemukan bahwa kekuatannya berasal dari dewa yang terlupakan..."
               value={formData.premise}
               onChange={e => handleFieldChange('premise', e.target.value.substring(0, 500))}
@@ -215,7 +215,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
       <section className="mt-16 space-y-8">
         <div className="border-b border-slate-200 dark:border-white/5 pb-4 mb-6">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Pembangunan Dunia</h2>
-          <p className="text-sm text-slate-500 mt-1">Latar belakang, aturan, dan roh ceritamu.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Latar belakang, aturan, dan roh ceritamu.</p>
         </div>
 
         <div>
@@ -228,13 +228,15 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
             </h3>
             <span className="text-xs text-slate-400 dark:text-slate-500">{formData.setting.length}/400</span>
           </div>
-          <textarea 
-            className="w-full bg-slate-50 dark:bg-bg-tertiary border-0 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500/50 min-h-[120px] resize-none transition-all"
-            placeholder="mis. Dunia di mana sihir berasal dari musik..."
-            value={formData.setting}
-            onChange={e => handleFieldChange('setting', e.target.value.substring(0, 400))}
-            onBlur={() => handleBlur('setting')}
-          />
+          <div className="relative">
+            <textarea 
+              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[120px] resize-none transition-all outline-none"
+              placeholder="mis. Dunia di mana sihir berasal dari musik..."
+              value={formData.setting}
+              onChange={e => handleFieldChange('setting', e.target.value.substring(0, 400))}
+              onBlur={() => handleBlur('setting')}
+            />
+          </div>
         </div>
 
         <div>
@@ -246,13 +248,15 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
               )}
             </h3>
           </div>
-          <textarea 
-            className="w-full bg-slate-50 dark:bg-bg-tertiary border-0 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500/50 min-h-[120px] resize-none transition-all"
-            placeholder="mis. Pengorbanan vs. ambisi • Identitas di tengah ekspektasi keluarga..."
-            value={formData.themes}
-            onChange={e => handleFieldChange('themes', e.target.value)}
-            onBlur={() => handleBlur('themes')}
-          />
+          <div className="relative">
+            <textarea 
+              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[120px] resize-none transition-all outline-none"
+              placeholder="mis. Pengorbanan vs. ambisi • Identitas di tengah ekspektasi keluarga..."
+              value={formData.themes}
+              onChange={e => handleFieldChange('themes', e.target.value)}
+              onBlur={() => handleBlur('themes')}
+            />
+          </div>
         </div>
       </section>
 
@@ -260,14 +264,14 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
       <section className="mt-16 space-y-10">
         <div className="border-b border-slate-200 dark:border-white/5 pb-4 mb-6">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Karakteristik</h2>
-          <p className="text-sm text-slate-500 mt-1">Genre, nuansa, sudut pandang, hingga laju penceritaan.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Genre, nuansa, sudut pandang, hingga laju penceritaan.</p>
         </div>
 
         <div>
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">Genre</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Pilih sub-genre yang paling mendekati ceritamu.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pilih sub-genre yang paling mendekati ceritamu.</p>
             </div>
             <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{formData.genres.length}/3 dipilih</span>
           </div>
@@ -297,7 +301,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">Nada / Tone</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Nuansa cerita yang membangun audiens.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Nuansa cerita yang membangun audiens.</p>
             </div>
             <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{formData.tones.length}/3 dipilih</span>
           </div>
@@ -339,7 +343,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                       "w-full flex items-start gap-4 p-4 rounded-2xl border text-left transition-all",
                       isActive 
                         ? "bg-amber-500/5 border-amber-500/30" 
-                        : "bg-slate-50 dark:bg-bg-tertiary border-transparent hover:bg-slate-100 dark:hover:bg-bg-secondary"
+                        : "bg-slate-50/50 dark:bg-slate-900/50 border-transparent dark:border-white/5 hover:bg-slate-100 dark:hover:bg-slate-800/50"
                     )}
                   >
                     <div className={cn(
@@ -373,7 +377,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                       "w-full flex items-start gap-4 p-4 rounded-2xl border text-left transition-all",
                       isActive 
                         ? "bg-amber-500/5 border-amber-500/30" 
-                        : "bg-slate-50 dark:bg-bg-tertiary border-transparent hover:bg-slate-100 dark:hover:bg-bg-secondary"
+                        : "bg-slate-50/50 dark:bg-slate-900/50 border-transparent dark:border-white/5 hover:bg-slate-100 dark:hover:bg-slate-800/50"
                     )}
                   >
                     <div className={cn(
@@ -403,16 +407,18 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
               <span className="text-sm text-emerald-500 ml-3 font-normal">✓ Tersimpan</span>
             )}
           </h2>
-          <p className="text-sm text-slate-500 mt-1">Inspirasi, referensi, atau reminder pribadimu.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Inspirasi, referensi, atau reminder pribadimu.</p>
         </div>
         
-        <textarea 
-          className="w-full bg-slate-50 dark:bg-bg-tertiary border-0 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500/50 min-h-[160px] resize-none transition-all"
-          placeholder="Apa yang menginspirasi cerita ini? Buku, film, atau pengalaman apa yang menjadi referensi? Hal apa yang TIDAK boleh terjadi dalam cerita ini?..."
-          value={formData.notes}
-          onChange={e => handleFieldChange('notes', e.target.value)}
-          onBlur={() => handleBlur('notes')}
-        />
+        <div className="relative">
+          <textarea 
+            className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[160px] resize-none transition-all outline-none"
+            placeholder="Apa yang menginspirasi cerita ini? Buku, film, atau pengalaman apa yang menjadi referensi? Hal apa yang TIDAK boleh terjadi dalam cerita ini?..."
+            value={formData.notes}
+            onChange={e => handleFieldChange('notes', e.target.value)}
+            onBlur={() => handleBlur('notes')}
+          />
+        </div>
       </section>
 
     </div>
