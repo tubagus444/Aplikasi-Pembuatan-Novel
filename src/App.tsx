@@ -9,6 +9,7 @@ import { ToastProvider } from './hooks/useToast';
 import { ToastContainer } from './components/Toast';
 import { useAppContext } from './AppContext';
 import { useGlobalEvents } from './hooks/useGlobalEvents';
+import { motion } from 'motion/react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { MainView } from './components/layout/MainView';
@@ -17,6 +18,7 @@ export default function App() {
   const { 
     projectId, 
     isFocusMode, 
+    sidebarOpen,
     setIsSearchOpen 
   } = useAppContext();
 
@@ -31,18 +33,28 @@ export default function App() {
     );
   }
 
+  // Calculate shift: if sidebar is closed OR focus mode is on, we shift left by 260px
+  const isSidebarActuallyOpen = sidebarOpen && !isFocusMode;
+  const xOffset = isSidebarActuallyOpen ? 0 : -260;
+
   return (
     <ToastProvider>
       <div className={cn(
-        "flex h-screen bg-background text-foreground overflow-hidden font-sans transition-all duration-700",
+        "h-screen bg-background text-foreground overflow-hidden font-sans transition-colors duration-700",
         isFocusMode && "bg-secondary"
       )}>
-        <Sidebar />
-        
-        <div className="flex-1 flex flex-col relative bg-background">
-          <Header />
-          <MainView />
-        </div>
+        <motion.div 
+          animate={{ x: xOffset }}
+          transition={{ type: 'spring', damping: 27, stiffness: 220 }}
+          className="flex h-full w-[calc(100vw+260px)] will-change-transform"
+        >
+          <Sidebar />
+          
+          <div className="w-screen flex flex-col relative bg-background border-l border-slate-200 dark:border-slate-800">
+            <Header />
+            <MainView />
+          </div>
+        </motion.div>
 
         <ToastContainer />
       </div>

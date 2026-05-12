@@ -29,15 +29,17 @@ import {
   expandCodexEntry 
 } from '../services/ai';
 import { cn } from '../lib/utils';
-import { AIAssistantPanel } from './AIAssistantPanel';
-import { SnapshotPanel } from './SnapshotPanel';
-import { TimelinePanel } from './TimelinePanel';
-import { ProseInsights } from './ProseInsights';
 import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { CodexEntry } from '../types';
 import { useEditorPanel, EditorPanelProvider } from '../EditorPanelContext';
 import { PANEL_WIDTH } from '../lib/constants';
 import { useToast } from '../hooks/useToast';
+
+// Lazy load side panels
+const AIAssistantPanel = React.lazy(() => import('./AIAssistantPanel').then(m => ({ default: m.AIAssistantPanel })));
+const SnapshotPanel = React.lazy(() => import('./SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
+const TimelinePanel = React.lazy(() => import('./TimelinePanel').then(m => ({ default: m.TimelinePanel })));
+const ProseInsights = React.lazy(() => import('./ProseInsights').then(m => ({ default: m.ProseInsights })));
 
 // Tiptap Imports
 import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
@@ -193,72 +195,78 @@ function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
   const { activePanel, setActivePanel } = useEditorPanel();
   return (
     <AnimatePresence>
-      {activePanel === 'assistant' && (
-        <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: PANEL_WIDTH, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-        >
-          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
-            <AIAssistantPanel 
-              projectId={projectId} 
-              currentText={editor?.getText() || ''} 
-              onClose={() => setActivePanel('none')} 
-              onInsertText={(text) => {
-                editor?.commands.insertContent('\n\n' + text);
-              }}
-            />
-          </div>
-        </motion.div>
-      )}
+      <React.Suspense fallback={
+        <div className="h-full border-l border-slate-200 dark:border-slate-800 flex items-center justify-center bg-slate-50/50" style={{ width: activePanel !== 'none' ? PANEL_WIDTH : 0 }}>
+          {activePanel !== 'none' && <Loader2 className="animate-spin text-slate-300" size={24} />}
+        </div>
+      }>
+        {activePanel === 'assistant' && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: PANEL_WIDTH, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+          >
+            <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
+              <AIAssistantPanel 
+                projectId={projectId} 
+                currentText={editor?.getText() || ''} 
+                onClose={() => setActivePanel('none')} 
+                onInsertText={(text) => {
+                  editor?.commands.insertContent('\n\n' + text);
+                }}
+              />
+            </div>
+          </motion.div>
+        )}
 
-      {activePanel === 'snapshots' && (
-        <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: PANEL_WIDTH, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-        >
-          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
-            <SnapshotPanel 
-              chapterId={chapterId} 
-              currentContent={editor?.getHTML() || ''} 
-              onRestore={(text) => {
-                editor?.commands.setContent(text);
-                db.chapters.update(chapterId, { content: text, lastModified: Date.now() });
-                setActivePanel('none');
-              }} 
-            />
-          </div>
-        </motion.div>
-      )}
+        {activePanel === 'snapshots' && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: PANEL_WIDTH, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+          >
+            <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
+              <SnapshotPanel 
+                chapterId={chapterId} 
+                currentContent={editor?.getHTML() || ''} 
+                onRestore={(text) => {
+                  editor?.commands.setContent(text);
+                  db.chapters.update(chapterId, { content: text, lastModified: Date.now() });
+                  setActivePanel('none');
+                }} 
+              />
+            </div>
+          </motion.div>
+        )}
 
-      {activePanel === 'timeline' && (
-        <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: PANEL_WIDTH, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-        >
-          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
-            <TimelinePanel chapterId={chapterId} projectId={projectId} />
-          </div>
-        </motion.div>
-      )}
+        {activePanel === 'timeline' && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: PANEL_WIDTH, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+          >
+            <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
+              <TimelinePanel chapterId={chapterId} projectId={projectId} />
+            </div>
+          </motion.div>
+        )}
 
-      {activePanel === 'insights' && (
-        <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: PANEL_WIDTH, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
-        >
-          <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
-            <ProseInsights content={editor?.getText() || ''} />
-          </div>
-        </motion.div>
-      )}
+        {activePanel === 'insights' && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: PANEL_WIDTH, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="h-full border-l border-slate-200 dark:border-slate-800 overflow-hidden relative"
+          >
+            <div style={{ width: PANEL_WIDTH }} className="h-full absolute top-0 right-0">
+              <ProseInsights content={editor?.getText() || ''} />
+            </div>
+          </motion.div>
+        )}
+      </React.Suspense>
     </AnimatePresence>
   );
 }

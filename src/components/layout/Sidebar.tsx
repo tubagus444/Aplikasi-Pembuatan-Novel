@@ -4,7 +4,6 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle } from 'lucide-react';
 import { useAppContext, ViewMode } from '../../AppContext';
 import { db } from '../../db';
@@ -24,15 +23,10 @@ export function Sidebar() {
   } = useAppContext();
 
   return (
-    <AnimatePresence>
-      {!isFocusMode && (
-        <motion.aside 
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
-          exit={{ width: 0, opacity: 0 }}
-          className="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col relative z-[var(--z-panel)] overflow-hidden shadow-sm shrink-0"
-        >
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+    <aside 
+      className="w-[260px] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col relative z-[var(--z-panel)] overflow-hidden shadow-sm shrink-0"
+    >
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white shrink-0 shadow-sm">
                 <ScrollText size={18} />
@@ -114,9 +108,7 @@ export function Sidebar() {
             {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Worldbuilding Data</p>}
             {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Core Constraints</p>}
           </div>
-        </motion.aside>
-      )}
-    </AnimatePresence>
+    </aside>
   );
 }
 
