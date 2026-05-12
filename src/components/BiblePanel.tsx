@@ -128,6 +128,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
   };
 
   const handleBlur = (field: keyof typeof formData) => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     const dbKey = DB_KEY_MAP[field as string];
     if (dbKey) saveField(dbKey, String(formData[field]));
   };

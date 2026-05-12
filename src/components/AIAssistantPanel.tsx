@@ -27,9 +27,19 @@ interface AIAssistantPanelProps {
   onClose: () => void;
   onInsertText?: (text: string) => void;
   viewMode?: string;
+  codexEntries?: any[]; // Tambahkan props untuk data yang sudah ada
+  bibleRules?: any[];   // Tambahkan props untuk data yang sudah ada
 }
 
-export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText, viewMode = 'write' }: AIAssistantPanelProps) {
+export function AIAssistantPanel({ 
+  projectId, 
+  currentText, 
+  onClose, 
+  onInsertText, 
+  viewMode = 'write',
+  codexEntries = [],
+  bibleRules = []
+}: AIAssistantPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: '1', 
@@ -125,12 +135,9 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
     setIsLoading(true);
 
     try {
-      const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
-      const allBibleRules = await db.bible.where('projectId').equals(projectId).toArray();
-
       const contextSource = currentText + " " + userMsg.text;
-      const filteredCodex = getRelevantContext(contextSource, allCodex);
-      const filteredBibleRules = getRelevantBibleRules(contextSource, allBibleRules);
+      const filteredCodex = getRelevantContext(contextSource, codexEntries);
+      const filteredBibleRules = getRelevantBibleRules(contextSource, bibleRules);
 
       const history = messages
         .filter(m => !m.isWelcome)
@@ -150,9 +157,10 @@ export function AIAssistantPanel({ projectId, currentText, onClose, onInsertText
       });
 
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, isActionable: true }]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Maaf, saya mengalami kesalahan saat memeriksa lore.', isActionable: false, isError: true }]);
+      const errorMessage = err.message || 'Maaf, saya mengalami kesalahan saat memerinci lore Anda.';
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `**Error:** ${errorMessage}`, isActionable: false, isError: true }]);
     } finally {
       setIsLoading(false);
     }

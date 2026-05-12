@@ -55,7 +55,14 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Proxy AI Error (${provider}): ${errorText}`);
+    let message = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      message = parsed.error?.message || parsed.message || errorText;
+    } catch (e) {
+      // Not JSON, use raw text
+    }
+    throw new Error(`[${provider.toUpperCase()}] ${message}`);
   }
 
   const data = await response.json();

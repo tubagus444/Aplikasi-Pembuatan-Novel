@@ -11,6 +11,7 @@ import { CodexEntry, CodexCategory } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { expandCodexEntry } from '../services/ai';
+import { invalidateContextCache } from '../services/contextEngine';
 import { AIAssistantPanel } from './AIAssistantPanel';
 import { useToast } from '../hooks/useToast';
 import { useHighlightedSegments } from '../hooks/useHighlightedSegments';
@@ -133,6 +134,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
       } as CodexEntry);
     }
     
+    invalidateContextCache();
     setIsAdding(false);
     setEditingId(null);
     setFormData({ name: '', category: 'character', description: '', aliases: [], tags: [] });

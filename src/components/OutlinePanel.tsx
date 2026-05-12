@@ -12,6 +12,7 @@ import { processChat } from '../services/ai';
 import { ChapterStatus } from '../types';
 import { cn } from '../lib/utils';
 import { STATUS_COLORS } from '../lib/constants';
+import { useToast } from '../hooks/useToast';
 
 interface OutlinePanelProps {
   projectId: number;
@@ -27,6 +28,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
   
   // Drag and Drop state
   const [draggedId, setDraggedId] = useState<number | null>(null);
+  const { toast } = useToast();
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedId(id);
@@ -118,9 +120,9 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
 
       const newSummary = (currentSummary ? currentSummary + '\n\n' : '') + reply;
       await db.chapters.update(chapterId, { summary: newSummary });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to generate beats.');
+      toast.error(err.message || 'Failed to generate beats.');
     } finally {
       setIsGenerating(null);
     }

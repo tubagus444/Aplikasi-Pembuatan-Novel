@@ -53,6 +53,10 @@ export function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexE
   });
 }
 
+export function invalidateContextCache() {
+  regexCache.clear();
+}
+
 /**
  * Generates an optimized regular expression with word boundaries.
  * Uses a caching strategy via a Map (regexCache) to prevent frequent 

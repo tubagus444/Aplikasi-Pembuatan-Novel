@@ -32,6 +32,7 @@ import { cn } from '../lib/utils';
 import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { CodexEntry } from '../types';
 import { useEditorPanel, EditorPanelProvider } from '../EditorPanelContext';
+import { useProjectData } from '../hooks/useProjectData';
 import { PANEL_WIDTH } from '../lib/constants';
 import { useToast } from '../hooks/useToast';
 
@@ -46,6 +47,7 @@ import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
+import TiptapHistory from '@tiptap/extension-history';
 import { Extension, Editor } from '@tiptap/core';
 import tippy from 'tippy.js';
 import { MentionList } from './MentionList';
@@ -189,9 +191,11 @@ interface NovelPanelsProps {
   projectId: number;
   chapterId: number;
   editor: Editor | null;
+  codexEntries: any[];
+  bibleRules: any[];
 }
 
-function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
+function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleRules }: NovelPanelsProps) {
   const { activePanel, setActivePanel } = useEditorPanel();
   return (
     <AnimatePresence>
@@ -215,6 +219,8 @@ function NovelPanels({ projectId, chapterId, editor }: NovelPanelsProps) {
                 onInsertText={(text) => {
                   editor?.commands.insertContent('\n\n' + text);
                 }}
+                codexEntries={codexEntries}
+                bibleRules={bibleRules}
               />
             </div>
           </motion.div>
@@ -289,17 +295,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const customActions = useLiveQuery(() => 
-    db.aiActions.where('projectId').equals(projectId).toArray()
-  , [projectId]);
-
-  const codexEntries = useLiveQuery(() => 
-    db.codex.where('projectId').equals(projectId).toArray()
-  , [projectId]);
-
-  const bibleRules = useLiveQuery(() =>
-    db.bible.where('projectId').equals(projectId).toArray()
-  , [projectId]);
+  const { codexEntries, aiActions, bibleRules, isLoading } = useProjectData(projectId);
 
   // Tiptap Editor Initialization
   const codexEntriesRef = useRef<CodexEntry[]>([]);
@@ -320,7 +316,10 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        undoRedo: false,
+      }),
+      TiptapHistory,
       CustomAIKeymap,
       PassiveCodexHighlight.configure({
         getCodexEntries: () => codexEntriesRef.current,
@@ -452,6 +451,9 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
       if (editor.getHTML() !== chapter.content) {
         // preserve history if jumping between chapters? actually we probably want to clear history, but since we don't use full history extension cross-session, just set content.
         editor.commands.setContent(chapter.content);
+        if ((editor.commands as any).clearHistory) {
+          (editor.commands as any).clearHistory();
+        }
       }
       if (title !== chapter.title) {
          setTitle(chapter.title);
@@ -484,7 +486,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
     }
   }, [editor, isTypewriterMode]);
 
-  if (chapter === undefined) {
+  if (chapter === undefined || isLoading) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-slate-300 bg-white dark:bg-slate-900">
         <Loader2 size={32} className="animate-spin mb-4 opacity-20" />
@@ -564,7 +566,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
 
           <div className="relative w-full">
             {editor && (
-              <SelectionFloatingMenu editor={editor} onAiAction={runAiAction} customActions={customActions} />
+              <SelectionFloatingMenu editor={editor} onAiAction={runAiAction} customActions={aiActions} />
             )}
             
             <AnimatePresence>
@@ -632,7 +634,7 @@ function NovelEditorInner({ chapterId, projectId, isFocusMode }: NovelEditorProp
       </div>
 
       {/* Right Sidebar */}
-      <NovelPanels projectId={projectId} chapterId={chapterId} editor={editor} />
+      <NovelPanels projectId={projectId} chapterId={chapterId} editor={editor} codexEntries={codexEntries} bibleRules={bibleRules} />
     </div>
   );
 }
