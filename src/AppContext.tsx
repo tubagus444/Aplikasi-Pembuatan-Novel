@@ -60,15 +60,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Handle case where active chapter is deleted
   useEffect(() => {
-    if (activeChapterId && activeChapter === undefined && projectId) {
-      db.chapters.where('projectId').equals(projectId).first().then(ch => {
-        if (ch) {
-          setActiveChapterId(ch.id!);
-        } else {
-          setActiveChapterId(null);
+    let isMounted = true;
+
+    const syncActiveChapter = async () => {
+      if (!activeChapterId || !projectId) return;
+
+      // Double check directly from DB to distinguish between "loading" and "deleted"
+      const current = await db.chapters.get(activeChapterId);
+      
+      if (!current && isMounted) {
+        // Only if it's truly gone, find the next available chapter
+        const nextCh = await db.chapters.where('projectId').equals(projectId).first();
+        if (isMounted) {
+          setActiveChapterId(nextCh?.id || null);
         }
-      });
+      }
+    };
+
+    // We only trigger this check when the live query signals a potential "null" state
+    if (activeChapter === undefined && activeChapterId) {
+      syncActiveChapter();
     }
+
+    return () => { isMounted = false; };
   }, [activeChapter, activeChapterId, projectId]);
 
   return (
