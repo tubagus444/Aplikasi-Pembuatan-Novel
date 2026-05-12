@@ -13,13 +13,23 @@ import { motion } from 'motion/react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { MainView } from './components/layout/MainView';
+import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { GlobalSearch } from './components/GlobalSearch';
+import { ExportManager } from './components/ExportManager';
+import { Suspense } from 'react';
 
 export default function App() {
   const { 
     projectId, 
     isFocusMode, 
     sidebarOpen,
-    setIsSearchOpen 
+    setIsSearchOpen,
+    isSearchOpen,
+    isExportOpen,
+    setIsExportOpen,
+    setActiveChapterId,
+    setViewMode,
+    project
   } = useAppContext();
 
   // Handle global keyboard shortcuts and errors
@@ -64,6 +74,31 @@ export default function App() {
         </div>
 
         <ToastContainer />
+        <ProjectManagerModal />
+        
+        <Suspense fallback={null}>
+          {isSearchOpen && projectId && (
+            <GlobalSearch 
+              projectId={projectId}
+              onClose={() => setIsSearchOpen(false)}
+              onSelectChapter={(id) => {
+                setActiveChapterId(id);
+                setViewMode('write');
+              }}
+              onSelectCodex={() => {
+                setViewMode('codex');
+              }}
+            />
+          )}
+
+          {isExportOpen && projectId && (
+            <ExportManager 
+              projectId={projectId} 
+              project={project} 
+              onClose={() => setIsExportOpen(false)} 
+            />
+          )}
+        </Suspense>
       </div>
     </ToastProvider>
   );

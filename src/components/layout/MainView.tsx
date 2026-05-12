@@ -19,8 +19,6 @@ const BiblePanel = lazy(() => import('../BiblePanel').then(m => ({ default: m.Bi
 const SettingsPanel = lazy(() => import('../SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 const GuidePanel = lazy(() => import('../GuidePanel').then(m => ({ default: m.GuidePanel })));
 const ErrorLogPanel = lazy(() => import('../ErrorLogPanel').then(m => ({ default: m.ErrorLogPanel })));
-const GlobalSearch = lazy(() => import('../GlobalSearch').then(m => ({ default: m.GlobalSearch })));
-const ExportManager = lazy(() => import('../ExportManager').then(m => ({ default: m.ExportManager })));
 
 function LoadingFallback() {
   return (
@@ -44,6 +42,8 @@ export function MainView() {
     setIsSearchOpen,
     isExportOpen,
     setIsExportOpen,
+    isProjectManagerOpen,
+    setIsProjectManagerOpen,
     project
   } = useAppContext();
 
@@ -152,30 +152,6 @@ export function MainView() {
           )}
         </AnimatePresence>
       </div>
-
-      <Suspense fallback={null}>
-        {isSearchOpen && projectId && (
-          <GlobalSearch 
-            projectId={projectId}
-            onClose={() => setIsSearchOpen(false)}
-            onSelectChapter={(id) => {
-              setActiveChapterId(id);
-              setViewMode('write');
-            }}
-            onSelectCodex={() => {
-              setViewMode('codex');
-            }}
-          />
-        )}
-
-        {isExportOpen && projectId && (
-          <ExportManager 
-            projectId={projectId} 
-            project={project} 
-            onClose={() => setIsExportOpen(false)} 
-          />
-        )}
-      </Suspense>
     </main>
   );
 }
