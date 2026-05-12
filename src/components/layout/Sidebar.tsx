@@ -1,0 +1,137 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle } from 'lucide-react';
+import { useAppContext, ViewMode } from '../../AppContext';
+import { db } from '../../db';
+import { cn } from '../../lib/utils';
+import { ChapterList } from '../ChapterList';
+
+export function Sidebar() {
+  const { 
+    projectId, 
+    activeChapterId, 
+    setActiveChapterId, 
+    viewMode, 
+    setViewMode, 
+    sidebarOpen, 
+    isFocusMode,
+    project 
+  } = useAppContext();
+
+  return (
+    <AnimatePresence>
+      {!isFocusMode && (
+        <motion.aside 
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
+          exit={{ width: 0, opacity: 0 }}
+          className="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col relative z-[var(--z-panel)] overflow-hidden shadow-sm shrink-0"
+        >
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white shrink-0 shadow-sm">
+                <ScrollText size={18} />
+              </div>
+              <input 
+                className="font-bold text-sm tracking-tight bg-transparent focus:outline-none w-full border-none p-0 h-auto text-slate-900 dark:text-slate-100"
+                value={project?.name || ''}
+                onChange={(e) => projectId && db.projects.update(projectId, { name: e.target.value })}
+              />
+            </div>
+            <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em] ml-10">Writer Pro v1.0</p>
+            
+            <nav role="navigation" className="mt-6 space-y-1">
+              <NavItem 
+                active={viewMode === 'write'} 
+                onClick={() => setViewMode('write')} 
+                icon={<FileText size={14} />} 
+                label="Editor" 
+              />
+              <NavItem 
+                active={viewMode === 'outline'} 
+                onClick={() => setViewMode('outline')} 
+                icon={<LayoutList size={14} />} 
+                label="Planning Board" 
+              />
+              <NavItem 
+                active={viewMode === 'codex'} 
+                onClick={() => setViewMode('codex')} 
+                icon={<Database size={14} />} 
+                label="Codex" 
+              />
+              <NavItem 
+                active={viewMode === 'bible'} 
+                onClick={() => setViewMode('bible')} 
+                icon={<Book size={14} />} 
+                label="Story Bible" 
+              />
+              <NavItem 
+                active={viewMode === 'relationships'} 
+                onClick={() => setViewMode('relationships')} 
+                icon={<Share2 size={14} />} 
+                label="Relations" 
+              />
+              <NavItem 
+                active={viewMode === 'actions'} 
+                onClick={() => setViewMode('actions')} 
+                icon={<Sparkles size={14} />} 
+                label="AI Snippets" 
+              />
+              <NavItem 
+                active={viewMode === 'guide'} 
+                onClick={() => setViewMode('guide')} 
+                icon={<HelpCircle size={14} />} 
+                label="Panduan" 
+              />
+              <NavItem 
+                active={viewMode === 'settings'} 
+                onClick={() => setViewMode('settings')} 
+                icon={<Settings size={14} />} 
+                label="Pengaturan" 
+              />
+              <NavItem 
+                active={viewMode === 'errors'} 
+                onClick={() => setViewMode('errors')} 
+                icon={<AlertTriangle size={14} />} 
+                label="Log Error" 
+              />
+            </nav>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-2 py-4 no-scrollbar">
+            {viewMode === 'write' && projectId && (
+              <ChapterList 
+                projectId={projectId} 
+                activeChapterId={activeChapterId} 
+                onSelect={setActiveChapterId} 
+              />
+            )}
+            {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Worldbuilding Data</p>}
+            {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Core Constraints</p>}
+          </div>
+        </motion.aside>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function NavItem({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all text-left",
+        active 
+          ? "bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500 shadow-sm" 
+          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+      )}
+    >
+      {icon} {label}
+    </button>
+  );
+}
