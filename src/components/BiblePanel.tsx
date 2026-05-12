@@ -106,7 +106,12 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
 
   const saveField = async (key: string, value: string) => {
     try {
-      await db.bible.put({ projectId, key, instruction: value });
+      const existing = await db.bible.where({ projectId, key }).first();
+      if (existing) {
+        await db.bible.update(existing.id!, { instruction: value });
+      } else {
+        await db.bible.add({ projectId, key, instruction: value });
+      }
       setSavedField(key);
       setTimeout(() => setSavedField(null), 1500);
     } catch (e) {
@@ -162,7 +167,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           <div>
             <div className="flex items-center">
               <input 
-                className="w-full bg-transparent border-none p-0 text-4xl sm:text-5xl font-serif font-bold text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:ring-0 focus:outline-none transition-colors"
+                className="w-full bg-transparent border-none p-0 text-4xl sm:text-5xl font-serif font-bold text-slate-900 dark:text-white placeholder:text-slate-400/80 dark:placeholder:text-slate-500/80 focus:ring-0 focus:outline-none transition-colors"
                 placeholder="Judul Novel..."
                 value={formData.title}
                 onChange={e => handleFieldChange('title', e.target.value)}
@@ -176,7 +181,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           <div>
             <div className="flex items-center">
               <input 
-                className="w-full bg-transparent border-none p-0 text-xl sm:text-2xl text-slate-500 dark:text-slate-400 placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:ring-0 focus:outline-none font-light transition-colors"
+                className="w-full bg-transparent border-none p-0 text-xl sm:text-2xl text-slate-500 dark:text-slate-400 placeholder:text-slate-400/60 dark:placeholder:text-slate-500/60 focus:ring-0 focus:outline-none font-light transition-colors"
                 placeholder="Satu kalimat tagline esensial..."
                 value={formData.tagline}
                 onChange={e => handleFieldChange('tagline', e.target.value)}
@@ -191,7 +196,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
 
         <div>
           <div className="flex justify-between items-end mb-3">
-            <h3 className="flex items-center text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">
+            <h3 className="flex items-center text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">
               Premis Utama
               {savedField === '__CORE_PREMISE__' && (
                 <span className="text-xs text-emerald-500 ml-2 font-normal">✓ Tersimpan</span>
@@ -199,9 +204,9 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
             </h3>
             <span className="text-xs text-slate-400 dark:text-slate-500">{formData.premise.length}/500</span>
           </div>
-          <div className="relative">
+          <div className="relative group">
             <textarea 
-              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[160px] resize-none transition-all outline-none"
+              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400/70 dark:placeholder:text-slate-500/70 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[160px] resize-none transition-all outline-none"
               placeholder="mis. Seorang pencuri yatim piatu menemukan bahwa kekuatannya berasal dari dewa yang terlupakan..."
               value={formData.premise}
               onChange={e => handleFieldChange('premise', e.target.value.substring(0, 500))}
@@ -215,13 +220,13 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
       {/* KELOMPOK 2: Pembangunan Dunia */}
       <section className="mt-16 space-y-8">
         <div className="border-b border-slate-200 dark:border-white/5 pb-4 mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Pembangunan Dunia</h2>
+          <h2 className="text-2xl font-medium text-slate-900 dark:text-white">Pembangunan Dunia</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Latar belakang, aturan, dan roh ceritamu.</p>
         </div>
 
         <div>
           <div className="flex justify-between items-end mb-3">
-            <h3 className="flex items-center text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">
+            <h3 className="flex items-center text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">
               Setting Dunia
               {savedField === '__WORLD_SETTING__' && (
                 <span className="text-xs text-emerald-500 ml-2 font-normal">✓ Tersimpan</span>
@@ -229,9 +234,9 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
             </h3>
             <span className="text-xs text-slate-400 dark:text-slate-500">{formData.setting.length}/400</span>
           </div>
-          <div className="relative">
+          <div className="relative group">
             <textarea 
-              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[120px] resize-none transition-all outline-none"
+              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400/70 dark:placeholder:text-slate-500/70 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[120px] resize-none transition-all outline-none"
               placeholder="mis. Dunia di mana sihir berasal dari musik..."
               value={formData.setting}
               onChange={e => handleFieldChange('setting', e.target.value.substring(0, 400))}
@@ -242,16 +247,16 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
 
         <div>
           <div className="mb-3">
-            <h3 className="flex items-center text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">
+            <h3 className="flex items-center text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">
               Tema & Pesan
               {savedField === '__THEMES__' && (
                 <span className="text-xs text-emerald-500 ml-2 font-normal">✓ Tersimpan</span>
               )}
             </h3>
           </div>
-          <div className="relative">
+          <div className="relative group">
             <textarea 
-              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[120px] resize-none transition-all outline-none"
+              className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400/70 dark:placeholder:text-slate-500/70 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[120px] resize-none transition-all outline-none"
               placeholder="mis. Pengorbanan vs. ambisi • Identitas di tengah ekspektasi keluarga..."
               value={formData.themes}
               onChange={e => handleFieldChange('themes', e.target.value)}
@@ -264,14 +269,14 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
       {/* KELOMPOK 3: Karakteristik */}
       <section className="mt-16 space-y-10">
         <div className="border-b border-slate-200 dark:border-white/5 pb-4 mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Karakteristik</h2>
+          <h2 className="text-2xl font-medium text-slate-900 dark:text-white">Karakteristik</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Genre, nuansa, sudut pandang, hingga laju penceritaan.</p>
         </div>
 
         <div>
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">Genre</h3>
+              <h3 className="text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">Genre</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pilih sub-genre yang paling mendekati ceritamu.</p>
             </div>
             <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{formData.genres.length}/3 dipilih</span>
@@ -301,7 +306,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         <div>
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">Nada / Tone</h3>
+              <h3 className="text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">Nada / Tone</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Nuansa cerita yang membangun audiens.</p>
             </div>
             <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{formData.tones.length}/3 dipilih</span>
@@ -331,7 +336,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <div className="mb-4">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">Sudut Pandang (POV)</h3>
+              <h3 className="text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">Sudut Pandang (POV)</h3>
             </div>
             <div className="space-y-3">
               {POVS.map(p => {
@@ -365,7 +370,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
 
           <div>
             <div className="mb-4">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 tracking-wide">Kecepatan Narasi</h3>
+              <h3 className="text-sm font-medium text-slate-900 dark:text-slate-200 tracking-wide">Kecepatan Narasi</h3>
             </div>
             <div className="space-y-3">
               {PACINGS.map(p => {
@@ -402,7 +407,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
       {/* KELOMPOK 4: Catatan */}
       <section className="mt-16 space-y-6">
         <div className="border-b border-slate-200 dark:border-white/5 pb-4 mb-6">
-          <h2 className="flex items-center text-2xl font-bold text-slate-900 dark:text-white">
+          <h2 className="flex items-center text-2xl font-medium text-slate-900 dark:text-white">
             Catatan Penulis
             {savedField === '__AUTHOR_NOTES__' && (
               <span className="text-sm text-emerald-500 ml-3 font-normal">✓ Tersimpan</span>
@@ -411,9 +416,9 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Inspirasi, referensi, atau reminder pribadimu.</p>
         </div>
         
-        <div className="relative">
+        <div className="relative group">
           <textarea 
-            className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[160px] resize-none transition-all outline-none"
+            className="w-full bg-slate-50/50 dark:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-white/10 rounded-2xl p-5 text-base leading-relaxed text-slate-800 dark:text-slate-200 placeholder:text-slate-400/70 dark:placeholder:text-slate-500/70 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 min-h-[160px] resize-none transition-all outline-none"
             placeholder="Apa yang menginspirasi cerita ini? Buku, film, atau pengalaman apa yang menjadi referensi? Hal apa yang TIDAK boleh terjadi dalam cerita ini?..."
             value={formData.notes}
             onChange={e => handleFieldChange('notes', e.target.value)}

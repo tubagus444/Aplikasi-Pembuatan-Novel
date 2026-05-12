@@ -196,7 +196,19 @@ export function SettingsPanel() {
             if (backup.data.projects?.length) await db.projects.bulkAdd(backup.data.projects);
             if (backup.data.chapters?.length) await db.chapters.bulkAdd(backup.data.chapters);
             if (backup.data.codex?.length) await db.codex.bulkAdd(backup.data.codex);
-            if (backup.data.bible?.length) await db.bible.bulkAdd(backup.data.bible);
+            
+            // Deduplicate bible entries before bulk adding to respect unique index
+            if (backup.data.bible?.length) {
+              const seen = new Set<string>();
+              const uniqueBible = backup.data.bible.filter((entry: any) => {
+                const compositeKey = `${entry.projectId}|${entry.key}`;
+                if (seen.has(compositeKey)) return false;
+                seen.add(compositeKey);
+                return true;
+              });
+              await db.bible.bulkAdd(uniqueBible);
+            }
+
             if (backup.data.aiActions?.length) await db.aiActions.bulkAdd(backup.data.aiActions);
             if (backup.data.snapshots?.length) await db.snapshots.bulkAdd(backup.data.snapshots);
             if (backup.data.timeline?.length) await db.timeline.bulkAdd(backup.data.timeline);

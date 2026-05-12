@@ -77,7 +77,6 @@ export function MainView() {
             <NovelEditor 
               chapterId={activeChapterId} 
               projectId={projectId} 
-              isFocusMode={isFocusMode}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-slate-300">

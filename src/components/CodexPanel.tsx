@@ -207,17 +207,17 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-6">
         <div>
-          <h2 className="text-3xl font-serif font-bold text-foreground">World Codex</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Structured worldbuilding data for AI context injection.</p>
+          <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 italic">World Codex</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium tracking-wide">Data pembangunan dunia untuk injeksi konteks AI.</p>
         </div>
         {!isAdding && (
           <button 
             onClick={startAdding}
-            className="self-start md:self-auto flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+            className="self-start md:self-auto flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
           >
-            <Plus size={16} /> New Entry
+            <Plus size={16} /> Entri Baru
           </button>
         )}
       </div>
@@ -249,7 +249,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
         <AnimatePresence>
           {isAdding && (
             <motion.div 
@@ -257,7 +257,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg col-span-1 md:col-span-2 lg:col-span-3 overflow-hidden"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg col-span-full overflow-hidden"
             >
               <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -375,7 +375,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 transition-opacity">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={() => handleToggleLinking(entry.id!)}
                     className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
@@ -386,14 +386,14 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                   <button 
                     onClick={() => startEditing(entry)}
                     className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
-                    title="Edit Entry"
+                    title="Ubah Entri"
                   >
                     <Edit2 size={16} />
                   </button>
                   <button 
                     onClick={() => deleteEntry(entry.id!)}
-                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-all"
-                    title="Delete Entry"
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-all"
+                    title="Hapus Entri"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -408,28 +408,28 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl mb-4 border border-slate-200 dark:border-slate-700 flex flex-col gap-2">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-4 border border-slate-200 dark:border-slate-700 flex flex-col gap-3 shadow-inner">
                       <div className="flex gap-2">
                         <select 
-                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500"
+                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                           value={linkingType}
                           onChange={e => setLinkingType(e.target.value)}
                         >
-                          <option value="Friend">Friend</option>
-                          <option value="Enemy">Enemy</option>
-                          <option value="Family">Family</option>
-                          <option value="Lover">Lover</option>
-                          <option value="Ally">Ally</option>
-                          <option value="Resides In">Resides In</option>
-                          <option value="Owns">Owns</option>
-                          <option value="Other">Other</option>
+                          <option value="Friend">Teman</option>
+                          <option value="Enemy">Musuh</option>
+                          <option value="Family">Keluarga</option>
+                          <option value="Lover">Kekasih</option>
+                          <option value="Ally">Sekutu</option>
+                          <option value="Resides In">Tinggal di</option>
+                          <option value="Owns">Memiliki</option>
+                          <option value="Other">Lainnya</option>
                         </select>
                         <select
-                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 max-w-[120px]"
+                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none max-w-[120px]"
                           value={linkingTarget || ''}
                           onChange={e => setLinkingTarget(Number(e.target.value))}
                         >
-                          <option value="">Select...</option>
+                          <option value="">Pilih...</option>
                           {entries?.filter(e => e.id !== entry.id).map(e => (
                             <option key={e.id} value={e.id}>{e.name}</option>
                           ))}
@@ -439,9 +439,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                          <button 
                            onClick={() => addBond(entry.id!)}
                            disabled={!linkingTarget}
-                           className="text-[10px] font-bold uppercase tracking-widest bg-indigo-600 text-white px-3 py-1.5 rounded disabled:opacity-50 hover:bg-indigo-700 transition"
+                           className="text-[10px] font-bold uppercase tracking-widest bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-indigo-700 transition shadow-sm active:scale-95"
                          >
-                           Save Bond
+                           Simpan Hubungan
                          </button>
                       </div>
                     </div>
@@ -508,9 +508,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             </p>
             <button 
               onClick={startAdding}
-              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-indigo-700 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-[0.15em] hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/20 hover:-translate-y-0.5 transition-all active:scale-95"
             >
-              <Plus size={18} /> Create First Entry
+              <Plus size={18} /> Buat Entri Pertama
             </button>
           </div>
         )}

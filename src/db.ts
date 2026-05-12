@@ -19,18 +19,39 @@ export class AetherScribeDB extends Dexie {
 
   constructor() {
     super('AetherScribeDB');
-    this.version(7).stores({
+    this.version(10).stores({
+      bible: '++id, projectId, key'
+    }).upgrade(async (tx) => {
+      // Cleanup duplicate bible entries before applying unique index in next version
+      const bibleEntries = await tx.table('bible').toArray();
+      const seen = new Set<string>();
+      const idsToDelete: any[] = [];
+
+      for (const entry of bibleEntries) {
+        const compositeKey = `${entry.projectId}|${entry.key}`;
+        if (seen.has(compositeKey)) {
+          idsToDelete.push(entry.id);
+        } else {
+          seen.add(compositeKey);
+        }
+      }
+
+      if (idsToDelete.length > 0) {
+        await tx.table('bible').bulkDelete(idsToDelete);
+        console.log(`Cleaned up ${idsToDelete.length} duplicate bible entries during migration.`);
+      }
+    });
+
+    this.version(11).stores({
       projects: '++id, name, lastOpened',
       chapters: '++id, projectId, order',
       codex: '++id, projectId, name, category, *aliases',
-      bible: '++id, projectId, key',
+      bible: '++id, projectId, key, &[projectId+key]',
       aiActions: '++id, projectId, label',
       snapshots: '++id, chapterId, timestamp',
       timeline: '++id, chapterId, projectId, type',
       relationships: '++id, projectId, sourceId, targetId',
       errors: '++id, timestamp, type'
-    }).upgrade(() => {
-      // Future migrations go here
     });
   }
 }

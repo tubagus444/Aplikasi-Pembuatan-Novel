@@ -180,10 +180,12 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <header className="mb-6 flex items-center justify-between border-b border-border pb-4">
+      <header className="mb-8 p-1">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-foreground">Character Hub</h2>
-          <p className="text-sm text-muted-foreground mt-1 tracking-wide">Manage Character Relationships</p>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Users className="text-indigo-600" size={20} />
+            Karakter & Hubungan
+          </h2>
         </div>
       </header>
 
@@ -257,27 +259,27 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
               >
                 {/* Header */}
                 <div className="relative p-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                  <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/5 dark:to-purple-500/5" />
+                  <div className="absolute top-0 left-0 w-full h-32 bg-slate-50 dark:bg-slate-800/30" />
                   <div className="relative z-10 flex items-end gap-6 pt-12">
-                    <div className="w-24 h-24 rounded-2xl bg-indigo-50 dark:bg-slate-800 border-4 border-white dark:border-slate-900 shadow-xl flex items-center justify-center shrink-0">
-                       <UserCircle2 size={48} className="text-indigo-400 dark:text-slate-500" />
+                    <div className="w-24 h-24 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border-4 border-white dark:border-slate-900 shadow-xl flex items-center justify-center shrink-0">
+                       <UserCircle2 size={48} className="text-indigo-600/60 dark:text-indigo-400/60" />
                     </div>
                     <div className="flex-1 pb-2">
                        <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 flex items-center gap-3">
                          {selectedCharacter.name}
                        </h2>
-                       <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
-                         <LinkIcon size={14} />
-                         {relationships?.filter(r => r.sourceId === selectedCharacter.id || r.targetId === selectedCharacter.id).length || 0} Total Connections
+                       <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 font-medium">
+                         <LinkIcon size={14} className="text-indigo-500" />
+                         {relationships?.filter(r => r.sourceId === selectedCharacter.id || r.targetId === selectedCharacter.id).length || 0} Koneksi
                        </p>
                     </div>
                     <div className="pb-2">
                       <button 
                         onClick={() => setIsAdding(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-95"
                       >
                         <UserPlus size={16} />
-                        New Bond
+                        Koneksi Baru
                       </button>
                     </div>
                   </div>
