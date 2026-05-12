@@ -12,7 +12,7 @@ import {
   ScrollText, 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useAppContext } from '../AppContext';
+import { useUI } from '../contexts/UIContext';
 import { EditorContent } from '@tiptap/react';
 import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { EditorPanelProvider } from '../EditorPanelContext';
@@ -42,7 +42,7 @@ export function NovelEditor(props: NovelEditorProps) {
 function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   const chapter = useLiveQuery(() => db.chapters.get(chapterId), [chapterId]);
   const [isTypewriterMode, setIsTypewriterMode] = useState(false);
-  const { isFocusMode, setIsFocusMode } = useAppContext();
+  const { isFocusMode, setIsFocusMode } = useUI();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { codexEntries, aiActions, bibleRules, isLoading } = useProjectData(projectId);

@@ -7,7 +7,9 @@ import React from 'react';
 import { cn } from './lib/utils';
 import { ToastProvider } from './hooks/useToast';
 import { ToastContainer } from './components/Toast';
-import { useAppContext } from './AppContext';
+import { useProject } from './contexts/ProjectContext';
+import { useNavigation } from './contexts/NavigationContext';
+import { useUI } from './contexts/UIContext';
 import { useGlobalEvents } from './hooks/useGlobalEvents';
 import { motion } from 'motion/react';
 import { Sidebar } from './components/layout/Sidebar';
@@ -19,23 +21,21 @@ import { ExportManager } from './components/ExportManager';
 import { Suspense } from 'react';
 
 export default function App() {
+  const { projectId, project, isLoading } = useProject();
+  const { setActiveChapterId, setViewMode } = useNavigation();
   const { 
-    projectId, 
     isFocusMode, 
-    sidebarOpen,
-    setIsSearchOpen,
-    isSearchOpen,
-    isExportOpen,
-    setIsExportOpen,
-    setActiveChapterId,
-    setViewMode,
-    project
-  } = useAppContext();
+    sidebarOpen, 
+    isSearchOpen, 
+    setIsSearchOpen, 
+    isExportOpen, 
+    setIsExportOpen 
+  } = useUI();
 
   // Handle global keyboard shortcuts and errors
   useGlobalEvents({ setIsSearchOpen });
 
-  if (!projectId) {
+  if (isLoading || !projectId) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background text-slate-400 dark:text-slate-500 font-mono text-xs uppercase tracking-widest">
         Initialising AetherScribe...

@@ -6,7 +6,9 @@
 import React, { Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScrollText, Plus, Loader2 } from 'lucide-react';
-import { useAppContext } from '../../AppContext';
+import { useProject } from '../../contexts/ProjectContext';
+import { useNavigation } from '../../contexts/NavigationContext';
+import { useUI } from '../../contexts/UIContext';
 import { NovelEditor } from '../NovelEditor';
 import { cn } from '../../lib/utils';
 
@@ -30,22 +32,9 @@ function LoadingFallback() {
 }
 
 export function MainView() {
-  const { 
-    viewMode, 
-    projectId, 
-    activeChapterId, 
-    setActiveChapterId, 
-    setViewMode, 
-    isFocusMode, 
-    setIsFocusMode,
-    isSearchOpen,
-    setIsSearchOpen,
-    isExportOpen,
-    setIsExportOpen,
-    isProjectManagerOpen,
-    setIsProjectManagerOpen,
-    project
-  } = useAppContext();
+  const { projectId } = useProject();
+  const { viewMode, activeChapterId } = useNavigation();
+  const { isFocusMode, setIsFocusMode } = useUI();
 
   return (
     <main className="flex-1 flex flex-col relative bg-background">

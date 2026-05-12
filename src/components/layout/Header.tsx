@@ -5,27 +5,25 @@
 
 import React from 'react';
 import { ChevronRight, Search, Moon, Sun, Zap, Download } from 'lucide-react';
-import { useAppContext } from '../../AppContext';
-import { useTheme } from '../../ThemeContext';
+import { useProject } from '../../contexts/ProjectContext';
+import { useNavigation } from '../../contexts/NavigationContext';
+import { useUI } from '../../contexts/UIContext';
 import { WritingStats } from '../WritingStats';
 import { cn } from '../../lib/utils';
 
 export function Header() {
+  const { projectId, project } = useProject();
+  const { viewMode, activeChapter } = useNavigation();
   const { 
-    projectId, 
-    viewMode, 
     sidebarOpen, 
     setSidebarOpen, 
     isFocusMode, 
-    setIsFocusMode,
-    setIsSearchOpen,
-    setIsExportOpen,
+    setIsSearchOpen, 
+    setIsExportOpen, 
     setIsProjectManagerOpen,
-    project,
-    activeChapter 
-  } = useAppContext();
-  
-  const { theme, toggleTheme } = useTheme();
+    theme,
+    toggleTheme 
+  } = useUI();
 
   if (isFocusMode) return null;
 

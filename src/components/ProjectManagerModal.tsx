@@ -7,18 +7,19 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Trash2, CheckCircle2, Book, ChevronRight, X } from 'lucide-react';
 import { db } from '../db';
-import { useAppContext } from '../AppContext';
+import { useProject } from '../contexts/ProjectContext';
+import { useUI } from '../contexts/UIContext';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function ProjectManagerModal() {
   const { 
-    isProjectManagerOpen, 
-    setIsProjectManagerOpen, 
     projectId: currentProjectId,
     switchProject,
     createProject,
     deleteProject
-  } = useAppContext();
+  } = useProject();
+
+  const { isProjectManagerOpen, setIsProjectManagerOpen } = useUI();
 
   const projects = useLiveQuery(() => db.projects.orderBy('lastOpened').reverse().toArray());
   const [newProjectName, setNewProjectName] = useState('');

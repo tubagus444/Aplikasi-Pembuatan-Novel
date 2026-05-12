@@ -5,22 +5,17 @@
 
 import React from 'react';
 import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle } from 'lucide-react';
-import { useAppContext, ViewMode } from '../../AppContext';
+import { useProject } from '../../contexts/ProjectContext';
+import { useNavigation } from '../../contexts/NavigationContext';
+import { useUI } from '../../contexts/UIContext';
 import { db } from '../../db';
 import { cn } from '../../lib/utils';
 import { ChapterList } from '../ChapterList';
 
 export function Sidebar() {
-  const { 
-    projectId, 
-    activeChapterId, 
-    setActiveChapterId, 
-    viewMode, 
-    setViewMode, 
-    sidebarOpen, 
-    isFocusMode,
-    project 
-  } = useAppContext();
+  const { projectId, project } = useProject();
+  const { activeChapterId, setActiveChapterId, viewMode, setViewMode } = useNavigation();
+  const { sidebarOpen, isFocusMode } = useUI();
 
   return (
     <aside 
