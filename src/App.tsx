@@ -59,6 +59,7 @@ export default function App() {
       )}>
         <div className="flex h-full overflow-hidden relative">
           <motion.div 
+            initial={false}
             animate={{ 
               width: isSidebarActuallyOpen ? 260 : 0,
               minWidth: isSidebarActuallyOpen ? 260 : 0
