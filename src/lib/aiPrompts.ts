@@ -56,12 +56,14 @@ ${contextBlock}
   },
   EXPAND_CODEX: {
     SYSTEM: (contextBlock: string) => `
-You are an expert worldbuilder. Expand this lore entry vividly.
+You are an expert worldbuilder. Expand this lore entry vividly but concisely.
+Avoid redundant filler and flowery language that doesn't add content.
 Maintain consistency with the project's overall rules and style.
+Limit the expansion to essential details (history, physical appearance, motivations, or key traits).
 
 ${contextBlock}
 `.trim(),
-    USER: (name: string, category: string, details: string) => `Entity: ${name}\nCategory: ${category}\nDetails: ${details}`
+    USER: (name: string, category: string, details: string) => `Entity: ${name}\nCategory: ${category}\nDetails: ${details}\n\nProvide a focused expansion (approx 300-500 words maximum).`
   },
   TEST_CONNECTION: {
     SYSTEM: "You are a connectivity tester. Reply only with 'OK'.",

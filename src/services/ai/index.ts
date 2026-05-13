@@ -71,9 +71,35 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?:
   const bible = rules.length
     ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
     : 'No specific rules set.';
-  const lore = codex.length
-    ? codex.map(e => `[${e.name}]: ${e.description.substring(0, 200) + (e.description.length > 200 ? '...' : '')}`).join('\n')
-    : 'No specific lore relevant to this passage.';
+
+  let lore = 'No specific lore relevant to this passage.';
+  if (codex.length > 0) {
+    const MAX_LORE_CHARS = 2500;
+    let currentChars = 0;
+    const loreParts: string[] = [];
+
+    codex.forEach((e, index) => {
+      if (currentChars >= MAX_LORE_CHARS) return;
+
+      // Tiered truncation: top 3 get more space (relevance is preserved by worker sorting)
+      const limit = index < 3 ? 500 : 150;
+      let desc = e.description.trim();
+      if (desc.length > limit) {
+        desc = desc.substring(0, limit) + '...';
+      }
+
+      const formattedEntry = `[${e.name}]: ${desc}`;
+      
+      if (currentChars + formattedEntry.length <= MAX_LORE_CHARS) {
+        loreParts.push(formattedEntry);
+        currentChars += formattedEntry.length + 1; // +1 for newline
+      }
+    });
+
+    if (loreParts.length > 0) {
+      lore = loreParts.join('\n');
+    }
+  }
   
   let block = `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
   if (beats) {
@@ -165,7 +191,7 @@ export async function processChat(params: ChatParams): Promise<string> {
 
   const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(
     contextBlock, 
-    params.contextText?.substring(0, 2000) || '',
+    params.contextText?.substring(0, 3000) || '',
     beatsStr || undefined
   );
 
@@ -229,7 +255,12 @@ export async function expandCodexEntry(
   const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
   
-  return await callAI({ systemInstruction, userPrompt, temperature: 0.9 });
+  return await callAI({ 
+    systemInstruction, 
+    userPrompt, 
+    temperature: 0.9,
+    maxTokens: 1000 // Limit output length for codex expansion
+  });
 }
 
 export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {

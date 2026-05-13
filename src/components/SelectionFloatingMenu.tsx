@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Editor } from '@tiptap/react';
 import { AIAction } from '../types';
+import { useAvailableProviders } from '../hooks/useAvailableProviders';
 
 interface SelectionFloatingMenuProps {
   editor: Editor;
@@ -13,23 +14,12 @@ interface SelectionFloatingMenuProps {
 
 export function SelectionFloatingMenu({ editor, onAiAction, customActions = [] }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>(localStorage.getItem('ai_provider') || 'google');
-  const [availableProviders, setAvailableProviders] = useState<string[]>(['google']);
+  const { 
+    availableProviders, 
+    selectedProvider, 
+    setSelectedProvider 
+  } = useAvailableProviders();
   const [position, setPosition] = useState({ top: 0, left: 0 });
-
-  useEffect(() => {
-    // Check which providers have keys
-    const checkProviders = () => {
-      const providers = ['google', 'claude', 'groq', 'openrouter'];
-      const active = providers.filter(p => {
-        if (p === 'google' && process.env.GEMINI_API_KEY) return true;
-        const key = localStorage.getItem(`ai_key_${p}`);
-        return !!key;
-      });
-      setAvailableProviders(active.length > 0 ? active : ['google']);
-    };
-    checkProviders();
-  }, []);
 
   const showRef = React.useRef(show);
 

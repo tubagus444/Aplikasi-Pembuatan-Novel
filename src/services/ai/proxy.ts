@@ -8,7 +8,7 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
 
   if (provider === 'claude') {
     body.temperature = params.temperature || 0.7;
-    body.max_tokens = 4000;
+    body.max_tokens = params.maxTokens || 4000;
     body.system = params.systemInstruction;
     body.messages = [
       ...(params.history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
@@ -27,9 +27,11 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     ];
     body.generationConfig = {
       temperature: params.temperature || 0.7,
+      maxOutputTokens: params.maxTokens || 4000,
     };
   } else {
     body.temperature = params.temperature || 0.7;
+    body.max_tokens = params.maxTokens || 4000;
     body.messages = [
       { role: "system", content: params.systemInstruction },
       ...(params.history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),

@@ -54,6 +54,7 @@ export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleR
                   }}
                   codexEntries={codexEntries}
                   bibleRules={bibleRules}
+                  editor={editor}
                 />
               )}
 

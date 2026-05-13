@@ -11,6 +11,9 @@ import { getRelevantContext, getRelevantBibleRules } from '../services/contextEn
 import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '../lib/constants';
 import { cn } from '../lib/utils';
+import { getActiveWindowText } from '../lib/editorUtils';
+import { useAvailableProviders } from '../hooks/useAvailableProviders';
+import { Editor } from '@tiptap/core';
 
 interface Message {
   id: string;
@@ -30,6 +33,7 @@ interface AIAssistantPanelProps {
   viewMode?: string;
   codexEntries?: any[]; // Tambahkan props untuk data yang sudah ada
   bibleRules?: any[];   // Tambahkan props untuk data yang sudah ada
+  editor?: Editor | null; // Pass editor instance for smarter context
 }
 
 export function AIAssistantPanel({ 
@@ -40,7 +44,8 @@ export function AIAssistantPanel({
   onInsertText, 
   viewMode = 'write',
   codexEntries = [],
-  bibleRules = []
+  bibleRules = [],
+  editor
 }: AIAssistantPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -50,25 +55,15 @@ export function AIAssistantPanel({
       isWelcome: true 
     }
   ]);
-  const [selectedProvider, setSelectedProvider] = useState<string>(localStorage.getItem('ai_provider') || 'google');
-  const [availableProviders, setAvailableProviders] = useState<string[]>(['google']);
+  const { 
+    availableProviders, 
+    selectedProvider, 
+    setSelectedProvider 
+  } = useAvailableProviders();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check which providers have keys
-    const checkProviders = () => {
-      const providers = ['google', 'claude', 'groq', 'openrouter'];
-      const active = providers.filter(p => {
-        if (p === 'google' && process.env.GEMINI_API_KEY) return true;
-        const key = localStorage.getItem(`ai_key_${p}`);
-        return !!key;
-      });
-      setAvailableProviders(active.length > 0 ? active : ['google']);
-    };
-    checkProviders();
-  }, []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -137,7 +132,14 @@ export function AIAssistantPanel({
     setIsLoading(true);
 
     try {
-      const contextSource = currentText + " " + userMsg.text;
+      // Optimasi Token: Ambil teks di sekitar kursor (focused context)
+      // Jika editor tidak tersedia, fallback ke substring biasa
+      const cursorPosition = editor?.state.selection.from || 0;
+      const focusedContext = editor 
+        ? getActiveWindowText(currentText, cursorPosition, 1500) // ~1500 char context window
+        : currentText.substring(0, 1500);
+
+      const contextSource = focusedContext + " " + userMsg.text;
       const filteredCodex = await getRelevantContext(contextSource, codexEntries);
       const filteredBibleRules = await getRelevantBibleRules(contextSource, bibleRules);
 
@@ -154,7 +156,7 @@ export function AIAssistantPanel({
         history,
         bibleRules: filteredBibleRules,
         codexEntries: filteredCodex,
-        contextText: currentText,
+        contextText: focusedContext,
         chapterId,
         provider: selectedProvider
       });

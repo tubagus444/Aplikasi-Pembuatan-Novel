@@ -51,19 +51,32 @@ function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexEntry[] 
   
   const lowerText = text.toLowerCase();
   
-  return allCodex.filter(entry => {
+  const scored = allCodex.map(entry => {
+    let score = 0;
+    
     // Check main name
     const nameRegex = getBoundaryRegex(entry.name);
-    if (nameRegex.test(lowerText)) {
-      return true;
+    const nameMatches = lowerText.match(new RegExp(nameRegex.source, 'gi'));
+    if (nameMatches) {
+      score += nameMatches.length * 10;
     }
     
     // Check aliases
-    return entry.aliases.some(alias => {
+    entry.aliases.forEach(alias => {
       const aliasRegex = getBoundaryRegex(alias);
-      return aliasRegex.test(lowerText);
+      const aliasMatches = lowerText.match(new RegExp(aliasRegex.source, 'gi'));
+      if (aliasMatches) {
+        score += aliasMatches.length * 5;
+      }
     });
+
+    return { entry, score };
   });
+
+  return scored
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.entry);
 }
 
 function getRelevantBibleRules(
@@ -72,7 +85,8 @@ function getRelevantBibleRules(
   maxChars: number = DEFAULT_MAX_CHARS
 ): StoryBibleRule[] {
   if (!text) {
-    return allRules.filter(r => ALWAYS_INCLUDE.includes(r.key));
+    const alwaysRules = allRules.filter(r => ALWAYS_INCLUDE.includes(r.key));
+    return condenseCoreRules(alwaysRules);
   }
 
   const lowerText = text.toLowerCase();
@@ -108,24 +122,52 @@ function getRelevantBibleRules(
     .filter(item => item.score >= MIN_SCORE_THRESHOLD || item.score === SCORE_ALWAYS_INCLUDE)
     .sort((a, b) => b.score - a.score);
 
-  const finalRules: StoryBibleRule[] = [];
-  let currentChars = 0;
+  const alwaysRules = sortedRules
+    .filter(item => item.score === SCORE_ALWAYS_INCLUDE)
+    .map(item => item.rule);
+  
+  const dynamicRules = sortedRules
+    .filter(item => item.score !== SCORE_ALWAYS_INCLUDE);
 
-  for (const item of sortedRules) {
+  const finalRules: StoryBibleRule[] = condenseCoreRules(alwaysRules);
+  let currentChars = finalRules.reduce((acc, r) => acc + r.key.length + r.instruction.length, 0);
+
+  for (const item of dynamicRules) {
     const ruleChars = item.rule.key.length + item.rule.instruction.length;
-    
-    if (item.score === SCORE_ALWAYS_INCLUDE) {
+    if (currentChars + ruleChars <= maxChars) {
       finalRules.push(item.rule);
       currentChars += ruleChars;
-    } else {
-      if (currentChars + ruleChars <= maxChars) {
-        finalRules.push(item.rule);
-        currentChars += ruleChars;
-      }
     }
   }
 
   return finalRules;
+}
+
+/**
+ * Condenses core rules into a single rule to save tokens (reducing key overhead).
+ */
+function condenseCoreRules(rules: StoryBibleRule[]): StoryBibleRule[] {
+  if (rules.length === 0) return [];
+  
+  // Clean up keys for display
+  const formatKey = (key: string) => key.replace(/__/g, '').replace(/_/g, ' ').trim();
+
+  let condensedInstruction = rules
+    .map(r => `${formatKey(r.key)}: ${r.instruction.trim()}`)
+    .join('\n');
+
+  // Hard limit for core profile to avoid token blow-up (e.g., 2500 chars)
+  if (condensedInstruction.length > 2500) {
+    condensedInstruction = condensedInstruction.substring(0, 2500) + '... [Core truncated to save tokens]';
+  }
+
+  return [{
+    id: -1, // Virtual ID
+    projectId: rules[0].projectId,
+    key: 'STORY_PROFILE',
+    instruction: condensedInstruction,
+    type: rules[0].type
+  }];
 }
 
 // Worker message listener

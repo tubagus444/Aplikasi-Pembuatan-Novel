@@ -13,6 +13,7 @@ export interface AIRenderParams {
   model?: string;
   history?: { role: 'user' | 'model', parts: { text: string }[] }[];
   temperature?: number;
+  maxTokens?: number;
   signal?: AbortSignal;
 }
 

@@ -14,6 +14,7 @@ export async function callGemini(params: AIRenderParams, apiKey: string): Promis
     config: {
       systemInstruction: params.systemInstruction,
       temperature: params.temperature || 0.7,
+      maxOutputTokens: params.maxTokens || 4000,
     },
   });
   
