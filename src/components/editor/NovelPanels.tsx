@@ -46,6 +46,7 @@ export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleR
               {activePanel === 'assistant' && (
                 <AIAssistantPanel 
                   projectId={projectId} 
+                  chapterId={chapterId}
                   currentText={editor?.getText() || ''} 
                   onClose={() => setActivePanel('none')} 
                   onInsertText={(text) => {

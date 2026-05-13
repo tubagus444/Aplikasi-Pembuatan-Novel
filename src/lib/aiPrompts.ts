@@ -5,12 +5,12 @@
 
 export const AI_PROMPTS = {
   REWRITE: {
-    SYSTEM: (contextBlock: string) => `
+    SYSTEM: (contextBlock: string, beats?: string) => `
 You are a professional novel editor and writing assistant. 
 Your goal is to rewrite the text provided based on the specific action requested, while strictly adhering to the Story Bible and maintaining consistency with the character/world lore (Codex).
 
 ${contextBlock}
-
+${beats ? `\nCHAPTER BEATS:\n${beats}\n` : ''}
 GUIDELINES:
 1. Maintain the existing point of view and style unless the Story Bible says otherwise.
 2. Ensure technical consistency with the Codex.
@@ -30,12 +30,12 @@ Rewritten Text:
 `.trim()
   },
   CHAT: {
-    SYSTEM: (contextBlock: string, draftSnippet: string) => `
+    SYSTEM: (contextBlock: string, draftSnippet: string, beats?: string) => `
 You are a brilliant developmental editor and creative writing assistant.
 The user is writing a novel. You act as their sounding board, lore-keeper, and brainstorming partner.
 
 ${contextBlock}
-
+${beats ? `\nCHAPTER BEATS:\n${beats}\n` : ''}
 CURRENT CHAPTER DRAFT:
 """
 ${draftSnippet}

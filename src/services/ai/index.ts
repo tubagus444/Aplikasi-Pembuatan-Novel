@@ -1,5 +1,5 @@
-import { StoryBibleRule, CodexEntry } from "../../types";
-import { getRelevantContext, getRelevantBibleRules } from "../contextEngine";
+import { StoryBibleRule, CodexEntry, StoryBeat } from "../../types";
+import { getRelevantContext, getRelevantBibleRules, getChapterBeats } from "../contextEngine";
 import { callGemini } from "./gemini";
 import { callProxy } from "./proxy";
 import { GenerateParams, ChatParams, AIRenderParams } from "./types";
@@ -60,14 +60,26 @@ function getSettings() {
   };
 }
 
-function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[]): string {
+function formatBeats(beats: StoryBeat[]): string {
+  if (!beats || beats.length === 0) return '';
+  return beats
+    .map((b, i) => `${i + 1}. [${b.type}] ${b.title}${b.description ? `: ${b.description}` : ''}`)
+    .join('\n');
+}
+
+function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?: string): string {
   const bible = rules.length
     ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
     : 'No specific rules set.';
   const lore = codex.length
     ? codex.map(e => `[${e.name}]: ${e.description.substring(0, 200) + (e.description.length > 200 ? '...' : '')}`).join('\n')
     : 'No specific lore relevant to this passage.';
-  return `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
+  
+  let block = `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
+  if (beats) {
+    block += `\n\nCHAPTER BEATS:\n${beats}`;
+  }
+  return block;
 }
 
 async function callAI(params: AIRenderParams): Promise<string> {
@@ -107,9 +119,15 @@ function extractCandidateSentences(text: string): string {
 export async function processRewrite(params: GenerateParams): Promise<string> {
   const relevantCodex = await getRelevantContext(params.selection, params.codexEntries);
   const relevantRules = await getRelevantBibleRules(params.selection, params.bibleRules);
-  const contextBlock = buildContextBlock(relevantRules, relevantCodex);
+  
+  let beatsStr = '';
+  if (params.chapterId) {
+    const beats = await getChapterBeats(params.chapterId);
+    beatsStr = formatBeats(beats);
+  }
 
-  const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
+  const contextBlock = buildContextBlock(relevantRules, relevantCodex);
+  const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock, beatsStr || undefined);
   const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
 
   try {
@@ -136,11 +154,19 @@ export async function processChat(params: ChatParams): Promise<string> {
   const contextSource = `${params.contextText || ''} ${params.message || ''}`;
   const relevantCodex = await getRelevantContext(contextSource, params.codexEntries);
   const relevantRules = await getRelevantBibleRules(contextSource, params.bibleRules);
+  
+  let beatsStr = '';
+  if (params.chapterId) {
+    const beats = await getChapterBeats(params.chapterId);
+    beatsStr = formatBeats(beats);
+  }
+
   const contextBlock = buildContextBlock(relevantRules, relevantCodex);
 
   const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(
     contextBlock, 
-    params.contextText?.substring(0, 2000) || ''
+    params.contextText?.substring(0, 2000) || '',
+    beatsStr || undefined
   );
 
   try {

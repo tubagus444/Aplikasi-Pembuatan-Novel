@@ -23,6 +23,7 @@ interface Message {
 
 interface AIAssistantPanelProps {
   projectId: number;
+  chapterId?: number;
   currentText: string;
   onClose: () => void;
   onInsertText?: (text: string) => void;
@@ -33,6 +34,7 @@ interface AIAssistantPanelProps {
 
 export function AIAssistantPanel({ 
   projectId, 
+  chapterId,
   currentText, 
   onClose, 
   onInsertText, 
@@ -153,6 +155,7 @@ export function AIAssistantPanel({
         bibleRules: filteredBibleRules,
         codexEntries: filteredCodex,
         contextText: currentText,
+        chapterId,
         provider: selectedProvider
       });
 

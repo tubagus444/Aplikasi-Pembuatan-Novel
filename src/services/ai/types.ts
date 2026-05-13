@@ -22,6 +22,7 @@ export interface GenerateParams {
   bibleRules: StoryBibleRule[];
   codexEntries: CodexEntry[];
   action: string;
+  chapterId?: number;
   provider?: string;
 }
 
@@ -31,5 +32,6 @@ export interface ChatParams {
   bibleRules: StoryBibleRule[];
   codexEntries: CodexEntry[];
   contextText: string;
+  chapterId?: number;
   provider?: string;
 }

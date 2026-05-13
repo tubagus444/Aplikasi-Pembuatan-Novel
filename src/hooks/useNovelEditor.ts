@@ -320,6 +320,7 @@ export function useNovelEditor({
         bibleRules: relevantBible,
         codexEntries: relevantCodex,
         prompt: '',
+        chapterId,
         provider
       });
 
