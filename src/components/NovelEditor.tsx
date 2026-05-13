@@ -16,6 +16,7 @@ import { EditorContent } from '@tiptap/react';
 import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { EditorPanelProvider } from '../EditorPanelContext';
 import { useProjectData } from '../hooks/useProjectData';
+import { useGlobalEvents } from '../hooks/useGlobalEvents';
 
 // New Modular Components & Hooks
 import { useNovelEditor } from '../hooks/useNovelEditor';
@@ -24,6 +25,7 @@ import { EditorFooter } from './editor/EditorFooter';
 import { EditorLayout } from './editor/EditorLayout';
 import { AiProcessingOverlay } from './editor/AiProcessingOverlay';
 import { NovelPanels } from './editor/NovelPanels';
+import { SearchReplaceBar } from './editor/SearchReplaceBar';
 
 interface NovelEditorProps {
   chapterId: number;
@@ -64,7 +66,24 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     isAiProcessing,
     activeCodexPopup,
     setActiveCodexPopup,
-    runAiAction
+    runAiAction,
+    handleReplace,
+    handleReplaceAll,
+    handleNext,
+    handlePrev,
+    // Search handlers
+    isSearchOpen,
+    setIsSearchOpen,
+    searchQuery,
+    setSearchQuery,
+    replaceQuery,
+    setReplaceQuery,
+    isCaseSensitive,
+    setIsCaseSensitive,
+    isRegex,
+    setIsRegex,
+    searchStats,
+    closeSearch
   } = useNovelEditor({
     chapterId,
     chapter,
@@ -73,6 +92,12 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     aiActions: aiActions || [],
     isTypewriterMode,
     containerRef
+  });
+
+  // Editor-specific Global Events (Ctrl+H, etc)
+  useGlobalEvents({
+    onToggleEditorSearch: () => setIsSearchOpen(!isSearchOpen),
+    isEditorSearchOpen: isSearchOpen
   });
 
   if (chapter === undefined || isLoading) {
@@ -105,6 +130,8 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
           setIsTypewriterMode={setIsTypewriterMode} 
           isFocusMode={isFocusMode}
           setIsFocusMode={setIsFocusMode}
+          isSearchOpen={isSearchOpen}
+          setIsSearchOpen={setIsSearchOpen}
         />
       }
       panels={
@@ -118,6 +145,28 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
       }
     >
       <div className="relative w-full">
+        <AnimatePresence>
+          {isSearchOpen && (
+            <SearchReplaceBar
+              editor={editor}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              replaceQuery={replaceQuery}
+              setReplaceQuery={setReplaceQuery}
+              isCaseSensitive={isCaseSensitive}
+              setIsCaseSensitive={setIsCaseSensitive}
+              isRegex={isRegex}
+              setIsRegex={setIsRegex}
+              searchStats={searchStats}
+              onClose={closeSearch}
+              onReplace={handleReplace}
+              onReplaceAll={handleReplaceAll}
+              onNext={handleNext}
+              onPrev={handlePrev}
+            />
+          )}
+        </AnimatePresence>
+
         {editor && (
           <SelectionFloatingMenu editor={editor} onAiAction={runAiAction} customActions={aiActions} />
         )}

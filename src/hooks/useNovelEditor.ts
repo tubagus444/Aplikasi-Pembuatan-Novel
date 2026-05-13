@@ -10,6 +10,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import TiptapHistory from '@tiptap/extension-history';
 import { Extension } from '@tiptap/core';
+import { SearchAndReplace } from '../extensions/SearchAndReplace';
 import tippy from 'tippy.js';
 import { db } from '../db';
 import { PassiveCodexHighlight } from '../extensions/PassiveCodexHighlight';
@@ -56,6 +57,15 @@ export function useNovelEditor({
   const [title, setTitle] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [activeCodexPopup, setActiveCodexPopup] = useState<{ id: number; x: number; y: number } | null>(null);
+  
+  // Search & Replace State
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [replaceQuery, setReplaceQuery] = useState('');
+  const [isCaseSensitive, setIsCaseSensitive] = useState(false);
+  const [isRegex, setIsRegex] = useState(false);
+  const [searchStats, setSearchStats] = useState({ current: 0, total: 0 });
+
   const { toast } = useToast();
 
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
@@ -97,6 +107,10 @@ export function useNovelEditor({
       }),
       TiptapHistory,
       CustomAIKeymap,
+      SearchAndReplace.configure({
+        disableRegex: false,
+        caseSensitive: false,
+      }),
       PassiveCodexHighlight.configure({
         getCodexEntries: () => codexEntriesRef.current,
         onCodexClick: (entryId, event) => {
@@ -333,6 +347,84 @@ export function useNovelEditor({
     }
   };
 
+  // Update search extension when query changes
+  useEffect(() => {
+    if (!editor || !searchQuery) {
+        setSearchStats({ current: 0, total: 0 });
+        return;
+    }
+
+    editor.commands.setSearchTerm(searchQuery);
+    editor.commands.setCaseSensitive(isCaseSensitive);
+    editor.commands.setRegex(isRegex);
+    
+    // Trigger decoration update
+    editor.view.dispatch(editor.state.tr.setMeta('searchAndReplace', true));
+    
+    const results = (editor.storage.searchAndReplace as any).results || [];
+    setSearchStats({
+        current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+        total: results.length
+    });
+  }, [editor, searchQuery, isCaseSensitive, isRegex]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.setReplaceTerm(replaceQuery);
+  }, [editor, replaceQuery]);
+
+  const openSearch = useCallback(() => {
+    setIsSearchOpen(true);
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setIsSearchOpen(false);
+    if (editor) {
+        editor.commands.setSearchTerm('');
+        editor.view.dispatch(editor.state.tr.setMeta('searchAndReplace', true));
+        editor.commands.focus();
+    }
+  }, [editor]);
+
+  const handleReplace = useCallback(() => {
+    if (!editor) return;
+    editor.commands.replace();
+    // Update stats after replace
+    setTimeout(() => {
+        const results = (editor.storage.searchAndReplace as any).results || [];
+        setSearchStats({
+            current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+            total: results.length
+        });
+    }, 0);
+  }, [editor]);
+
+  const handleReplaceAll = useCallback(() => {
+    if (!editor) return;
+    editor.commands.replaceAll();
+    setSearchStats({ current: 0, total: 0 });
+  }, [editor]);
+
+  const handleNext = useCallback(() => {
+    if (!editor) return;
+    editor.commands.nextSearchResult();
+    const results = (editor.storage.searchAndReplace as any).results || [];
+    setSearchStats({
+        current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+        total: results.length
+    });
+  }, [editor]);
+
+  const handlePrev = useCallback(() => {
+    if (!editor) return;
+    editor.commands.previousSearchResult();
+    const results = (editor.storage.searchAndReplace as any).results || [];
+    setSearchStats({
+        current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+        total: results.length
+    });
+  }, [editor]);
+
   return {
     editor,
     title,
@@ -340,6 +432,24 @@ export function useNovelEditor({
     isAiProcessing,
     activeCodexPopup,
     setActiveCodexPopup,
-    runAiAction
+    runAiAction,
+    // Search & Replace exports
+    isSearchOpen,
+    setIsSearchOpen,
+    searchQuery,
+    setSearchQuery,
+    replaceQuery,
+    setReplaceQuery,
+    isCaseSensitive,
+    setIsCaseSensitive,
+    isRegex,
+    setIsRegex,
+    searchStats,
+    openSearch,
+    closeSearch,
+    handleReplace,
+    handleReplaceAll,
+    handleNext,
+    handlePrev
   };
 }

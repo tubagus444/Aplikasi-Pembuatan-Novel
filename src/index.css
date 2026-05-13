@@ -109,3 +109,11 @@
   @apply text-indigo-700 dark:text-indigo-400 border-b border-indigo-300 dark:border-indigo-700 border-dotted cursor-help transition-all hover:bg-indigo-100 dark:hover:bg-indigo-900/50;
 }
 
+.search-result {
+  @apply bg-yellow-200 dark:bg-yellow-900/50 text-slate-900 dark:text-slate-100 transition-colors;
+}
+
+.search-result-current {
+  @apply bg-orange-400 dark:bg-orange-600 dark:text-white transition-all ring-2 ring-orange-500/50;
+}
+

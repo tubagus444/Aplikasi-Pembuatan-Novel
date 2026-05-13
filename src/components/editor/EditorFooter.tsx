@@ -13,7 +13,8 @@ import {
   Undo,
   Redo,
   Zap,
-  Type
+  Type,
+  Search
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorPanel } from '../../EditorPanelContext';
@@ -24,6 +25,8 @@ interface EditorFooterProps {
   setIsTypewriterMode: (val: boolean) => void;
   isFocusMode?: boolean;
   setIsFocusMode: (val: boolean) => void;
+  isSearchOpen?: boolean;
+  setIsSearchOpen: (val: boolean) => void;
 }
 
 export function EditorFooter({ 
@@ -31,7 +34,9 @@ export function EditorFooter({
   isTypewriterMode, 
   setIsTypewriterMode, 
   isFocusMode, 
-  setIsFocusMode 
+  setIsFocusMode,
+  isSearchOpen,
+  setIsSearchOpen 
 }: EditorFooterProps) {
   const { activePanel, setActivePanel, saveStatus } = useEditorPanel();
   
@@ -81,6 +86,17 @@ export function EditorFooter({
             title="Focus Mode (Ctrl+Alt+F)"
           >
             <Zap size={14} />
+          </button>
+
+          <button
+            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            className={cn(
+              "p-1.5 rounded text-slate-500 hover:text-indigo-600 transition-colors",
+              isSearchOpen ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-slate-100 dark:hover:bg-slate-800"
+            )}
+            title="Search & Replace (Ctrl+H)"
+          >
+            <Search size={14} />
           </button>
           
           <button
