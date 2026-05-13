@@ -1,12 +1,59 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../db';
 import { testConnection } from '../services/ai';
 import { cn } from '../lib/utils';
+import { useAutoBackup } from '../hooks/useAutoBackup';
+import { backupService } from '../services/backupService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { format } from 'date-fns';
 
 export function SettingsPanel() {
+  const { 
+    lastBackupTime, 
+    isBackingUp: isAutoBackingUp, 
+    selectFolder, 
+    triggerManualBackup, 
+    folderName,
+    isFileSystemSupported
+  } = useAutoBackup();
+  
+  const [backupInterval, setBackupInterval] = useState(() => 
+    localStorage.getItem('backup_interval') || '30'
+  );
+
+  const internalBackups = useLiveQuery(() => 
+    backupService.getBackupList(),
+    []
+  );
+
+  const handleIntervalChange = (val: string) => {
+    setBackupInterval(val);
+    localStorage.setItem('backup_interval', val);
+    // Storage event will trigger in App context if multi-tab, 
+    // or the Provider effect will pick it up if in same tab context
+  };
+
+  const handleInternalRestore = async (backupId: number, timestamp: number) => {
+    const confirmRestore = window.confirm(
+      `WARNING: This will replace ALL your current data with the backup from ${format(timestamp, 'PPP p')}. This action cannot be undone.\n\nAre you sure you want to proceed?`
+    );
+
+    if (!confirmRestore) return;
+
+    try {
+      await backupService.restoreFromBackup(backupId);
+      alert("Restore completed successfully! The page will now reload.");
+      window.location.reload();
+    } catch (err) {
+      console.error("Internal restore failed:", err);
+      alert("Failed to restore from internal backup.");
+    }
+  };
+
   const [provider, setProvider] = useState('google');
+  // ... rest of the component state
   const [keys, setKeys] = useState({
     google: '',
     groq: '',
@@ -366,6 +413,133 @@ export function SettingsPanel() {
           <p>
             <strong>Warning:</strong> Restoring from a backup will immediately <strong>overwrite</strong> all your current data on this browser. Please ensure you have backed up your current progress before restoring.
           </p>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+            <RefreshCcw size={20} className="text-indigo-500" />
+            <h3 className="text-lg font-semibold tracking-tight">Auto-Backup</h3>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            Reliability Layer Active
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <Database size={16} className="text-indigo-500" />
+                  Layer 1: Internal DB
+                </div>
+                {lastBackupTime && (
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Last: {format(lastBackupTime, 'HH:mm')}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Rolling backup stored in IndexedDB. Keeps the last 5 versions automatically.
+              </p>
+              <button
+                onClick={triggerManualBackup}
+                disabled={isAutoBackingUp}
+                className="w-full h-9 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {isAutoBackingUp ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
+                Backup Now
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                <FolderOpen size={16} className="text-indigo-500" />
+                Layer 2: Local Folder
+              </div>
+              {!isFileSystemSupported ? (
+                <div className="p-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded text-[10px] border border-red-100 dark:border-red-900/50">
+                  File System Access API is not supported in this browser.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Saves a backup file to your computer automatically at every interval.
+                  </p>
+                  {folderName ? (
+                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <FolderOpen size={12} className="text-slate-400" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{folderName}</span>
+                      </div>
+                      <button onClick={selectFolder} className="text-[10px] text-indigo-500 hover:underline shrink-0">Change</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={selectFolder}
+                      className="w-full h-9 flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-xs font-medium transition-colors"
+                    >
+                      <FolderOpen size={14} />
+                      Select Backup Folder
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
+                Backup Interval
+              </label>
+              <select 
+                value={backupInterval}
+                onChange={(e) => handleIntervalChange(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="15">Every 15 Minutes</option>
+                <option value="30">Every 30 Minutes</option>
+                <option value="60">Every 1 Hour</option>
+              </select>
+            </div>
+
+            <div className="pt-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
+                <History size={14} />
+                Internal History
+              </div>
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                {internalBackups && internalBackups.length > 0 ? (
+                  internalBackups.map((backup) => (
+                    <div key={backup.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded border border-slate-100 dark:border-slate-800 text-[11px]">
+                      <div className="flex flex-col">
+                        <span className="text-slate-900 dark:text-slate-100 font-medium">
+                          {format(backup.timestamp, 'MMM d, HH:mm')}
+                        </span>
+                        <span className="text-slate-500 dark:text-slate-500 text-[9px]">
+                          {(backup.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => handleInternalRestore(backup.id!, backup.timestamp)}
+                        className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-medium transition-colors"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-xs text-slate-400 italic">
+                    No internal backups yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

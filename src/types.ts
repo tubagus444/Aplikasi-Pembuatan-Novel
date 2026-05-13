@@ -107,3 +107,10 @@ export interface AppError {
   source?: string;
   metadata?: any;
 }
+
+export interface BackupRecord {
+  id?: number;
+  timestamp: number;
+  data: string; // JSON
+  size: number; // bytes
+}

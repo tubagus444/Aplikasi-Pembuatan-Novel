@@ -4,18 +4,21 @@ import { getCodexRegex } from '../lib/utils';
 
 const segmentRegexCache = new Map<string, RegExp>();
 
-function getSegmentRegex(name: string): RegExp {
-  if (!segmentRegexCache.has(name)) {
-    segmentRegexCache.set(name, getCodexRegex(name));
-  }
-  return new RegExp(segmentRegexCache.get(name)!.source, 'gi');
-}
-
 export function useHighlightedSegments(
   text: string,
   entries: CodexEntry[],
   renderMatch: (entry: CodexEntry, part: string, key: string) => React.ReactNode
 ): (string | React.ReactNode)[] {
+  // Clear cache if entries change (names or aliases)
+  const entriesHash = useMemo(() => 
+    entries.map(e => `${e.name}:${(e.aliases || []).join(',')}`).join('|'),
+    [entries]
+  );
+
+  React.useEffect(() => {
+    segmentRegexCache.clear();
+  }, [entriesHash]);
+
   return useMemo(() => {
     if (!text || !entries?.length) return [text];
     let segments: (string | React.ReactNode)[] = [text];
@@ -23,7 +26,10 @@ export function useHighlightedSegments(
     sorted.forEach(entry => {
       const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
       names.forEach(name => {
-        const regex = getSegmentRegex(name);
+        if (!segmentRegexCache.has(name)) {
+          segmentRegexCache.set(name, getCodexRegex(name));
+        }
+        const regex = new RegExp(segmentRegexCache.get(name)!.source, 'gi');
         const next: (string | React.ReactNode)[] = [];
         let idx = 0;
         segments.forEach((seg, si) => {

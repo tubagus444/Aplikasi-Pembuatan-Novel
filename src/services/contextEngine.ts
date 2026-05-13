@@ -11,6 +11,16 @@ let worker: Worker | null = null;
 let requestId = 0;
 const pendingRequests = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void }>();
 
+function terminateWorker() {
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+  const error = new Error('Context worker was terminated or crashed');
+  pendingRequests.forEach(deferred => deferred.reject(error));
+  pendingRequests.clear();
+}
+
 function getWorker(): Worker {
   if (!worker) {
     worker = new ContextWorker();
@@ -25,6 +35,7 @@ function getWorker(): Worker {
     };
     worker.onerror = (e) => {
       console.error('Context Worker Error:', e);
+      terminateWorker();
     };
   }
   return worker;
@@ -33,8 +44,32 @@ function getWorker(): Worker {
 function sendToWorker(type: string, payload: any): Promise<any> {
   const id = ++requestId;
   return new Promise((resolve, reject) => {
-    pendingRequests.set(id, { resolve, reject });
-    getWorker().postMessage({ type, id, payload });
+    // 30 second timeout for heavy processing
+    const timeoutId = setTimeout(() => {
+      if (pendingRequests.has(id)) {
+        pendingRequests.delete(id);
+        reject(new Error(`Context engine worker request timed out (${type})`));
+      }
+    }, 30000);
+
+    pendingRequests.set(id, { 
+      resolve: (val) => {
+        clearTimeout(timeoutId);
+        resolve(val);
+      }, 
+      reject: (err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      } 
+    });
+    
+    try {
+      getWorker().postMessage({ type, id, payload });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      pendingRequests.delete(id);
+      reject(err);
+    }
   });
 }
 

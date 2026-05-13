@@ -19,6 +19,14 @@ interface GlobalSearchProps {
 
 export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClose }: GlobalSearchProps) {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
   
   const chapters = useLiveQuery(() => 
     db.chapters.where('projectId').equals(projectId).toArray()
@@ -29,9 +37,9 @@ export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClos
   , [projectId]);
 
   const results = useMemo(() => {
-    if (!query.trim()) return { chapters: [], codex: [] };
+    if (!debouncedQuery.trim()) return { chapters: [], codex: [] };
     
-    const q = query.toLowerCase();
+    const q = debouncedQuery.toLowerCase();
     
     const matchedChapters = chapters?.filter(ch => 
       ch.title.toLowerCase().includes(q) || ch.content.toLowerCase().includes(q)
@@ -44,7 +52,7 @@ export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClos
     ) || [];
 
     return { chapters: matchedChapters, codex: matchedCodex };
-  }, [query, chapters, codex]);
+  }, [debouncedQuery, chapters, codex]);
 
   useEffect(() => {
     const handleDown = (e: KeyboardEvent) => {

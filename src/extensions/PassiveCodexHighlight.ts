@@ -11,24 +11,6 @@ interface PassiveCodexHighlightOptions {
 
 const PLUGIN_KEY = new PluginKey('passiveCodexHighlight');
 
-let acInstance: AhoCorasick | null = null;
-let lastEntriesHash = '';
-
-function getAcInstance(entries: any[]): AhoCorasick | null {
-  if (!entries || entries.length === 0) return null;
-  
-  const currentHash = JSON.stringify(entries.map(e => ({ n: e.name, a: e.aliases })));
-  if (currentHash !== lastEntriesHash || !acInstance) {
-    const keywords = entries.flatMap(entry => {
-      const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
-      return names.map(name => ({ word: name, data: entry }));
-    });
-    acInstance = new AhoCorasick(keywords);
-    lastEntriesHash = currentHash;
-  }
-  return acInstance;
-}
-
 export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptions>({
   name: 'passiveCodexHighlight',
 
@@ -42,6 +24,23 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
   addProseMirrorPlugins() {
     const options = this.options;
     let debounceTimer: any = null;
+    let acInstance: AhoCorasick | null = null;
+    let lastEntriesHash = '';
+
+    function getLocalAcInstance(entries: any[]): AhoCorasick | null {
+      if (!entries || entries.length === 0) return null;
+      
+      const currentHash = JSON.stringify(entries.map(e => ({ n: e.name, a: e.aliases })));
+      if (currentHash !== lastEntriesHash || !acInstance) {
+        const keywords = entries.flatMap(entry => {
+          const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
+          return names.map(name => ({ word: name, data: entry }));
+        });
+        acInstance = new AhoCorasick(keywords);
+        lastEntriesHash = currentHash;
+      }
+      return acInstance;
+    }
 
     return [
       new Plugin({
@@ -90,7 +89,15 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
               
               debounceTimer = setTimeout(() => {
                 const entries = options.getCodexEntries();
-                const decorations = getDecorations(view.state.doc, entries);
+                const ac = getLocalAcInstance(entries);
+                if (!ac) {
+                  if (!view.isDestroyed) {
+                    view.dispatch(view.state.tr.setMeta('updateCodexHighlights', DecorationSet.empty));
+                  }
+                  return;
+                }
+
+                const decorations = getDecorationsInternal(view.state.doc, ac);
                 
                 // Only update if the view hasn't been destroyed
                 if (!view.isDestroyed) {
@@ -108,13 +115,8 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
   },
 });
 
-function getDecorations(doc: ProseMirrorNode, entries: any[]): DecorationSet {
+function getDecorationsInternal(doc: ProseMirrorNode, ac: AhoCorasick): DecorationSet {
   const decorations: Decoration[] = [];
-  const ac = getAcInstance(entries);
-  
-  if (!ac) {
-    return DecorationSet.empty;
-  }
 
   doc.descendants((node, pos) => {
     if (!node.isText) return;

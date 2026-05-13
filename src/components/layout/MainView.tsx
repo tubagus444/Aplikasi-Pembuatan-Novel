@@ -55,25 +55,24 @@ export function MainView() {
       </AnimatePresence>
 
       <div className="flex-1 overflow-hidden relative bg-background">
-        {/* Persistent Editor: Always mounted but hidden when not in write mode to prevent Tiptap re-initialization overhead */}
-        <div 
-          className={cn(
-            "absolute inset-0 transition-opacity duration-300", 
-            viewMode !== 'write' ? "opacity-0 pointer-events-none z-0" : "opacity-100 z-10"
-          )}
-        >
-          {activeChapterId && projectId ? (
-            <NovelEditor 
-              chapterId={activeChapterId} 
-              projectId={projectId} 
-            />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-slate-300">
-              <ScrollText size={48} className="mb-4 opacity-20" />
-              <p className="font-serif italic text-lg text-slate-400">Select a chapter to begin your journey.</p>
-            </div>
-          )}
-        </div>
+        {/* Persistent Editor: Conditionally mounted to save RAM as requested */}
+        {viewMode === 'write' && (
+          <div 
+            className="absolute inset-0 z-10"
+          >
+            {activeChapterId && projectId ? (
+              <NovelEditor 
+                chapterId={activeChapterId} 
+                projectId={projectId} 
+              />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                <ScrollText size={48} className="mb-4 opacity-20" />
+                <p className="font-serif italic text-lg text-slate-400">Select a chapter to begin your journey.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {viewMode === 'outline' && projectId && (

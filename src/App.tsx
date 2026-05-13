@@ -11,6 +11,7 @@ import { useProject } from './contexts/ProjectContext';
 import { useNavigation } from './contexts/NavigationContext';
 import { useUI } from './contexts/UIContext';
 import { useGlobalEvents } from './hooks/useGlobalEvents';
+import { useAutoBackup } from './hooks/useAutoBackup';
 import { motion } from 'motion/react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -34,6 +35,9 @@ export default function App() {
 
   // Handle global keyboard shortcuts and errors
   useGlobalEvents({ setIsSearchOpen });
+
+  // Initialize Auto-Backup system
+  useAutoBackup();
 
   if (isLoading || !projectId) {
     return (

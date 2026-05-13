@@ -5,6 +5,7 @@ import './index.css';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import { UIProvider } from './contexts/UIContext';
+import { BackupProvider } from './hooks/useAutoBackup';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorService } from './services/errorService';
 
@@ -32,9 +33,11 @@ createRoot(document.getElementById('root')!).render(
     <ProjectProvider>
       <NavigationProvider>
         <UIProvider>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
+          <BackupProvider>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+          </BackupProvider>
         </UIProvider>
       </NavigationProvider>
     </ProjectProvider>
