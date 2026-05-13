@@ -40,67 +40,170 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
 
   const exportPDF = async (chapters: Chapter[]) => {
     const doc = new jsPDF();
-    let y = 20;
     const pageHeight = doc.internal.pageSize.height;
-    const margin = 20;
-    const innerWidth = doc.internal.pageSize.width - margin * 2;
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 25.4; // 1 inch margin
+    const innerWidth = pageWidth - margin * 2;
+    const lineHeight = 7; // Improved line height for 11pt font
+    let y = margin;
 
-    doc.setFontSize(22);
-    doc.text(project?.name || 'Manuscript', margin, y);
-    y += 20;
+    // Document styling
+    doc.setFont('times', 'normal');
+
+    // Title Page (Simplified)
+    doc.setFontSize(24);
+    doc.text(project?.name || 'Manuscript', pageWidth / 2, y + 40, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text('A Novel Manuscript', pageWidth / 2, y + 55, { align: 'center' });
+    
+    doc.addPage();
+    y = margin;
 
     chapters.forEach((ch, index) => {
+      // Check for page overflow before chapter title
       if (y > pageHeight - 40) {
         doc.addPage();
-        y = 20;
+        y = margin;
       }
       
-      doc.setFontSize(16);
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
       doc.text(ch.title || `Chapter ${index + 1}`, margin, y);
-      y += 10;
+      y += 12;
       
       doc.setFontSize(11);
-      const plainText = stripHtml(ch.content || '');
-      const lines = doc.splitTextToSize(plainText, innerWidth);
+      doc.setFont(undefined, 'normal');
       
-      lines.forEach((line: string) => {
-        if (y > pageHeight - 20) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.text(line, margin, y);
-        y += 6;
+      // Parse paragraphs from HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = ch.content || '';
+      const paragraphs = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+      
+      const contentNodes = paragraphs.length > 0 ? paragraphs : [tempDiv];
+      
+      contentNodes.forEach((pNode) => {
+        const text = pNode.textContent?.trim() || '';
+        if (!text) return;
+        
+        const lines = doc.splitTextToSize(text, innerWidth);
+        
+        lines.forEach((line: string) => {
+          if (y > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(line, margin, y);
+          y += lineHeight;
+        });
+        
+        y += 4; // Extra space after paragraph
       });
       
-      y += 10;
+      y += 10; // Space between chapters
     });
 
     doc.save(`${project?.name || 'Manuscript'}.pdf`);
   };
 
+  const htmlToDocxElements = (html: string): Paragraph[] => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const elements: Paragraph[] = [];
+
+    const processNode = (node: Node, styles: { bold?: boolean; italics?: boolean } = {}): TextRun[] => {
+      let runs: TextRun[] = [];
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (node.textContent) {
+          runs.push(new TextRun({
+            text: node.textContent,
+            bold: styles.bold,
+            italics: styles.italics,
+            size: 24, // 12pt
+            font: 'Times New Roman'
+          }));
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const nextStyles = { ...styles };
+        if (el.tagName === 'STRONG' || el.tagName === 'B') nextStyles.bold = true;
+        if (el.tagName === 'EM' || el.tagName === 'I') nextStyles.italics = true;
+        
+        el.childNodes.forEach(child => {
+          runs = runs.concat(processNode(child, nextStyles));
+        });
+      }
+      return runs;
+    };
+
+    doc.body.childNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const children: TextRun[] = [];
+        el.childNodes.forEach(child => {
+          children.push(...processNode(child));
+        });
+
+        if (el.tagName === 'P') {
+          elements.push(new Paragraph({ 
+            children, 
+            spacing: { after: 200, line: 360 }, // 1.5 line height
+            alignment: AlignmentType.JUSTIFIED
+          }));
+        } else if (el.tagName.startsWith('H')) {
+          const level = parseInt(el.tagName.substring(1));
+          const headingMap: Record<number, any> = {
+            1: HeadingLevel.HEADING_1,
+            2: HeadingLevel.HEADING_2,
+            3: HeadingLevel.HEADING_3,
+          };
+          elements.push(new Paragraph({
+            children,
+            heading: headingMap[level] || HeadingLevel.HEADING_1,
+            spacing: { before: 400, after: 200 }
+          }));
+        } else if (children.length > 0) {
+          // Handle other elements as simple paragraphs
+          elements.push(new Paragraph({ children, spacing: { after: 200 } }));
+        }
+      } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+         elements.push(new Paragraph({
+           children: [new TextRun({ text: node.textContent, size: 24, font: 'Times New Roman' })],
+           spacing: { after: 200 }
+         }));
+      }
+    });
+
+    return elements;
+  };
+
   const exportDocx = async (chapters: Chapter[]) => {
-    const docContent = chapters.map(ch => [
-      new Paragraph({
+    const sections = chapters.map(ch => {
+      const heading = new Paragraph({
         text: ch.title,
         heading: HeadingLevel.HEADING_1,
         alignment: AlignmentType.CENTER,
-        spacing: { after: 400 }
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: stripHtml(ch.content || ''),
-            size: 24,
-          })
-        ],
-        spacing: { line: 360 }
-      })
-    ]).flat();
+        spacing: { before: 400, after: 400 }
+      });
+
+      const bodyElements = htmlToDocxElements(ch.content || '');
+      
+      return [heading, ...bodyElements];
+    }).flat();
 
     const doc = new Document({
       title: project?.name,
       sections: [{
-        children: docContent
+        properties: {
+          page: {
+            margin: {
+              top: 1440, // 1 inch
+              right: 1440,
+              bottom: 1440,
+              left: 1440
+            }
+          }
+        },
+        children: sections
       }]
     });
 
