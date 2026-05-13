@@ -1,4 +1,5 @@
 import { AIRenderParams } from "./types";
+import { ErrorService } from "../errorService";
 
 export async function callProxy(provider: string, params: AIRenderParams, apiKey?: string): Promise<string> {
   const body: any = {
@@ -51,6 +52,14 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
       ) : {}
     }),
     signal: params.signal
+  }).catch(networkError => {
+    ErrorService.log({
+      message: networkError.message,
+      type: 'error',
+      source: `AI-Proxy (${provider})`,
+      metadata: { networkError: true, provider }
+    });
+    throw networkError;
   });
 
   if (!response.ok) {

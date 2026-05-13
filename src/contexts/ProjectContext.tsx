@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, ensureDefaultProject } from '../db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { ErrorService } from '../services/errorService';
 
 interface ProjectContextType {
   projectId: number | null;
@@ -36,49 +37,79 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   , [projectId]);
 
   const switchProject = async (id: number) => {
-    await db.projects.update(id, { lastOpened: Date.now() });
-    setProjectId(id);
+    try {
+      await db.projects.update(id, { lastOpened: Date.now() });
+      setProjectId(id);
+    } catch (error) {
+      ErrorService.log({
+        message: 'Failed to switch project',
+        type: 'error',
+        source: 'ProjectContext',
+        metadata: { id, error }
+      });
+      throw error;
+    }
   };
 
   const createProject = async (name: string) => {
-    const newId = await db.projects.add({
-      name,
-      description: 'New Manuscript',
-      createdAt: Date.now(),
-      lastOpened: Date.now(),
-    });
-    
-    await db.chapters.add({
-      projectId: newId,
-      title: 'Chapter 1',
-      content: '',
-      order: 0,
-      lastModified: Date.now(),
-    });
+    try {
+      const newId = await db.projects.add({
+        name,
+        description: 'New Manuscript',
+        createdAt: Date.now(),
+        lastOpened: Date.now(),
+      });
+      
+      await db.chapters.add({
+        projectId: newId,
+        title: 'Chapter 1',
+        content: '',
+        order: 0,
+        lastModified: Date.now(),
+      });
 
-    await switchProject(newId);
+      await switchProject(newId);
+    } catch (error) {
+      ErrorService.log({
+        message: 'Failed to create project',
+        type: 'error',
+        source: 'ProjectContext',
+        metadata: { name, error }
+      });
+      throw error;
+    }
   };
 
   const deleteProject = async (id: number) => {
-    if (projectId === id) {
-      const other = await db.projects.where('id').notEqual(id).first();
-      if (other) {
-        await switchProject(other.id!);
-      } else {
-        const defaultId = await ensureDefaultProject();
-        if (defaultId) setProjectId(defaultId);
+    try {
+      if (projectId === id) {
+        const other = await db.projects.where('id').notEqual(id).first();
+        if (other) {
+          await switchProject(other.id!);
+        } else {
+          const defaultId = await ensureDefaultProject();
+          if (defaultId) setProjectId(defaultId);
+        }
       }
+      
+      await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], async () => {
+        await db.chapters.where('projectId').equals(id).delete();
+        await db.codex.where('projectId').equals(id).delete();
+        await db.bible.where('projectId').equals(id).delete();
+        await db.aiActions.where('projectId').equals(id).delete();
+        await db.timeline.where('projectId').equals(id).delete();
+        await db.relationships.where('projectId').equals(id).delete();
+        await db.projects.delete(id);
+      });
+    } catch (error) {
+      ErrorService.log({
+        message: 'Failed to delete project',
+        type: 'error',
+        source: 'ProjectContext',
+        metadata: { id, error }
+      });
+      throw error;
     }
-    
-    await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], async () => {
-      await db.chapters.where('projectId').equals(id).delete();
-      await db.codex.where('projectId').equals(id).delete();
-      await db.bible.where('projectId').equals(id).delete();
-      await db.aiActions.where('projectId').equals(id).delete();
-      await db.timeline.where('projectId').equals(id).delete();
-      await db.relationships.where('projectId').equals(id).delete();
-      await db.projects.delete(id);
-    });
   };
 
   return (

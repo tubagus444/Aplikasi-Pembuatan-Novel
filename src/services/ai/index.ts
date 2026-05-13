@@ -3,6 +3,8 @@ import { getRelevantContext, getRelevantBibleRules } from "../contextEngine";
 import { callGemini } from "./gemini";
 import { callProxy } from "./proxy";
 import { GenerateParams, ChatParams, AIRenderParams } from "./types";
+import { ErrorService } from "../errorService";
+import { AI_PROMPTS } from "../../lib/aiPrompts";
 
 export class AIError extends Error {
   code: string;
@@ -82,7 +84,15 @@ async function callAI(params: AIRenderParams): Promise<string> {
     return await callProxy(provider, params, settings.keys[provider as keyof typeof settings.keys]);
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
-    throw new AIError(error.message || 'AI processing failed', 'API_ERROR');
+    
+    const aiError = new AIError(error.message || 'AI processing failed', 'API_ERROR');
+    ErrorService.log({
+      message: aiError.message,
+      type: 'error',
+      source: `AI-Service (${provider})`,
+      metadata: { params: { ...params, signal: undefined }, provider }
+    });
+    throw aiError;
   }
 }
 
@@ -95,33 +105,12 @@ function extractCandidateSentences(text: string): string {
 // Facade Methods
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
-  const relevantCodex = getRelevantContext(params.selection, params.codexEntries);
-  const relevantRules = getRelevantBibleRules(params.selection, params.bibleRules);
+  const relevantCodex = await getRelevantContext(params.selection, params.codexEntries);
+  const relevantRules = await getRelevantBibleRules(params.selection, params.bibleRules);
+  const contextBlock = buildContextBlock(relevantRules, relevantCodex);
 
-  const systemInstruction = `
-You are a professional novel editor and writing assistant. 
-Your goal is to rewrite the text provided based on the specific action requested, while strictly adhering to the Story Bible and maintaining consistency with the character/world lore (Codex).
-
-${buildContextBlock(relevantRules, relevantCodex)}
-
-GUIDELINES:
-1. Maintain the existing point of view and style unless the Story Bible says otherwise.
-2. Ensure technical consistency with the Codex.
-3. Be evocative and professional.
-4. ONLY return the rewritten text. No preamble, no commentary.
-`.trim();
-
-  const userPrompt = `
-Action: ${params.action}
-${params.prompt ? `Additional Request: ${params.prompt}` : ''}
-
-Original Text to Rewrite:
-"""
-${params.selection}
-"""
-
-Rewritten Text:
-`.trim();
+  const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
 
   try {
     const controller = new AbortController();
@@ -145,22 +134,14 @@ Rewritten Text:
 
 export async function processChat(params: ChatParams): Promise<string> {
   const contextSource = `${params.contextText || ''} ${params.message || ''}`;
-  const relevantCodex = getRelevantContext(contextSource, params.codexEntries);
-  const relevantRules = getRelevantBibleRules(contextSource, params.bibleRules);
+  const relevantCodex = await getRelevantContext(contextSource, params.codexEntries);
+  const relevantRules = await getRelevantBibleRules(contextSource, params.bibleRules);
+  const contextBlock = buildContextBlock(relevantRules, relevantCodex);
 
-  const systemInstruction = `
-You are a brilliant developmental editor and creative writing assistant.
-The user is writing a novel. You act as their sounding board, lore-keeper, and brainstorming partner.
-
-${buildContextBlock(relevantRules, relevantCodex)}
-
-CURRENT CHAPTER DRAFT:
-"""
-${params.contextText?.substring(0, 2000)}
-"""
-
-Answer the user's questions, suggest plots, or help them break writer's block based on their worldbuilding. Format your answers clearly using Markdown.
-`.trim();
+  const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(
+    contextBlock, 
+    params.contextText?.substring(0, 2000) || ''
+  );
 
   try {
     const controller = new AbortController();
@@ -187,15 +168,9 @@ export async function extractToCodex(
   text: string,
   bibleRules: StoryBibleRule[]
 ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
-  const systemInstruction = `
-You are an expert worldbuilder assistant. Your job is to extract character, location, or lore information from the text provided and format it as JSON.
-Format: Array of {name, category, description, aliases}.
-Categories: character, location, magic, item, other.
-
-${buildContextBlock(bibleRules, [])}
-`.trim();
-
-  const userPrompt = `Extract codex entries from: ${extractCandidateSentences(text)}`;
+  const contextBlock = buildContextBlock(bibleRules, []);
+  const systemInstruction = AI_PROMPTS.EXTRACT_CODEX.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
 
   try {
     const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3 });
@@ -208,6 +183,12 @@ ${buildContextBlock(bibleRules, [])}
     return JSON.parse(textData);
   } catch (error) {
     console.error('Extraction Error:', error);
+    ErrorService.log({
+      message: 'Failed to extract codex entries: ' + (error instanceof Error ? error.message : String(error)),
+      type: 'error',
+      source: 'AI-Service (Extract)',
+      metadata: { text: text.substring(0, 100) }
+    });
     throw new AIError('Failed to extract codex entries.', 'PARSE_ERROR');
   }
 }
@@ -218,14 +199,9 @@ export async function expandCodexEntry(
   currentDescription: string,
   bibleRules: StoryBibleRule[]
 ): Promise<string> {
-  const systemInstruction = `
-You are an expert worldbuilder. Expand this lore entry vividly.
-Maintain consistency with the project's overall rules and style.
-
-${buildContextBlock(bibleRules, [])}
-`.trim();
-
-  const userPrompt = `Entity: ${name}\nCategory: ${category}\nDetails: ${currentDescription}`;
+  const contextBlock = buildContextBlock(bibleRules, []);
+  const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
   
   return await callAI({ systemInstruction, userPrompt, temperature: 0.9 });
 }
@@ -233,8 +209,8 @@ ${buildContextBlock(bibleRules, [])}
 export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {
   try {
     const params: AIRenderParams = {
-      systemInstruction: "You are a connectivity tester. Reply only with 'OK'.",
-      userPrompt: "Hi",
+      systemInstruction: AI_PROMPTS.TEST_CONNECTION.SYSTEM,
+      userPrompt: AI_PROMPTS.TEST_CONNECTION.USER,
       temperature: 0.1,
       model: model || undefined
     };

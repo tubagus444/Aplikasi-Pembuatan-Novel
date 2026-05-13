@@ -134,7 +134,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
       } as CodexEntry);
     }
     
-    invalidateContextCache();
+    await invalidateContextCache();
     setIsAdding(false);
     setEditingId(null);
     setFormData({ name: '', category: 'character', description: '', aliases: [], tags: [] });

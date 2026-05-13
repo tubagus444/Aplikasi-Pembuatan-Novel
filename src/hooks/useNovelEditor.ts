@@ -20,6 +20,8 @@ import { cn } from '../lib/utils';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import { processRewrite } from '../services/ai';
 
+import { useEditorPanel } from '../EditorPanelContext';
+
 // Custom Keymap Extension
 const CustomAIKeymap = Extension.create({
   name: 'customAIKeymap',
@@ -50,8 +52,8 @@ export function useNovelEditor({
   isTypewriterMode,
   containerRef
 }: UseNovelEditorProps) {
+  const { setSaveStatus } = useEditorPanel();
   const [title, setTitle] = useState('');
-  const [saveStatus, setSaveStatus] = useState('');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [activeCodexPopup, setActiveCodexPopup] = useState<{ id: number; x: number; y: number } | null>(null);
   const { toast } = useToast();
@@ -168,7 +170,7 @@ export function useNovelEditor({
         ),
       },
     },
-  }, []);
+  }, [setSaveStatus]);
 
   // Sync title and content when chapter changes
   useEffect(() => {
@@ -244,8 +246,8 @@ export function useNovelEditor({
 
     setIsAiProcessing(true);
     try {
-      const relevantCodex = getRelevantContext(selectedText, codexEntries || []);
-      const relevantBible = getRelevantBibleRules(selectedText, bibleRules || []);
+      const relevantCodex = await getRelevantContext(selectedText, codexEntries || []);
+      const relevantBible = await getRelevantBibleRules(selectedText, bibleRules || []);
 
       const result = await processRewrite({
         action,
@@ -269,7 +271,6 @@ export function useNovelEditor({
     editor,
     title,
     handleTitleChange,
-    saveStatus,
     isAiProcessing,
     activeCodexPopup,
     setActiveCodexPopup,

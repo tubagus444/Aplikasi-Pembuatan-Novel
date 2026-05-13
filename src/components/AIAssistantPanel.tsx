@@ -136,8 +136,8 @@ export function AIAssistantPanel({
 
     try {
       const contextSource = currentText + " " + userMsg.text;
-      const filteredCodex = getRelevantContext(contextSource, codexEntries);
-      const filteredBibleRules = getRelevantBibleRules(contextSource, bibleRules);
+      const filteredCodex = await getRelevantContext(contextSource, codexEntries);
+      const filteredBibleRules = await getRelevantBibleRules(contextSource, bibleRules);
 
       const history = messages
         .filter(m => !m.isWelcome)

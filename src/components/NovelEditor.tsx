@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../db';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   Loader2, 
   X, 
@@ -40,10 +39,21 @@ export function NovelEditor(props: NovelEditorProps) {
 }
 
 function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
-  const chapter = useLiveQuery(() => db.chapters.get(chapterId), [chapterId]);
+  const [chapter, setChapter] = useState<any>(undefined);
   const [isTypewriterMode, setIsTypewriterMode] = useState(false);
   const { isFocusMode, setIsFocusMode } = useUI();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    setChapter(undefined); // Start loading
+    db.chapters.get(chapterId).then(data => {
+      if (isMounted) {
+        setChapter(data || null); // null if not found
+      }
+    });
+    return () => { isMounted = false; };
+  }, [chapterId]);
 
   const { codexEntries, aiActions, bibleRules, isLoading } = useProjectData(projectId);
 
@@ -51,7 +61,6 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     editor,
     title,
     handleTitleChange,
-    saveStatus,
     isAiProcessing,
     activeCodexPopup,
     setActiveCodexPopup,
@@ -92,7 +101,6 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
       footer={
         <EditorFooter 
           editor={editor} 
-          saveStatus={saveStatus} 
           isTypewriterMode={isTypewriterMode} 
           setIsTypewriterMode={setIsTypewriterMode} 
           isFocusMode={isFocusMode}

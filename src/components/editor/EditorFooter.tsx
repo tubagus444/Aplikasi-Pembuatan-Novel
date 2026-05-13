@@ -20,7 +20,6 @@ import { useEditorPanel } from '../../EditorPanelContext';
 
 interface EditorFooterProps {
   editor: Editor | null;
-  saveStatus: string;
   isTypewriterMode: boolean;
   setIsTypewriterMode: (val: boolean) => void;
   isFocusMode?: boolean;
@@ -29,13 +28,12 @@ interface EditorFooterProps {
 
 export function EditorFooter({ 
   editor, 
-  saveStatus, 
   isTypewriterMode, 
   setIsTypewriterMode, 
   isFocusMode, 
   setIsFocusMode 
 }: EditorFooterProps) {
-  const { activePanel, setActivePanel } = useEditorPanel();
+  const { activePanel, setActivePanel, saveStatus } = useEditorPanel();
   
   const togglePanel = (panel: any) => {
     setActivePanel(activePanel === panel ? 'none' : panel);
