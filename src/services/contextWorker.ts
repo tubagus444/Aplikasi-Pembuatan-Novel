@@ -26,14 +26,21 @@ const MIN_WORD_LENGTH = 4;
 const regexCache = new Map<string, RegExp>();
 
 function getBoundaryRegex(name: string): RegExp {
-  if (regexCache.has(name)) return regexCache.get(name)!;
+  if (regexCache.has(name)) {
+    const cached = regexCache.get(name)!;
+    // Move to end to mark as most recently used
+    regexCache.delete(name);
+    regexCache.set(name, cached);
+    return cached;
+  }
 
   const regex = getCodexRegex(name);
   
   regexCache.set(name, regex);
   if (regexCache.size > 500) {
+    // The first element in the iteration order is the least recently used
     const firstKey = regexCache.keys().next().value;
-    if (firstKey) regexCache.delete(firstKey);
+    if (firstKey !== undefined) regexCache.delete(firstKey);
   }
   
   return regex;
@@ -76,7 +83,8 @@ function getRelevantBibleRules(
     if (ALWAYS_INCLUDE.includes(rule.key)) {
       score = SCORE_ALWAYS_INCLUDE;
     } else {
-      const words = rule.instruction.toLowerCase().split(/[\s\W]+/);
+      // Refined split to preserve hyphens and handle word characters correctly
+      const words = rule.instruction.toLowerCase().split(/[^\w-]+/);
       const uniqueWords = [...new Set(words)].filter(w => w.length > MIN_WORD_LENGTH);
       
       uniqueWords.forEach(w => {
