@@ -21,6 +21,7 @@ const BiblePanel = lazy(() => import('../BiblePanel').then(m => ({ default: m.Bi
 const SettingsPanel = lazy(() => import('../SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 const GuidePanel = lazy(() => import('../GuidePanel').then(m => ({ default: m.GuidePanel })));
 const ErrorLogPanel = lazy(() => import('../ErrorLogPanel').then(m => ({ default: m.ErrorLogPanel })));
+const AIBrainstormStudio = lazy(() => import('../AIBrainstormStudio').then(m => ({ default: m.AIBrainstormStudio })));
 
 function LoadingFallback() {
   return (
@@ -103,6 +104,14 @@ export function MainView() {
             <ViewContainer key="relationships" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <RelationshipMapper projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'brainstorm' && projectId && (
+            <ViewContainer key="brainstorm" className="z-20 !p-0">
+              <Suspense fallback={<LoadingFallback />}>
+                <AIBrainstormStudio />
               </Suspense>
             </ViewContainer>
           )}

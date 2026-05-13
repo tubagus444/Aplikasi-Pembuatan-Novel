@@ -361,9 +361,9 @@ export function useNovelEditor({
     // Trigger decoration update
     editor.view.dispatch(editor.state.tr.setMeta('searchAndReplace', true));
     
-    const results = (editor.storage.searchAndReplace as any).results || [];
+    const results = (editor.storage as any).searchAndReplace?.results || [];
     setSearchStats({
-        current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+        current: ((editor.storage as any).searchAndReplace?.currentIndex || 0) + 1,
         total: results.length
     });
   }, [editor, searchQuery, isCaseSensitive, isRegex]);
@@ -391,11 +391,11 @@ export function useNovelEditor({
     editor.commands.replace();
     // Update stats after replace
     setTimeout(() => {
-        const results = (editor.storage.searchAndReplace as any).results || [];
-        setSearchStats({
-            current: (editor.storage.searchAndReplace as any).currentIndex + 1,
-            total: results.length
-        });
+    const results = (editor.storage as any).searchAndReplace?.results || [];
+    setSearchStats({
+        current: ((editor.storage as any).searchAndReplace?.currentIndex || 0) + 1,
+        total: results.length
+    });
     }, 0);
   }, [editor]);
 
@@ -408,9 +408,9 @@ export function useNovelEditor({
   const handleNext = useCallback(() => {
     if (!editor) return;
     editor.commands.nextSearchResult();
-    const results = (editor.storage.searchAndReplace as any).results || [];
+    const results = (editor.storage as any).searchAndReplace?.results || [];
     setSearchStats({
-        current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+        current: ((editor.storage as any).searchAndReplace?.currentIndex || 0) + 1,
         total: results.length
     });
   }, [editor]);
@@ -418,9 +418,9 @@ export function useNovelEditor({
   const handlePrev = useCallback(() => {
     if (!editor) return;
     editor.commands.previousSearchResult();
-    const results = (editor.storage.searchAndReplace as any).results || [];
+    const results = (editor.storage as any).searchAndReplace?.results || [];
     setSearchStats({
-        current: (editor.storage.searchAndReplace as any).currentIndex + 1,
+        current: ((editor.storage as any).searchAndReplace?.currentIndex || 0) + 1,
         total: results.length
     });
   }, [editor]);

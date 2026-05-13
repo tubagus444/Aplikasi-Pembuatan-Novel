@@ -12,7 +12,7 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { expandCodexEntry } from '../services/ai';
 import { invalidateContextCache, getEntryAppearances } from '../services/contextEngine';
-import { AIAssistantPanel } from './AIAssistantPanel';
+import { ScribbleAssistantPanel } from './ScribbleAssistantPanel';
 import { useToast } from '../hooks/useToast';
 import { useHighlightedSegments } from '../hooks/useHighlightedSegments';
 import { useNavigation } from '../contexts/NavigationContext';
@@ -619,7 +619,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             className="fixed bottom-6 right-6 z-[60] w-[340px] h-[600px] max-h-[85vh] rounded-2xl overflow-hidden shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-200 dark:border-slate-800"
           >
-            <AIAssistantPanel 
+            <ScribbleAssistantPanel 
               projectId={projectId} 
               currentText="" 
               onClose={() => setIsAssistantOpen(false)}

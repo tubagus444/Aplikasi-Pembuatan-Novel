@@ -24,19 +24,19 @@ interface Message {
   isError?: boolean;
 }
 
-interface AIAssistantPanelProps {
+interface ScribbleAssistantPanelProps {
   projectId: number;
   chapterId?: number;
   currentText: string;
   onClose: () => void;
   onInsertText?: (text: string) => void;
   viewMode?: string;
-  codexEntries?: any[]; // Tambahkan props untuk data yang sudah ada
-  bibleRules?: any[];   // Tambahkan props untuk data yang sudah ada
-  editor?: Editor | null; // Pass editor instance for smarter context
+  codexEntries?: any[];
+  bibleRules?: any[];
+  editor?: Editor | null;
 }
 
-export function AIAssistantPanel({ 
+export function ScribbleAssistantPanel({ 
   projectId, 
   chapterId,
   currentText, 
@@ -46,12 +46,12 @@ export function AIAssistantPanel({
   codexEntries = [],
   bibleRules = [],
   editor
-}: AIAssistantPanelProps) {
+}: ScribbleAssistantPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: '1', 
       role: 'model', 
-      text: 'Halo! Saya asisten penulis AI Anda. Tanyakan tentang cerita Anda, lore karakter, atau mari brainstorming bersama.',
+      text: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
       isWelcome: true 
     }
   ]);

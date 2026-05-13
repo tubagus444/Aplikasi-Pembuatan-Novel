@@ -165,8 +165,7 @@ function condenseCoreRules(rules: StoryBibleRule[]): StoryBibleRule[] {
     id: -1, // Virtual ID
     projectId: rules[0].projectId,
     key: 'STORY_PROFILE',
-    instruction: condensedInstruction,
-    type: rules[0].type
+    instruction: condensedInstruction
   }];
 }
 

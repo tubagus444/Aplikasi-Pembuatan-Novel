@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship, AppError, BackupRecord } from './types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship, AppError, BackupRecord, ChatSession } from './types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -17,6 +17,7 @@ export class AetherScribeDB extends Dexie {
   relationships!: Table<Relationship>;
   errors!: Table<AppError>;
   backups!: Table<BackupRecord>;
+  chatSessions!: Table<ChatSession>;
 
   constructor() {
     super('AetherScribeDB');
@@ -56,7 +57,8 @@ export class AetherScribeDB extends Dexie {
     });
 
     this.version(12).stores({
-      backups: '++id, timestamp'
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, lastMessageAt'
     });
   }
 }

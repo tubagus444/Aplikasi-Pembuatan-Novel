@@ -12,7 +12,7 @@ import { PANEL_WIDTH } from '../../lib/constants';
 import { db } from '../../db';
 
 // Lazy load side panels
-const AIAssistantPanel = React.lazy(() => import('../AIAssistantPanel').then(m => ({ default: m.AIAssistantPanel })));
+const ScribbleAssistantPanel = React.lazy(() => import('../ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
 const SnapshotPanel = React.lazy(() => import('../SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
 const TimelinePanel = React.lazy(() => import('../TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const ProseInsights = React.lazy(() => import('../ProseInsights').then(m => ({ default: m.ProseInsights })));
@@ -44,7 +44,7 @@ export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleR
           >
             <div className="h-full flex flex-col" style={{ width: PANEL_WIDTH }}>
               {activePanel === 'assistant' && (
-                <AIAssistantPanel 
+                <ScribbleAssistantPanel 
                   projectId={projectId} 
                   chapterId={chapterId}
                   currentText={editor?.getText() || ''} 

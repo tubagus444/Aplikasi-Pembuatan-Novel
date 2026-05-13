@@ -50,7 +50,21 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm';
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+  timestamp: number;
+}
+
+export interface ChatSession {
+  id?: number;
+  projectId: number;
+  title: string;
+  lastMessageAt: number;
+  messages: ChatMessage[];
+}
 
 export interface Chapter {
   id?: number;
