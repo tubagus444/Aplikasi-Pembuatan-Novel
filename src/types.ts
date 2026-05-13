@@ -94,9 +94,12 @@ export interface StoryBibleRule {
   instruction: string; // e.g. "Tone: Dark Fantasy", "POV: Third Person Limited"
 }
 
+export type ContextDepth = 'minimal' | 'balanced' | 'deep';
+
 export interface AISettings {
   model: string;
   temperature: number;
+  contextDepth: ContextDepth;
 }
 
 export interface AppError {

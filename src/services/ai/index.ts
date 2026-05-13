@@ -1,4 +1,4 @@
-import { StoryBibleRule, CodexEntry, StoryBeat } from "../../types";
+import { StoryBibleRule, CodexEntry, StoryBeat, ContextDepth } from "../../types";
 import { getRelevantContext, getRelevantBibleRules, getChapterBeats } from "../contextEngine";
 import { callGemini } from "./gemini";
 import { callProxy } from "./proxy";
@@ -45,6 +45,7 @@ function getSettings() {
 
   return {
     provider: localStorage.getItem('ai_provider') || 'google',
+    contextDepth: (localStorage.getItem('ai_context_depth') as ContextDepth) || 'balanced',
     keys: {
       google: loadKey('google') || process.env.GEMINI_API_KEY || '',
       groq: loadKey('groq'),
@@ -67,22 +68,36 @@ function formatBeats(beats: StoryBeat[]): string {
     .join('\n');
 }
 
-function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?: string): string {
+function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?: string, depth: ContextDepth = 'balanced'): string {
+  // If depth is minimal, we only include the most core rules and no lore
+  if (depth === 'minimal') {
+    const coreKeys = ['__STORY_TITLE__', '__GENRES__', '__POV__'];
+    const bible = rules
+      .filter(r => coreKeys.includes(r.key))
+      .map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`)
+      .join('\n');
+    
+    return bible ? `CORE RULES:\n${bible}` : '';
+  }
+
   const bible = rules.length
     ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
     : 'No specific rules set.';
 
   let lore = 'No specific lore relevant to this passage.';
   if (codex.length > 0) {
-    const MAX_LORE_CHARS = 2500;
+    // Limits based on depth
+    const MAX_LORE_CHARS = depth === 'deep' ? 4000 : 2500;
+    const itemLimit = depth === 'deep' ? 1000 : 500; // Deep gets more detail per entry
+    const subLimit = depth === 'deep' ? 300 : 150;
+
     let currentChars = 0;
     const loreParts: string[] = [];
 
     codex.forEach((e, index) => {
       if (currentChars >= MAX_LORE_CHARS) return;
 
-      // Tiered truncation: top 3 get more space (relevance is preserved by worker sorting)
-      const limit = index < 3 ? 500 : 150;
+      const limit = index < 3 ? itemLimit : subLimit;
       let desc = e.description.trim();
       if (desc.length > limit) {
         desc = desc.substring(0, limit) + '...';
@@ -92,7 +107,7 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?:
       
       if (currentChars + formattedEntry.length <= MAX_LORE_CHARS) {
         loreParts.push(formattedEntry);
-        currentChars += formattedEntry.length + 1; // +1 for newline
+        currentChars += formattedEntry.length + 1;
       }
     });
 
@@ -102,7 +117,8 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?:
   }
   
   let block = `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
-  if (beats) {
+  // Only deep depth gets full beats context
+  if (beats && depth === 'deep') {
     block += `\n\nCHAPTER BEATS:\n${beats}`;
   }
   return block;
@@ -143,6 +159,7 @@ function extractCandidateSentences(text: string): string {
 // Facade Methods
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
+  const settings = getSettings();
   const relevantCodex = await getRelevantContext(params.selection, params.codexEntries);
   const relevantRules = await getRelevantBibleRules(params.selection, params.bibleRules);
   
@@ -152,9 +169,13 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
     beatsStr = formatBeats(beats);
   }
 
-  const contextBlock = buildContextBlock(relevantRules, relevantCodex);
-  const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock, beatsStr || undefined);
-  const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
+  const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
+  
+  // STATIC: Persona & Rules stay the same for ALL rewrite requests
+  const systemInstruction = `${AI_PROMPTS.REWRITE.PERSONA}\n\n${AI_PROMPTS.REWRITE.RULES}`;
+  
+  // DYNAMIC: Context block changes based on passage relevance
+  const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt, contextBlock);
 
   try {
     const controller = new AbortController();
@@ -177,6 +198,7 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
 }
 
 export async function processChat(params: ChatParams): Promise<string> {
+  const settings = getSettings();
   const contextSource = `${params.contextText || ''} ${params.message || ''}`;
   const relevantCodex = await getRelevantContext(contextSource, params.codexEntries);
   const relevantRules = await getRelevantBibleRules(contextSource, params.bibleRules);
@@ -187,13 +209,25 @@ export async function processChat(params: ChatParams): Promise<string> {
     beatsStr = formatBeats(beats);
   }
 
-  const contextBlock = buildContextBlock(relevantRules, relevantCodex);
+  const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
 
-  const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(
-    contextBlock, 
-    params.contextText?.substring(0, 3000) || '',
-    beatsStr || undefined
+  // STATIC: Persona & Rules stay the same for ALL chat requests
+  const systemInstruction = `${AI_PROMPTS.CHAT.PERSONA}\n\n${AI_PROMPTS.CHAT.RULES}`;
+
+  // Use a context message to inject lore if no history exists, otherwise prepend to user message
+  const contextData = AI_PROMPTS.CHAT.CONTEXT_MESSAGE(
+    contextBlock,
+    params.contextText?.substring(0, 3000) || ''
   );
+
+  const userPromptWithContext = `${contextData}\n\nUSER MESSAGE: ${params.message}`;
+
+  // SMART PRUNING: Keep only the most recent part of history to save tokens
+  // A turn is 2 messages (user + model). 10 messages = 5 turns.
+  const MAX_HISTORY_MESSAGES = 10;
+  const trimmedHistory = params.history && params.history.length > MAX_HISTORY_MESSAGES
+    ? params.history.slice(-MAX_HISTORY_MESSAGES)
+    : params.history;
 
   try {
     const controller = new AbortController();
@@ -201,9 +235,9 @@ export async function processChat(params: ChatParams): Promise<string> {
     
     const res = await callAI({
       systemInstruction,
-      userPrompt: params.message,
+      userPrompt: userPromptWithContext,
       provider: params.provider,
-      history: params.history,
+      history: trimmedHistory,
       temperature: 0.7,
       signal: controller.signal
     });
@@ -219,10 +253,11 @@ export async function processChat(params: ChatParams): Promise<string> {
 export async function extractToCodex(
   text: string,
   bibleRules: StoryBibleRule[]
-): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
-  const contextBlock = buildContextBlock(bibleRules, []);
-  const systemInstruction = AI_PROMPTS.EXTRACT_CODEX.SYSTEM(contextBlock);
-  const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
+  ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
+  const settings = getSettings();
+  const contextBlock = buildContextBlock(bibleRules, [], undefined, settings.contextDepth);
+  const systemInstruction = `${AI_PROMPTS.EXTRACT_CODEX.PERSONA}\n\n${AI_PROMPTS.EXTRACT_CODEX.RULES}`;
+  const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text), contextBlock);
 
   try {
     const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3 });
@@ -250,10 +285,11 @@ export async function expandCodexEntry(
   category: string,
   currentDescription: string,
   bibleRules: StoryBibleRule[]
-): Promise<string> {
-  const contextBlock = buildContextBlock(bibleRules, []);
-  const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
-  const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
+  ): Promise<string> {
+  const settings = getSettings();
+  const contextBlock = buildContextBlock(bibleRules, [], undefined, settings.contextDepth);
+  const systemInstruction = `${AI_PROMPTS.EXPAND_CODEX.PERSONA}\n\n${AI_PROMPTS.EXPAND_CODEX.RULES}`;
+  const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription, contextBlock);
   
   return await callAI({ 
     systemInstruction, 
@@ -266,7 +302,7 @@ export async function expandCodexEntry(
 export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {
   try {
     const params: AIRenderParams = {
-      systemInstruction: AI_PROMPTS.TEST_CONNECTION.SYSTEM,
+      systemInstruction: `${AI_PROMPTS.TEST_CONNECTION.PERSONA} ${AI_PROMPTS.TEST_CONNECTION.RULES}`,
       userPrompt: AI_PROMPTS.TEST_CONNECTION.USER,
       temperature: 0.1,
       model: model || undefined

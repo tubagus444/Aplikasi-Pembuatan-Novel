@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History } from 'lucide-react';
+import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History, BrainCircuit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../db';
 import { testConnection } from '../services/ai';
@@ -9,6 +9,7 @@ import { backupService } from '../services/backupService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { useStorageQuota } from '../hooks/useStorageQuota';
+import { ContextDepth } from '../types';
 
 export function SettingsPanel() {
   const { checkStorageQuota } = useStorageQuota();
@@ -55,6 +56,7 @@ export function SettingsPanel() {
   };
 
   const [provider, setProvider] = useState('google');
+  const [contextDepth, setContextDepth] = useState<ContextDepth>('balanced');
   // ... rest of the component state
   const [keys, setKeys] = useState({
     google: '',
@@ -95,6 +97,7 @@ export function SettingsPanel() {
     };
 
     setProvider(localStorage.getItem('ai_provider') || 'google');
+    setContextDepth((localStorage.getItem('ai_context_depth') as ContextDepth) || 'balanced');
     setKeys({
       google: loadKey('google'),
       groq: loadKey('groq'),
@@ -111,6 +114,7 @@ export function SettingsPanel() {
 
   const handleSave = () => {
     localStorage.setItem('ai_provider', provider);
+    localStorage.setItem('ai_context_depth', contextDepth);
     
     const saveKey = (name: string, value: string) => {
       const trimmedValue = value.trim();
@@ -300,6 +304,37 @@ export function SettingsPanel() {
             <option value="openrouter">OpenRouter</option>
             <option value="claude">Anthropic (Claude)</option>
           </select>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <BrainCircuit size={16} className="text-indigo-500" />
+              Context Depth (Token Saver)
+            </label>
+            <span className={cn(
+              "text-[10px] font-bold uppercase py-0.5 px-2 rounded-full",
+              contextDepth === 'minimal' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+              contextDepth === 'balanced' && "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+              contextDepth === 'deep' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+            )}>
+              {contextDepth === 'minimal' ? 'Eco mode' : contextDepth === 'balanced' ? 'Optimal' : 'Power mode'}
+            </span>
+          </div>
+          <select 
+            value={contextDepth}
+            onChange={(e) => setContextDepth(e.target.value as ContextDepth)}
+            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="minimal">Minimal (Cheapest) - Core rules only, no lore.</option>
+            <option value="balanced">Balanced (Recommended) - Relevant rules + relevant lore.</option>
+            <option value="deep">Deep (Rich) - More lore detail + story beats (Tokens heavy).</option>
+          </select>
+          <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed italic">
+            {contextDepth === 'minimal' && "Best for saving tokens. AI might forget specific character details or names but follows style."}
+            {contextDepth === 'balanced' && "Smart context switching. Uses vector search to find and send only what's needed."}
+            {contextDepth === 'deep' && "Maximum quality. Sends larger lore snippets and chapter outlines. Increases token cost significantly."}
+          </p>
         </div>
 
         <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
