@@ -145,6 +145,19 @@ self.onmessage = (e: MessageEvent) => {
         regexCache.clear();
         result = { success: true };
         break;
+      case 'SCAN_APPEARANCES':
+        const { entry, chapters } = payload;
+        const nameRegex = getBoundaryRegex(entry.name);
+        const aliasesRegex = (entry.aliases || []).map((a: string) => getBoundaryRegex(a));
+        
+        result = chapters
+          .filter((ch: any) => {
+            const lowerContent = (ch.content || '').toLowerCase();
+            if (nameRegex.test(lowerContent)) return true;
+            return aliasesRegex.some((r: RegExp) => r.test(lowerContent));
+          })
+          .map((ch: any) => ch.id);
+        break;
       default:
         throw new Error(`Unknown message type: ${type}`);
     }

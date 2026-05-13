@@ -62,6 +62,7 @@ export interface Chapter {
   lastModified: number;
   status?: ChapterStatus;
   pov?: string;
+  wordGoal?: number;
 }
 
 export interface Project {

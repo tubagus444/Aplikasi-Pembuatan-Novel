@@ -8,6 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { Target, TrendingUp, Edit2, Clock, BarChart2, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { countWords } from '../lib/utils';
 
 interface WritingStatsProps {
   projectId: number;
@@ -41,11 +42,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
 
   const totalWords = useMemo(() => {
     if (!chapters) return 0;
-    return chapters.reduce((acc, ch) => {
-      const plainText = ch.content.replace(/<[^>]*>/g, ' ').trim();
-      const words = plainText ? plainText.split(/\s+/).length : 0;
-      return acc + words;
-    }, 0);
+    return chapters.reduce((acc, ch) => acc + countWords(ch.content), 0);
   }, [chapters]);
 
   const wordGoal = project?.wordGoal || 50000;

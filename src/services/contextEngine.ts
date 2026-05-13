@@ -87,6 +87,14 @@ export async function invalidateContextCache() {
 }
 
 /**
+ * Scans all chapters to find where a specific codex entry is mentioned.
+ */
+export async function getEntryAppearances(entry: CodexEntry, projectId: number): Promise<number[]> {
+  const chapters = await db.chapters.where('projectId').equals(projectId).toArray();
+  return sendToWorker('SCAN_APPEARANCES', { entry, chapters });
+}
+
+/**
  * Filters the story bible rules via Web Worker to prevent main thread blocking.
  */
 export async function getRelevantBibleRules(

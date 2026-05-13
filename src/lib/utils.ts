@@ -39,3 +39,12 @@ export function getCodexRegex(name: string, caseSensitive: boolean = false): Reg
   // 3. Lookahead: Non-alphanumeric OR end of string
   return new RegExp(`(?<=^|[^a-zA-Z0-9])(${escapedName}${INDONESIAN_PARTICLES})(?=[^a-zA-Z0-9]|$)`, caseSensitive ? 'g' : 'gi');
 }
+
+/**
+ * Strips HTML tags and counts words in the content.
+ */
+export function countWords(htmlContent: string): number {
+  if (!htmlContent) return 0;
+  const plainText = htmlContent.replace(/<[^>]*>/g, ' ').trim();
+  return plainText ? plainText.split(/\s+/).length : 0;
+}
