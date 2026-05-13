@@ -8,8 +8,10 @@ import { useAutoBackup } from '../hooks/useAutoBackup';
 import { backupService } from '../services/backupService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
+import { useStorageQuota } from '../hooks/useStorageQuota';
 
 export function SettingsPanel() {
+  const { checkStorageQuota } = useStorageQuota();
   const { 
     lastBackupTime, 
     isBackingUp: isAutoBackingUp, 

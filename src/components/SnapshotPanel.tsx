@@ -9,6 +9,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { History, RotateCcw, Trash2, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
+import { useStorageQuota } from '../hooks/useStorageQuota';
 
 interface SnapshotPanelProps {
   chapterId: number;
@@ -17,6 +18,7 @@ interface SnapshotPanelProps {
 }
 
 export function SnapshotPanel({ chapterId, currentContent, onRestore }: SnapshotPanelProps) {
+  const { checkStorageQuota } = useStorageQuota();
   const snapshots = useLiveQuery(() => 
     db.snapshots.where('chapterId').equals(chapterId).reverse().sortBy('timestamp')
   , [chapterId]);
@@ -32,6 +34,7 @@ export function SnapshotPanel({ chapterId, currentContent, onRestore }: Snapshot
       timestamp: Date.now()
     });
     setLabel('');
+    checkStorageQuota();
   };
 
   const deleteSnapshot = async (id: number) => {
