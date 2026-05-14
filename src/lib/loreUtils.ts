@@ -28,8 +28,27 @@ export function resolveLoreTags(
   resolved = resolved.replace(/@codex:(\S+)/g, (match, name) => {
     // Replace underscores with spaces for matching if users type @codex:Character_Name
     const searchName = name.replace(/_/g, ' ');
-    const entry = codexEntries.find(e => e.name.toLowerCase() === searchName.toLowerCase() || e.name === name);
-    return entry ? `[Lore - ${entry.name}: ${entry.description.substring(0, 150)}]` : match;
+    const lowerSearch = searchName.toLowerCase();
+    
+    const entry = codexEntries.find(e => 
+      e.name.toLowerCase() === lowerSearch || 
+      e.name === name ||
+      (e.aliases && e.aliases.some(alias => alias.toLowerCase() === lowerSearch || alias.replace(/_/g, ' ').toLowerCase() === lowerSearch))
+    );
+
+    if (!entry) return match;
+
+    let description = entry.description;
+    if (description.length > 150) {
+      description = description.substring(0, 150);
+      const lastSpace = description.lastIndexOf(' ');
+      if (lastSpace > 0) {
+        description = description.substring(0, lastSpace);
+      }
+      description += '...';
+    }
+
+    return `[Lore - ${entry.name}: ${description}]`;
   });
 
   return resolved;

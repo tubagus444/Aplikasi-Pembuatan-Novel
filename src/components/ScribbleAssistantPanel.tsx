@@ -11,7 +11,6 @@ import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '../lib/constants';
 import { cn } from '../lib/utils';
 import { getActiveWindowText } from '../lib/editorUtils';
-import { resolveLoreTags } from '../lib/loreUtils';
 import { useAvailableProviders } from '../hooks/useAvailableProviders';
 import { useChatSession } from '../hooks/useChatSession';
 import { Editor } from '@tiptap/core';
@@ -134,7 +133,6 @@ export function ScribbleAssistantPanel({
     if (!textToProcess) setInput('');
 
     try {
-      const resolvedInput = resolveLoreTags(textToSend, codexEntries, bibleRules);
       const cursorPosition = editor 
         ? editor.state.doc.textBetween(0, editor.state.selection.from, ' ').length
         : 0;
@@ -142,7 +140,7 @@ export function ScribbleAssistantPanel({
         ? getActiveWindowText(currentText, cursorPosition, 1500)
         : currentText.substring(0, 1500);
 
-      await sendMessage(resolvedInput, focusedContext);
+      await sendMessage(textToSend, focusedContext);
       
       // Update the last message to be actionable
       setMessages(prev => {

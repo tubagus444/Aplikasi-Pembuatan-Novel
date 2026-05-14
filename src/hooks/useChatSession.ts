@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, CodexEntry, StoryBibleRule } from '../types';
 import { processChat, cancelAI } from '../services/ai';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
@@ -31,6 +31,12 @@ export function useChatSession({
 }: UseChatSessionProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
+  const messagesRef = useRef(messages);
+
+  // Keep ref in sync for sendMessage accessibility
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     return () => {
@@ -48,8 +54,10 @@ export function useChatSession({
       timestamp: Date.now() 
     };
     
-    const newMessages = [...messages, userMsg];
+    const currentMessages = messagesRef.current;
+    const newMessages = [...currentMessages, userMsg];
     setMessages(newMessages);
+    messagesRef.current = newMessages; // Immediate update for rapid fire messages
     onMessageAdded?.(newMessages);
     setIsLoading(true);
 
@@ -92,6 +100,7 @@ export function useChatSession({
       
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
+      messagesRef.current = finalMessages; // Update ref to latest state
       onMessageAdded?.(finalMessages);
       onResponseReceived?.(reply);
       
@@ -105,7 +114,6 @@ export function useChatSession({
       setIsLoading(false);
     }
   }, [
-    messages, 
     isLoading, 
     projectId, 
     chapterId, 
@@ -120,6 +128,7 @@ export function useChatSession({
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    messagesRef.current = [];
     onMessageAdded?.([]);
   }, [onMessageAdded]);
 
