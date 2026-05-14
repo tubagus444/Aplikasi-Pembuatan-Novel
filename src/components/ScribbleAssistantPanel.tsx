@@ -6,23 +6,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check } from 'lucide-react';
 import { db } from '../db';
-import { processChat, cancelAI } from '../services/ai';
-import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
+import { cancelAI } from '../services/ai';
 import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '../lib/constants';
 import { cn } from '../lib/utils';
 import { getActiveWindowText } from '../lib/editorUtils';
 import { useAvailableProviders } from '../hooks/useAvailableProviders';
+import { useChatSession } from '../hooks/useChatSession';
 import { Editor } from '@tiptap/core';
-
-interface Message {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
-  isActionable?: boolean;
-  isWelcome?: boolean;
-  isError?: boolean;
-}
+import { ChatMessage, CodexEntry, StoryBibleRule } from '../types';
 
 interface ScribbleAssistantPanelProps {
   projectId: number;
@@ -31,8 +23,8 @@ interface ScribbleAssistantPanelProps {
   onClose: () => void;
   onInsertText?: (text: string) => void;
   viewMode?: string;
-  codexEntries?: any[];
-  bibleRules?: any[];
+  codexEntries?: CodexEntry[];
+  bibleRules?: StoryBibleRule[];
   editor?: Editor | null;
 }
 
@@ -47,21 +39,35 @@ export function ScribbleAssistantPanel({
   bibleRules = [],
   editor
 }: ScribbleAssistantPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      id: '1', 
-      role: 'model', 
-      text: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
-      isWelcome: true 
-    }
-  ]);
   const { 
     availableProviders, 
     selectedProvider, 
     setSelectedProvider 
   } = useAvailableProviders();
+
+  const {
+    messages,
+    setMessages,
+    isLoading,
+    sendMessage
+  } = useChatSession({
+    projectId,
+    chapterId,
+    codexEntries,
+    bibleRules,
+    provider: selectedProvider,
+    initialMessages: [
+      { 
+        id: '1', 
+        role: 'model', 
+        content: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
+        isWelcome: true,
+        timestamp: Date.now()
+      }
+    ]
+  });
+
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -69,11 +75,9 @@ export function ScribbleAssistantPanel({
 
   const hasReceivedReply = messages.some(m => m.role === 'model' && !m.isWelcome);
 
-  // Fix 2: Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      cancelAI('chat');
     };
   }, []);
 
@@ -120,54 +124,41 @@ export function ScribbleAssistantPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSend = async (textToProcess?: string) => {
     const textToSend = textToProcess || input;
     if (!textToSend.trim() || isLoading) return;
 
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', text: textToSend };
-    setMessages(prev => [...prev, userMsg]);
     if (!textToProcess) setInput('');
-    setIsLoading(true);
 
     try {
-      // Optimasi Token: Ambil teks di sekitar kursor (focused context)
-      // Jika editor tidak tersedia, fallback ke substring biasa
       const cursorPosition = editor?.state.selection.from || 0;
       const focusedContext = editor 
-        ? getActiveWindowText(currentText, cursorPosition, 1500) // ~1500 char context window
+        ? getActiveWindowText(currentText, cursorPosition, 1500)
         : currentText.substring(0, 1500);
 
-      const contextSource = focusedContext + " " + userMsg.text;
-      const filteredCodex = await getRelevantContext(contextSource, codexEntries);
-      const filteredBibleRules = await getRelevantBibleRules(contextSource, bibleRules);
-
-      const history = messages
-        .filter(m => !m.isWelcome)
-        .slice(-6)
-        .map(m => ({
-          role: m.role,
-          parts: [{ text: m.text }]
-        }));
-
-      const reply = await processChat({
-        message: userMsg.text,
-        history,
-        bibleRules: filteredBibleRules,
-        codexEntries: filteredCodex,
-        contextText: focusedContext,
-        chapterId,
-        provider: selectedProvider
+      await sendMessage(textToSend, focusedContext);
+      
+      // Update the last message to be actionable
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'model') {
+           const updated = [...prev];
+           updated[updated.length - 1] = { ...last, isActionable: true, id: Date.now().toString() };
+           return updated;
+        }
+        return prev;
       });
-
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, isActionable: true }]);
     } catch (err: any) {
-      console.error(err);
       const errorMessage = err.message || 'Maaf, saya mengalami kesalahan saat memerinci lore Anda.';
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `**Error:** ${errorMessage}`, isActionable: false, isError: true }]);
-    } finally {
-      setIsLoading(false);
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString(), 
+        role: 'model', 
+        content: `**Error:** ${errorMessage}`, 
+        isError: true, 
+        timestamp: Date.now() 
+      }]);
     }
   };
 
@@ -220,16 +211,16 @@ export function ScribbleAssistantPanel({
                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none font-serif [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:text-slate-900 dark:[&_strong]:text-slate-100 [&_strong]:font-bold'
                }`}>
                {m.role === 'user' ? (
-                 m.text
+                 m.content
                ) : (
                  <div className="relative">
                    <div className="markdown-body">
-                     <ReactMarkdown>{m.text}</ReactMarkdown>
+                     <ReactMarkdown>{m.content}</ReactMarkdown>
                    </div>
                    {m.isActionable && (
                       <div className="mt-3 flex flex-wrap gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                         <button 
-                          onClick={() => handleCopy(m.id, m.text)}
+                          onClick={() => handleCopy(m.id || '', m.content)}
                           className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
                         >
                           {copiedId === m.id ? (
@@ -247,7 +238,7 @@ export function ScribbleAssistantPanel({
                         
                         {onInsertText && (
                           <button 
-                            onClick={() => onInsertText(m.text)}
+                            onClick={() => onInsertText(m.content)}
                             className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
                           >
                             Masukkan ke editor
@@ -259,7 +250,7 @@ export function ScribbleAssistantPanel({
                       <button 
                         onClick={() => {
                           const lastUser = messages.filter(msg => msg.role === 'user').pop();
-                          if (lastUser) handleSend(lastUser.text);
+                          if (lastUser) handleSend(lastUser.content);
                         }}
                         className="mt-2 text-[10px] font-bold uppercase tracking-widest text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 underline"
                       >

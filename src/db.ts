@@ -53,12 +53,12 @@ export class AetherScribeDB extends Dexie {
       snapshots: '++id, chapterId, timestamp',
       timeline: '++id, chapterId, projectId, type',
       relationships: '++id, projectId, sourceId, targetId',
-      errors: '++id, timestamp, type'
+      errors: '++id, timestamp, type',
+      chatSessions: '++id, projectId, lastMessageAt'
     });
 
     this.version(12).stores({
-      backups: '++id, timestamp',
-      chatSessions: '++id, projectId, lastMessageAt'
+      backups: '++id, timestamp'
     });
   }
 }

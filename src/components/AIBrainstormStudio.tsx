@@ -12,13 +12,13 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '../lib/utils';
 import { ChatSession, ChatMessage, CodexEntry, StoryBibleRule } from '../types';
 import { useProject } from '../contexts/ProjectContext';
+import { useChatSession } from '../hooks/useChatSession';
 import { format } from 'date-fns';
 
 export function AIBrainstormStudio() {
   const { projectId } = useProject();
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showLoreMenu, setShowLoreMenu] = useState(false);
@@ -56,6 +56,36 @@ export function AIBrainstormStudio() {
   const bibleRules = useLiveQuery(() => 
     projectId ? db.bible.where('projectId').equals(projectId).toArray() : []
   , [projectId]);
+
+  const {
+    messages,
+    setMessages,
+    isLoading,
+    sendMessage
+  } = useChatSession({
+    projectId: projectId || 0,
+    codexEntries: codexEntries || [],
+    bibleRules: bibleRules || [],
+    provider: localStorage.getItem('ai_provider') || 'google',
+    initialMessages: activeSession?.messages || [],
+    onMessageAdded: async (newMessages) => {
+      if (activeSessionId) {
+        await db.chatSessions.update(activeSessionId, {
+          messages: newMessages,
+          lastMessageAt: Date.now()
+        });
+      }
+    }
+  });
+
+  // Sync messages when toggling active session
+  useEffect(() => {
+    if (activeSession) {
+      setMessages(activeSession.messages);
+    } else {
+      setMessages([]);
+    }
+  }, [activeSessionId, activeSession]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -105,7 +135,6 @@ export function AIBrainstormStudio() {
     if (!input.trim() || isLoading || !projectId) return;
 
     let sessionId = activeSessionId;
-    let currentSession = activeSession;
 
     // Create session if none active
     if (!sessionId) {
@@ -116,51 +145,21 @@ export function AIBrainstormStudio() {
         messages: []
       });
       setActiveSessionId(sessionId);
-      currentSession = await db.chatSessions.get(sessionId);
     }
 
-    if (!currentSession) return;
-
-    const userMsg: ChatMessage = { role: 'user', content: input, timestamp: Date.now() };
-    const updatedMessages = [...currentSession.messages, userMsg];
-    
+    const textToSend = input;
     setInput('');
-    setIsLoading(true);
-
-    // Update title if it's the first message
-    const newTitle = currentSession.messages.length === 0 ? input.substring(0, 40) + (input.length > 40 ? '...' : '') : currentSession.title;
-
-    await db.chatSessions.update(sessionId, { 
-      messages: updatedMessages,
-      lastMessageAt: Date.now(),
-      title: newTitle
-    });
 
     try {
-      const history = updatedMessages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.content }]
-      }));
+      // Update title if it's the first message
+      if (messages.length === 0) {
+        const newTitle = textToSend.substring(0, 40) + (textToSend.length > 40 ? '...' : '');
+        await db.chatSessions.update(sessionId, { title: newTitle });
+      }
 
-      const reply = await processChat({
-        message: input,
-        history,
-        bibleRules: bibleRules || [],
-        codexEntries: codexEntries || [],
-        contextText: '', // Comprehensive brainstorm context could be added here
-        provider: localStorage.getItem('ai_provider') || 'google'
-      });
-
-      const assistantMsg: ChatMessage = { role: 'model', content: reply, timestamp: Date.now() };
-      
-      await db.chatSessions.update(sessionId, { 
-        messages: [...updatedMessages, assistantMsg],
-        lastMessageAt: Date.now()
-      });
+      await sendMessage(textToSend);
     } catch (err) {
       console.error(err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -414,7 +413,7 @@ export function AIBrainstormStudio() {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar scroll-smooth">
               <div className="max-w-3xl mx-auto space-y-8">
-                {activeSession?.messages.map((m, i) => (
+                {messages.map((m, i) => (
                   <div key={i} className={cn(
                     "flex gap-6 animate-in fade-in slide-in-from-bottom-2",
                     m.role === 'user' ? "flex-reverse" : ""

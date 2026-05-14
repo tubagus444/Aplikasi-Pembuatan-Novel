@@ -33,6 +33,6 @@ export interface ChatParams {
   bibleRules: StoryBibleRule[];
   codexEntries: CodexEntry[];
   contextText: string;
-  chapterId?: number;
+  chapterId?: number; // Added/verified for chapter-specific AI context
   provider?: string;
 }

@@ -56,14 +56,18 @@ export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
   timestamp: number;
+  id?: string;
+  isActionable?: boolean;
+  isWelcome?: boolean;
+  isError?: boolean;
 }
 
 export interface ChatSession {
   id?: number;
   projectId: number;
   title: string;
-  lastMessageAt: number;
   messages: ChatMessage[];
+  lastMessageAt: number;
 }
 
 export interface Chapter {
