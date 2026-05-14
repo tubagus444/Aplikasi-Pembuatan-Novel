@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, ChevronDown, Check } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, Loader2, ChevronDown, Check, AlertCircle } from 'lucide-react';
 import { fetchOpenRouterModels, OpenRouterModel } from '../services/ai/modelService';
 import { cn } from '../lib/utils';
 
@@ -11,21 +11,31 @@ interface Props {
 export function OpenRouterModelSelect({ value, onChange }: Props) {
   const [models, setModels] = useState<OpenRouterModel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    const loadModels = async () => {
-      setIsLoading(true);
-      try {
-        const data = await fetchOpenRouterModels();
+  const loadModels = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchOpenRouterModels();
+      if (data && data.length > 0) {
         setModels(data);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setError("Failed to load models. Check your OpenRouter key.");
       }
-    };
-    loadModels();
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load models. Check your OpenRouter key.");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadModels();
+  }, [loadModels]);
 
   const filteredModels = useMemo(() => {
     if (!search) return models;
@@ -47,11 +57,13 @@ export function OpenRouterModelSelect({ value, onChange }: Props) {
         onClick={() => setIsOpen(!isOpen)}
         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
       >
-        <span className="truncate">
-          {isLoading ? 'Loading models...' : (selectedModel.name || 'Select a model...')}
+        <span className={cn("truncate", error && "text-red-500 dark:text-red-400")}>
+          {isLoading ? 'Loading models...' : (error ? 'Failed to load models' : (selectedModel.name || 'Select a model...'))}
         </span>
         {isLoading ? (
           <Loader2 size={14} className="animate-spin text-slate-400" />
+        ) : error ? (
+          <AlertCircle size={14} className="text-red-500" />
         ) : (
           <ChevronDown size={14} className={cn("text-slate-400 transition-transform", isOpen && "rotate-180")} />
         )}
@@ -72,7 +84,24 @@ export function OpenRouterModelSelect({ value, onChange }: Props) {
           </div>
           
           <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-            {filteredModels.length === 0 ? (
+            {error ? (
+              <div className="p-4 text-center">
+                <AlertCircle size={20} className="mx-auto mb-2 text-red-500 opacity-50" />
+                <p className="text-xs text-red-600 dark:text-red-400 mb-2 font-medium">
+                  {error}
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    loadModels();
+                  }}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : filteredModels.length === 0 ? (
               <div className="p-4 text-center text-xs text-slate-500 italic">
                 No models found.
               </div>
