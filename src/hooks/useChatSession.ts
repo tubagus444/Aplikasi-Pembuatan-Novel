@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, CodexEntry, StoryBibleRule } from '../types';
 import { processChat, cancelAI } from '../services/ai';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
+import { resolveLoreTags } from '../lib/loreUtils';
 
 interface UseChatSessionProps {
   projectId: number;
@@ -53,9 +54,12 @@ export function useChatSession({
     setIsLoading(true);
 
     try {
+      // 0. Resolve lore tags for AI consumption
+      const resolvedText = resolveLoreTags(text, codexEntries, bibleRules);
+
       // 1. Gather relevant context
       const effectiveContext = customContext || contextText;
-      const queryContext = effectiveContext + " " + text;
+      const queryContext = effectiveContext + " " + resolvedText;
       
       const filteredCodex = await getRelevantContext(queryContext, codexEntries);
       const filteredBibleRules = await getRelevantBibleRules(queryContext, bibleRules);
@@ -70,7 +74,7 @@ export function useChatSession({
 
       // 3. Process chat
       const reply = await processChat({
-        message: text,
+        message: resolvedText,
         history,
         bibleRules: filteredBibleRules,
         codexEntries: filteredCodex,
