@@ -1,12 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIRenderParams } from "./types";
 
+const MAX_HISTORY_TURNS = 10;
+
 export async function callGemini(params: AIRenderParams, apiKey: string): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
   
-  const mappedContents = params.history 
-    ? [...params.history.map(c => ({ role: c.role, parts: [{ text: c.parts[0].text }] })), { role: 'user', parts: [{ text: params.userPrompt }] }]
-    : [{ role: 'user', parts: [{ text: params.userPrompt }] }];
+  const history = params.history || [];
+  const cleanedHistory = history.slice(-MAX_HISTORY_TURNS);
+
+  const mappedContents = [
+    ...cleanedHistory.map(c => ({ 
+      role: c.role === 'model' ? 'model' : 'user', 
+      parts: [{ text: c.parts[0].text }] 
+    })), 
+    { role: 'user', parts: [{ text: params.userPrompt }] }
+  ];
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",

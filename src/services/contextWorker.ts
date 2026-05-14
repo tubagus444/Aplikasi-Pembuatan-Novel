@@ -19,8 +19,8 @@ const ALWAYS_INCLUDE = [
 const SCORE_ALWAYS_INCLUDE = 1000;
 const SCORE_WORD_MATCH = 15;
 const SCORE_KEY_MATCH = 30;
-const MIN_SCORE_THRESHOLD = 15;
-const DEFAULT_MAX_CHARS = 1500;
+const MIN_SCORE_THRESHOLD = 25; // Raised threshold for leaner context
+const DEFAULT_MAX_CHARS = 1200; // Lowered limit for leaner context
 const MIN_WORD_LENGTH = 4;
 
 const regexCache = new Map<string, RegExp>();

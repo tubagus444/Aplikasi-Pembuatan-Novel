@@ -1,7 +1,11 @@
 import { AIRenderParams } from "./types";
 import { ErrorService } from "../errorService";
 
+const MAX_PROXY_HISTORY = 8;
+
 export async function callProxy(provider: string, params: AIRenderParams, apiKey?: string): Promise<string> {
+  const history = (params.history || []).slice(-MAX_PROXY_HISTORY);
+  
   const body: any = {
     model: params.model || getModelForProvider(provider),
   };
@@ -11,7 +15,7 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     body.max_tokens = params.maxTokens || 4000;
     body.system = params.systemInstruction;
     body.messages = [
-      ...(params.history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
+      ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
       { role: "user", content: params.userPrompt }
     ];
   } else if (provider === 'google') {
@@ -19,7 +23,7 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
       parts: [{ text: params.systemInstruction }]
     };
     body.contents = [
-      ...(params.history || []).map(h => ({ 
+      ...history.map(h => ({ 
         role: h.role === 'model' ? 'model' : 'user', 
         parts: [{ text: h.parts[0].text }] 
       })),
@@ -34,7 +38,7 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     body.max_tokens = params.maxTokens || 4000;
     body.messages = [
       { role: "system", content: params.systemInstruction },
-      ...(params.history || []).map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
+      ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
       { role: "user", content: params.userPrompt }
     ];
   }
