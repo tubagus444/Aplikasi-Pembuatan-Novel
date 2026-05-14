@@ -97,7 +97,7 @@ function getModelForProvider(provider: string) {
     case 'groq': return 'llama-3.3-70b-versatile';
     case 'openrouter': return 'meta-llama/llama-3.3-70b-instruct:free';
     case 'claude': return 'claude-3-5-sonnet-20241022';
-    case 'google': return 'gemini-1.5-flash'; // Fixed default model for rest api
+    case 'google': return 'gemini-2.0-flash-exp'; // Using a stable but newer default
     default: return '';
   }
 }

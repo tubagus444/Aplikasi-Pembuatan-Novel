@@ -56,7 +56,7 @@ function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexEntry[] 
     
     // Check main name
     const nameRegex = getBoundaryRegex(entry.name);
-    const nameMatches = lowerText.match(new RegExp(nameRegex.source, 'gi'));
+    const nameMatches = lowerText.match(nameRegex);
     if (nameMatches) {
       score += nameMatches.length * 10;
     }
@@ -64,7 +64,7 @@ function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexEntry[] 
     // Check aliases
     entry.aliases.forEach(alias => {
       const aliasRegex = getBoundaryRegex(alias);
-      const aliasMatches = lowerText.match(new RegExp(aliasRegex.source, 'gi'));
+      const aliasMatches = lowerText.match(aliasRegex);
       if (aliasMatches) {
         score += aliasMatches.length * 5;
       }
@@ -194,8 +194,13 @@ self.onmessage = (e: MessageEvent) => {
         result = chapters
           .filter((ch: any) => {
             const lowerContent = (ch.content || '').toLowerCase();
+            // Reset lastIndex for test() because the regex is global/cached
+            nameRegex.lastIndex = 0;
             if (nameRegex.test(lowerContent)) return true;
-            return aliasesRegex.some((r: RegExp) => r.test(lowerContent));
+            return aliasesRegex.some((r: RegExp) => {
+              r.lastIndex = 0;
+              return r.test(lowerContent);
+            });
           })
           .map((ch: any) => ch.id);
         break;

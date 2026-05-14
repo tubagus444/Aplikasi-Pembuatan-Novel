@@ -1,6 +1,5 @@
 import { StoryBibleRule, CodexEntry, StoryBeat, ContextDepth } from "../../types";
 import { getRelevantContext, getRelevantBibleRules, getChapterBeats } from "../contextEngine";
-import { callGemini } from "./gemini";
 import { callProxy } from "./proxy";
 import { GenerateParams, ChatParams, AIRenderParams } from "./types";
 import { ErrorService } from "../errorService";

@@ -11,7 +11,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tiptap/core": "^3.22.5",
     "@tiptap/extension-bubble-menu": "^3.22.5",
