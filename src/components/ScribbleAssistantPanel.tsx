@@ -13,6 +13,8 @@ import { cn } from '../lib/utils';
 import { getActiveWindowText } from '../lib/editorUtils';
 import { useAvailableProviders } from '../hooks/useAvailableProviders';
 import { useChatSession } from '../hooks/useChatSession';
+import { useToast } from '../hooks/useToast';
+import { useNavigation } from '../contexts/NavigationContext';
 import { Editor } from '@tiptap/core';
 import { ChatMessage, CodexEntry, StoryBibleRule } from '../types';
 
@@ -126,6 +128,9 @@ export function ScribbleAssistantPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  const { toast } = useToast();
+  const { setViewMode } = useNavigation();
+
   const handleSend = async (textToProcess?: string) => {
     const textToSend = textToProcess || input;
     if (!textToSend.trim() || isLoading) return;
@@ -154,6 +159,18 @@ export function ScribbleAssistantPanel({
       });
     } catch (err: any) {
       const errorMessage = err.message || 'Maaf, saya mengalami kesalahan saat memerinci lore Anda.';
+      
+      if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
+        toast.error(errorMessage, {
+          action: {
+            label: 'Buka Pengaturan',
+            onClick: () => setViewMode('settings')
+          }
+        });
+      } else {
+        toast.error(errorMessage);
+      }
+
       setMessages(prev => [...prev, { 
         id: Date.now().toString(), 
         role: 'model', 

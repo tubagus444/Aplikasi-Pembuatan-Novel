@@ -12,7 +12,7 @@ export function useAvailableProviders() {
     const checkProviders = () => {
       const active = PROVIDERS.filter(p => {
         // For Google, we check if there's a system-level key or a user-provided key
-        if (p === 'google' && process.env.GEMINI_API_KEY) return true;
+        if (p === 'google' && (process.env as any).HAS_GEMINI_KEY) return true;
         
         const key = localStorage.getItem(`ai_key_${p}`);
         return !!key;

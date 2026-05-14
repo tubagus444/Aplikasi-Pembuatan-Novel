@@ -110,6 +110,7 @@ function AppearancesList({ entry, projectId }: { entry: CodexEntry; projectId: n
 
 export function CodexPanel({ projectId }: CodexPanelProps) {
   const { toast } = useToast();
+  const { setViewMode } = useNavigation();
   
   const entries = useLiveQuery(() => 
     db.codex.where('projectId').equals(projectId).toArray()
@@ -265,8 +266,17 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
         bibleRules || []
       );
       setFormData(prev => ({ ...prev, description: expandedDesc }));
-    } catch (e) {
-      toast.error('Failed to expand: ' + (e as Error).message);
+    } catch (e: any) {
+      if (e.code === 'INVALID_KEY' || e.code === 'QUOTA_EXCEEDED') {
+        toast.error(e.message, {
+          action: {
+            label: 'Buka Pengaturan',
+            onClick: () => setViewMode('settings')
+          }
+        });
+      } else {
+        toast.error('Failed to expand: ' + e.message);
+      }
     } finally {
       setIsExpanding(false);
     }

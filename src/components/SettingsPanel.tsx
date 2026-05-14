@@ -10,6 +10,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { useStorageQuota } from '../hooks/useStorageQuota';
 import { ContextDepth } from '../types';
+import { OpenRouterModelSelect } from './OpenRouterModelSelect';
 
 export function SettingsPanel() {
   const { checkStorageQuota } = useStorageQuota();
@@ -359,13 +360,20 @@ export function SettingsPanel() {
                     placeholder={`API Key: ${item.placeholder}`}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
-                  <input 
-                    type="text" 
-                    value={models[item.id as keyof typeof models]}
-                    onChange={(e) => setModels({...models, [item.id]: e.target.value})}
-                    placeholder="Model name (e.g. gpt-4o, claude-3-5-sonnet...)"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                  {item.id === 'openrouter' ? (
+                    <OpenRouterModelSelect 
+                      value={models.openrouter}
+                      onChange={(val) => setModels({...models, openrouter: val})}
+                    />
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={models[item.id as keyof typeof models]}
+                      onChange={(e) => setModels({...models, [item.id]: e.target.value})}
+                      placeholder="Model name (e.g. gpt-4o, claude-3-5-sonnet...)"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  )}
                 </div>
                 <button
                   type="button"

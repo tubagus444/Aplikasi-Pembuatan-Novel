@@ -7,14 +7,25 @@ export interface ToastMessage {
   id: string;
   type: ToastType;
   message: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+interface ToastOptions {
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface ToastContextType {
   toast: {
-    success: (msg: string) => void;
-    error: (msg: string) => void;
-    warning: (msg: string) => void;
-    info: (msg: string) => void;
+    success: (msg: string, options?: ToastOptions) => void;
+    error: (msg: string, options?: ToastOptions) => void;
+    warning: (msg: string, options?: ToastOptions) => void;
+    info: (msg: string, options?: ToastOptions) => void;
   };
   toasts: ToastMessage[];
   removeToast: (id: string) => void;
@@ -25,9 +36,9 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = useCallback((type: ToastType, message: string) => {
+  const addToast = useCallback((type: ToastType, message: string, options?: ToastOptions) => {
     const id = Date.now().toString() + Math.random().toString();
-    setToasts(prev => [...prev, { id, type, message }]);
+    setToasts(prev => [...prev, { id, type, message, action: options?.action }]);
 
     // Log non-success messages to the Error DB
     if (type !== 'success') {
@@ -44,10 +55,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = {
-    success: (msg: string) => addToast('success', msg),
-    error: (msg: string) => addToast('error', msg),
-    warning: (msg: string) => addToast('warning', msg),
-    info: (msg: string) => addToast('info', msg),
+    success: (msg: string, options?: ToastOptions) => addToast('success', msg, options),
+    error: (msg: string, options?: ToastOptions) => addToast('error', msg, options),
+    warning: (msg: string, options?: ToastOptions) => addToast('warning', msg, options),
+    info: (msg: string, options?: ToastOptions) => addToast('info', msg, options),
   };
 
   return (

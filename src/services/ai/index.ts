@@ -7,9 +7,12 @@ import { AI_PROMPTS } from "../../lib/aiPrompts";
 
 export class AIError extends Error {
   code: string;
-  constructor(message: string, code: string) {
+  provider?: string;
+  
+  constructor(message: string, code: string, provider?: string) {
     super(message);
     this.code = code;
+    this.provider = provider;
     this.name = 'AIError';
   }
 }
@@ -46,7 +49,7 @@ function getSettings() {
     provider: localStorage.getItem('ai_provider') || 'google',
     contextDepth: (localStorage.getItem('ai_context_depth') as ContextDepth) || 'balanced',
     keys: {
-      google: loadKey('google') || process.env.GEMINI_API_KEY || '',
+      google: loadKey('google'),
       groq: loadKey('groq'),
       openrouter: loadKey('openrouter'),
       claude: loadKey('claude')
@@ -138,12 +141,23 @@ async function callAI(params: AIRenderParams): Promise<string> {
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
     
-    const aiError = new AIError(error.message || 'AI processing failed', 'API_ERROR');
+    // Check if error is already classified from proxy
+    const aiError = new AIError(
+      error.message || 'AI processing failed', 
+      error.code || 'API_ERROR',
+      provider
+    );
+
     ErrorService.log({
       message: aiError.message,
       type: 'error',
       source: `AI-Service (${provider})`,
-      metadata: { params: { ...params, signal: undefined }, provider }
+      metadata: { 
+        params: { ...params, signal: undefined }, 
+        provider,
+        code: aiError.code,
+        rawMessage: error.rawMessage
+      }
     });
     throw aiError;
   }
@@ -256,15 +270,16 @@ export async function extractToCodex(
       textData = textData.substring(startIdx, endIdx + 1);
     }
     return JSON.parse(textData);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Extraction Error:', error);
+    if (error instanceof AIError) throw error;
     ErrorService.log({
       message: 'Failed to extract codex entries: ' + (error instanceof Error ? error.message : String(error)),
       type: 'error',
       source: 'AI-Service (Extract)',
       metadata: { text: text.substring(0, 100) }
     });
-    throw new AIError('Failed to extract codex entries.', 'PARSE_ERROR');
+    throw new AIError('Failed to extract codex entries.', 'API_ERROR');
   }
 }
 

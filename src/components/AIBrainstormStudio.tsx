@@ -13,6 +13,8 @@ import { cn } from '../lib/utils';
 import { ChatSession, ChatMessage, CodexEntry, StoryBibleRule } from '../types';
 import { useProject } from '../contexts/ProjectContext';
 import { useChatSession } from '../hooks/useChatSession';
+import { useToast } from '../hooks/useToast';
+import { useNavigation } from '../contexts/NavigationContext';
 import { format } from 'date-fns';
 
 export function AIBrainstormStudio() {
@@ -131,6 +133,9 @@ export function AIBrainstormStudio() {
     setActiveSessionId(newId);
   };
 
+  const { toast } = useToast();
+  const { setViewMode } = useNavigation();
+
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
 
@@ -158,8 +163,20 @@ export function AIBrainstormStudio() {
       }
 
       await sendMessage(textToSend);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const errorMessage = err.message || 'Gagal mengirim pesan ke AI.';
+      
+      if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
+        toast.error(errorMessage, {
+          action: {
+            label: 'Buka Pengaturan',
+            onClick: () => setViewMode('settings')
+          }
+        });
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 

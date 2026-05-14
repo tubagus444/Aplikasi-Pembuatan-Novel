@@ -19,7 +19,8 @@ import { CodexEntry } from '../types';
 import { useToast } from './useToast';
 import { cn } from '../lib/utils';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
-import { processRewrite } from '../services/ai';
+import { processRewrite, AIError } from '../services/ai';
+import { useNavigation } from '../contexts/NavigationContext';
 
 import { useEditorPanel } from '../EditorPanelContext';
 
@@ -67,6 +68,7 @@ export function useNovelEditor({
   const [searchStats, setSearchStats] = useState({ current: 0, total: 0 });
 
   const { toast } = useToast();
+  const { setViewMode } = useNavigation();
 
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -341,7 +343,18 @@ export function useNovelEditor({
       editor.commands.insertContentAt({ from, to }, result);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'AI Rewrite failed. Please try again.');
+      if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
+        toast.error(err.message, {
+          action: {
+            label: 'Buka Pengaturan',
+            onClick: () => {
+              setViewMode('settings');
+            }
+          }
+        });
+      } else {
+        toast.error(err.message || 'AI Rewrite failed. Please try again.');
+      }
     } finally {
       setIsAiProcessing(false);
     }

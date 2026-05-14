@@ -1,5 +1,6 @@
 import { AIRenderParams } from "./types";
 import { ErrorService } from "../errorService";
+import { classifyError, getErrorMessage } from "./errors";
 
 const MAX_PROXY_HISTORY = 8;
 
@@ -70,14 +71,22 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
 
   if (!response.ok) {
     const errorText = await response.text();
-    let message = errorText;
+    let rawMessage = errorText;
     try {
       const parsed = JSON.parse(errorText);
-      message = parsed.error?.message || parsed.message || errorText;
+      rawMessage = parsed.error?.message || parsed.message || errorText;
     } catch (e) {
       // Not JSON, use raw text
     }
-    throw new Error(`[${provider.toUpperCase()}] ${message}`);
+    
+    const code = classifyError(response.status, rawMessage);
+    const friendlyMessage = getErrorMessage(code, provider);
+    
+    const err = new Error(friendlyMessage) as any;
+    err.code = code;
+    err.provider = provider;
+    err.rawMessage = rawMessage;
+    throw err;
   }
 
   const data = await response.json();

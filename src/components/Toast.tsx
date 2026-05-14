@@ -37,10 +37,24 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage, onDismiss: ()
       )}
     >
       {icons[toast.type]}
-      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{toast.message}</p>
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{toast.message}</p>
+        {toast.action && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toast.action?.onClick();
+              onDismiss();
+            }}
+            className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline text-left"
+          >
+            {toast.action.label}
+          </button>
+        )}
+      </div>
       <button 
         onClick={onDismiss} 
-        className="ml-auto p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+        className="ml-auto p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors self-start"
       >
         <X className="w-4 h-4" />
       </button>
