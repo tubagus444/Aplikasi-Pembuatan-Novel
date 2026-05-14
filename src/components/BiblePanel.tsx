@@ -199,15 +199,15 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
     <div className="max-w-4xl mx-auto pb-40 pt-12 px-6 sm:px-10 lg:px-16 selection:bg-indigo-100 dark:selection:bg-indigo-900/40">
       
       {/* Progress Floating Bar */}
-      <div className="sticky top-0 z-[50] py-6 mb-12 -mx-10 px-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 transition-all">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-4xl mx-auto">
+      <div className="sticky top-0 z-[50] py-4 mb-8 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 -mx-6 sm:-mx-10 lg:-mx-16 px-6 sm:px-10 lg:px-16 transition-all">
+        <div className="flex items-center justify-between gap-4 max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-              <BookOpen size={20} />
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+              <BookOpen size={16} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Story Bible</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-500 font-medium tracking-wide uppercase">Core Story Constraints</p>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Story Bible</h1>
+              <p className="text-[10px] text-slate-500 dark:text-slate-500 font-medium tracking-wide uppercase">Core Story Constraints</p>
             </div>
           </div>
           
@@ -264,7 +264,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         <div className="space-y-6">
           <div className="relative group">
             <input 
-              className="w-full bg-transparent border-none p-0 text-6xl sm:text-7xl font-serif font-black text-slate-900 dark:text-white placeholder:text-slate-100 dark:placeholder:text-slate-900/50 focus:ring-0 focus:outline-none transition-all"
+              className="w-full bg-transparent border-none p-0 text-4xl sm:text-5xl font-serif font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:ring-0 focus:outline-none transition-all"
               placeholder="Judul Proyek"
               value={formData.title}
               onChange={e => handleFieldChange('title', e.target.value)}
@@ -276,7 +276,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           </div>
           <div className="relative">
             <input 
-              className="w-full bg-transparent border-none p-0 text-3xl sm:text-4xl text-slate-400 dark:text-slate-600 placeholder:text-slate-100/50 dark:placeholder:text-slate-900/30 focus:ring-0 focus:outline-none font-light italic transition-all"
+              className="w-full bg-transparent border-none p-0 text-2xl sm:text-3xl text-slate-400 dark:text-slate-600 placeholder:text-slate-300/50 dark:placeholder:text-slate-700/50 focus:ring-0 focus:outline-none font-light italic transition-all"
               placeholder="Tagline atau premis satu kalimat..."
               value={formData.tagline}
               onChange={e => handleFieldChange('tagline', e.target.value)}
@@ -285,12 +285,18 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-10 shadow-2xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden group">
+        <div className={cn(
+          "bg-white dark:bg-slate-950 border rounded-3xl p-8 shadow-2xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden group transition-all",
+          formData.premise ? "border-amber-500/20" : "border-slate-200 dark:border-white/5"
+        )}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-colors" />
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                formData.premise ? "bg-amber-500 text-white" : "bg-amber-500/10 text-amber-500"
+              )}>
                 <Target size={20} />
               </div>
               <div>
@@ -307,7 +313,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           </div>
           
           <textarea 
-            className="w-full bg-transparent border-none p-0 text-xl leading-relaxed text-slate-700 dark:text-slate-300 placeholder:text-slate-200 dark:placeholder:text-slate-900 focus:ring-0 min-h-[160px] resize-none transition-all outline-none font-medium"
+            className="w-full bg-transparent border-none p-0 text-lg leading-relaxed text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:ring-0 min-h-[140px] resize-none transition-all outline-none font-medium"
             placeholder="Seorang [Protagonis] harus [Melakukan Sesuatu] untuk [Mencapai Tujuan] tapi terhalang oleh [Antagonis/Internal Conflict]..."
             value={formData.premise}
             onChange={e => handleFieldChange('premise', e.target.value.substring(0, 500))}
@@ -334,23 +340,29 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
-        className="mt-32 space-y-12"
+        className="mt-16 space-y-8"
       >
         <div className="flex items-center gap-6">
           <h2 className="text-sm font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.4em] whitespace-nowrap">Dunia & Latar</h2>
           <div className="h-px flex-1 bg-gradient-to-r from-slate-200 dark:from-white/10 to-transparent" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          <div className="group relative bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[2rem] p-8 transition-all hover:border-rose-500/30 hover:shadow-2xl hover:shadow-rose-500/5">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className={cn(
+            "group relative bg-white dark:bg-slate-950 border rounded-3xl p-6 transition-all hover:shadow-xl shadow-slate-200/30 dark:shadow-none",
+            formData.setting ? "border-rose-500/20" : "border-slate-200 dark:border-white/5"
+          )}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
+                formData.setting ? "bg-rose-500 text-white" : "bg-rose-500/10 text-rose-500"
+              )}>
                 <MapPin size={20} />
               </div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-widest">Setting / Latar</h3>
             </div>
             <textarea 
-              className="w-full bg-transparent border-none p-0 text-base leading-relaxed text-slate-600 dark:text-slate-400 placeholder:text-slate-200 dark:placeholder:text-slate-900 focus:ring-0 min-h-[120px] resize-none transition-all outline-none"
+              className="w-full bg-transparent border-none p-0 text-base leading-relaxed text-slate-600 dark:text-slate-400 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:ring-0 min-h-[100px] resize-none transition-all outline-none"
               placeholder="Geografi, sistem pemerintahan, atau atmosfer unik dari duniamu..."
               value={formData.setting}
               onChange={e => handleFieldChange('setting', e.target.value.substring(0, 400))}
@@ -358,15 +370,21 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
             />
           </div>
 
-          <div className="group relative bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[2rem] p-8 transition-all hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/5">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+          <div className={cn(
+            "group relative bg-white dark:bg-slate-950 border rounded-3xl p-6 transition-all hover:shadow-xl shadow-slate-200/30 dark:shadow-none",
+            formData.themes ? "border-emerald-500/20" : "border-slate-200 dark:border-white/5"
+          )}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
+                formData.themes ? "bg-emerald-500 text-white" : "bg-emerald-500/10 text-emerald-500"
+              )}>
                 <Palette size={20} />
               </div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-widest">Tema & Pesan</h3>
             </div>
             <textarea 
-              className="w-full bg-transparent border-none p-0 text-base leading-relaxed text-slate-600 dark:text-slate-400 placeholder:text-slate-200 dark:placeholder:text-slate-900 focus:ring-0 min-h-[120px] resize-none transition-all outline-none"
+              className="w-full bg-transparent border-none p-0 text-base leading-relaxed text-slate-600 dark:text-slate-400 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:ring-0 min-h-[100px] resize-none transition-all outline-none"
               placeholder="Kebenaran universal, pertanyaan moral, atau motif yang ingin dieksplorasi..."
               value={formData.themes}
               onChange={e => handleFieldChange('themes', e.target.value)}
@@ -382,31 +400,31 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
-        className="mt-32 space-y-16"
+        className="mt-16 space-y-12"
       >
         <div className="flex items-center gap-6">
           <h2 className="text-sm font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.4em] whitespace-nowrap">Pilar Narasi</h2>
           <div className="h-px flex-1 bg-gradient-to-r from-slate-200 dark:from-white/10 to-transparent" />
         </div>
 
-        <div className="space-y-16">
-          <div className="bg-slate-50/50 dark:bg-slate-900/20 rounded-[3rem] p-12 border border-slate-200/50 dark:border-white/5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div className="space-y-12">
+          <div className="bg-slate-50/50 dark:bg-slate-900/20 rounded-3xl p-8 border border-slate-200/50 dark:border-white/5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
+                <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                   <Zap size={24} />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Genre & Atmosphere</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">Pilih hingga 3 sub-genre utama</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">Pilih hingga 3 sub-genre</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white dark:bg-slate-950 px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/5">
+              <div className="flex items-center gap-3 bg-white dark:bg-slate-950 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/5">
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono tracking-widest">{formData.genres.length} / 3</span>
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {GENRES.map(g => {
                 const isActive = formData.genres.includes(g.id);
                 return (
@@ -414,37 +432,37 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                     key={g.id}
                     onClick={() => toggleArrayItem('genres', g.id, 3)}
                     className={cn(
-                      "group flex items-center gap-3 px-6 py-3.5 rounded-[1.5rem] border text-sm font-bold transition-all duration-500",
+                      "group flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold transition-all duration-300",
                       isActive 
-                        ? "bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-500/30 -translate-y-1" 
-                        : "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-500 hover:border-indigo-500/40 hover:text-indigo-600 shadow-sm"
+                        ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/30" 
+                        : "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-indigo-500/40 hover:text-indigo-600"
                     )}
                   >
-                    <span className="text-2xl leading-none group-hover:scale-125 transition-transform duration-500">{g.icon}</span>
+                    <span className="text-lg leading-none group-hover:scale-110 transition-transform">{g.icon}</span>
                     <span className="tracking-tight">{g.label}</span>
                   </button>
                 )
               })}
             </div>
             
-            <div className="mt-16 mb-8 h-px bg-slate-200 dark:bg-white/10" />
+            <div className="mt-8 mb-8 h-px bg-slate-200 dark:bg-white/10" />
             
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-xl shadow-rose-500/20">
+                <div className="w-12 h-12 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
                   <Palette size={24} />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Nada / Tone</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">Warna emosional yang dominan</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">Warna emosional dominan</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white dark:bg-slate-950 px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/5">
+              <div className="flex items-center gap-3 bg-white dark:bg-slate-950 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/5">
                 <span className="text-xs font-bold text-rose-600 dark:text-rose-400 font-mono tracking-widest">{formData.tones.length} / 3</span>
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {TONES.map(t => {
                 const isActive = formData.tones.includes(t.id);
                 return (
@@ -452,13 +470,13 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                     key={t.id}
                     onClick={() => toggleArrayItem('tones', t.id, 3)}
                     className={cn(
-                      "group flex items-center gap-3 px-6 py-3.5 rounded-[1.5rem] border text-sm font-bold transition-all duration-500",
+                      "group flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold transition-all duration-300",
                       isActive 
-                        ? "bg-rose-600 border-rose-600 text-white shadow-xl shadow-rose-500/30 -translate-y-1" 
-                        : "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-500 hover:border-rose-500/40 hover:text-rose-600 shadow-sm"
+                        ? "bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-500/30" 
+                        : "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-rose-500/40 hover:text-rose-600"
                     )}
                   >
-                    <span className="text-2xl leading-none group-hover:scale-125 transition-transform duration-500">{t.icon}</span>
+                    <span className="text-lg leading-none group-hover:scale-110 transition-transform">{t.icon}</span>
                     <span className="tracking-tight">{t.label}</span>
                   </button>
                 )
@@ -466,15 +484,15 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 pt-8">
-            <div className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                  <User size={20} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <User size={16} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-[0.2em]">Sudut Pandang (POV)</h3>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-widest">Sudut Pandang (POV)</h3>
               </div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-2">
                 {POVS.map(p => {
                   const isActive = formData.pov === p.id;
                   return (
@@ -482,39 +500,36 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                       key={p.id}
                       onClick={() => selectRadio('pov', p.id, '__POV__')}
                       className={cn(
-                        "w-full flex items-start gap-5 p-6 rounded-[2.5rem] border text-left transition-all duration-500 group relative overflow-hidden",
+                        "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all group relative",
                         isActive 
-                          ? "bg-emerald-600 border-emerald-600 text-white shadow-2xl shadow-emerald-500/20 scale-[1.03]" 
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-500/20" 
                           : "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 hover:border-emerald-500/30"
                       )}
                     >
                       <div className={cn(
-                        "w-6 h-6 rounded-full border-2 flex flex-shrink-0 items-center justify-center mt-1 transition-all",
+                        "w-5 h-5 rounded-full border-2 flex flex-shrink-0 items-center justify-center transition-all",
                         isActive ? "border-white bg-white/20" : "border-slate-200 dark:border-white/10 group-hover:border-emerald-500"
                       )}>
-                        {isActive && <motion.div layoutId="pov-check" className="w-2.5 h-2.5 bg-white rounded-full" />}
+                        {isActive && <div className="w-2 h-2 bg-white rounded-full" />}
                       </div>
-                      <div className="relative z-10">
-                        <p className={cn("font-bold text-sm transition-colors", isActive ? "text-white" : "text-slate-800 dark:text-slate-200 group-hover:text-emerald-600")}>{p.label}</p>
-                        <p className={cn("text-xs mt-1.5 leading-relaxed transition-colors", isActive ? "text-white/80" : "text-slate-500 dark:text-slate-500")}>{p.desc}</p>
+                      <div>
+                        <p className={cn("font-bold text-xs", isActive ? "text-white" : "text-slate-800 dark:text-slate-200")}>{p.label}</p>
+                        <p className={cn("text-[10px] mt-0.5 opacity-80", isActive ? "text-white" : "text-slate-500")}>{p.desc}</p>
                       </div>
-                      {isActive && (
-                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-                      )}
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            <div className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                  <Clock size={20} />
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                  <Clock size={16} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-[0.2em]">Kecepatan (Pacing)</h3>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-widest">Kecepatan (Pacing)</h3>
               </div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-2">
                 {PACINGS.map(p => {
                   const isActive = formData.pacing === p.id;
                   return (
@@ -522,25 +537,22 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                       key={p.id}
                       onClick={() => selectRadio('pacing', p.id, '__PACING__')}
                       className={cn(
-                        "w-full flex items-start gap-5 p-6 rounded-[2.5rem] border text-left transition-all duration-500 group relative overflow-hidden",
+                        "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all group relative",
                         isActive 
-                          ? "bg-amber-600 border-amber-600 text-white shadow-2xl shadow-amber-500/20 scale-[1.03]" 
+                          ? "bg-amber-600 border-amber-600 text-white shadow-md shadow-amber-500/20" 
                           : "bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 hover:border-amber-500/30"
                       )}
                     >
                       <div className={cn(
-                        "w-6 h-6 rounded-full border-2 flex flex-shrink-0 items-center justify-center mt-1 transition-all",
+                        "w-5 h-5 rounded-full border-2 flex flex-shrink-0 items-center justify-center transition-all",
                         isActive ? "border-white bg-white/20" : "border-slate-200 dark:border-white/10 group-hover:border-amber-500"
                       )}>
-                        {isActive && <motion.div layoutId="pacing-check" className="w-2.5 h-2.5 bg-white rounded-full" />}
+                        {isActive && <div className="w-2 h-2 bg-white rounded-full" />}
                       </div>
-                      <div className="relative z-10">
-                        <p className={cn("font-bold text-sm transition-colors", isActive ? "text-white" : "text-slate-800 dark:text-slate-200 group-hover:text-amber-600")}>{p.label}</p>
-                        <p className={cn("text-xs mt-1.5 leading-relaxed transition-colors", isActive ? "text-white/80" : "text-slate-500 dark:text-slate-500")}>{p.desc}</p>
+                      <div>
+                        <p className={cn("font-bold text-xs", isActive ? "text-white" : "text-slate-800 dark:text-slate-200")}>{p.label}</p>
+                        <p className={cn("text-[10px] mt-0.5 opacity-80", isActive ? "text-white" : "text-slate-500")}>{p.desc}</p>
                       </div>
-                      {isActive && (
-                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-                      )}
                     </button>
                   )
                 })}
@@ -556,27 +568,33 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
-        className="mt-40 space-y-12"
+        className="mt-16 space-y-8"
       >
         <div className="flex items-center gap-6">
           <h2 className="text-sm font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.4em] whitespace-nowrap">Catatan Penulis</h2>
           <div className="h-px flex-1 bg-gradient-to-r from-slate-200 dark:from-white/10 to-transparent" />
         </div>
         
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-[3.5rem] p-12 transition-all hover:shadow-3xl hover:shadow-indigo-500/5 relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-2 h-full bg-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="flex items-start gap-6 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 flex items-center justify-center text-indigo-500 shadow-inner">
+        <div className={cn(
+          "bg-white dark:bg-slate-950 border rounded-3xl p-8 transition-all hover:shadow-xl relative overflow-hidden group",
+          formData.notes ? "border-indigo-500/20" : "border-slate-200 dark:border-white/5"
+        )}>
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex items-start gap-5 mb-6">
+            <div className={cn(
+              "w-12 h-12 rounded-xl flex items-center justify-center transition-colors shadow-inner",
+              formData.notes ? "bg-indigo-600 text-white" : "bg-indigo-50 dark:bg-indigo-900/10 text-indigo-500"
+            )}>
               <StickyNote size={24} />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Refleksi & Inspirasi</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">Simpan ide liar, riset, atau pengingat penting di sini</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">Simpan ide liar, riset, atau pengingat penting</p>
             </div>
           </div>
           
           <textarea 
-            className="w-full bg-transparent border-none p-0 text-xl font-serif leading-loose text-slate-700 dark:text-slate-300 placeholder:text-slate-100 dark:placeholder:text-slate-900 focus:ring-0 min-h-[400px] resize-none transition-all outline-none"
+            className="w-full bg-transparent border-none p-0 text-lg font-serif leading-loose text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:ring-0 min-h-[300px] resize-none transition-all outline-none"
             placeholder="Mulai menulis catatan pribadimu..."
             value={formData.notes}
             onChange={e => handleFieldChange('notes', e.target.value)}
@@ -585,11 +603,11 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         </div>
       </motion.section>
 
-      {/* Footer Quote */}
-      <div className="mt-40 text-center pb-20">
-        <div className="inline-flex items-center gap-3 px-6 py-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-full border border-slate-200/50 dark:border-white/5 mx-auto">
-          <Sparkles className="text-amber-500 w-4 h-4" />
-          <p className="text-xs font-serif italic text-slate-500 dark:text-slate-600">"Semua cerita dimulai dari pondasi yang kokoh."</p>
+      {/* Footer */}
+      <div className="mt-12 text-center pb-12">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50/50 dark:bg-slate-900/30 rounded-full border border-slate-200/50 dark:border-white/5 mx-auto">
+          <CheckCircle2 className="text-emerald-500 w-3 h-3" />
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-600">Terakhir diperbarui hari ini</p>
         </div>
       </div>
 
