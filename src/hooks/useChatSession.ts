@@ -32,11 +32,16 @@ export function useChatSession({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
   const messagesRef = useRef(messages);
+  const isLoadingRef = useRef(false);
 
-  // Keep ref in sync for sendMessage accessibility
+  // Keep refs in sync for sendMessage accessibility
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   useEffect(() => {
     return () => {
@@ -45,7 +50,7 @@ export function useChatSession({
   }, []);
 
   const sendMessage = useCallback(async (text: string, customContext?: string) => {
-    if (!text.trim() || isLoading) return;
+    if (!text.trim() || isLoadingRef.current) return;
 
     const userMsg: ChatMessage = { 
       id: Date.now().toString(),
@@ -60,6 +65,7 @@ export function useChatSession({
     messagesRef.current = newMessages; // Immediate update for rapid fire messages
     onMessageAdded?.(newMessages);
     setIsLoading(true);
+    isLoadingRef.current = true;
 
     try {
       // 0. Resolve lore tags for AI consumption
@@ -112,9 +118,9 @@ export function useChatSession({
       throw err;
     } finally {
       setIsLoading(false);
+      isLoadingRef.current = false;
     }
   }, [
-    isLoading, 
     projectId, 
     chapterId, 
     codexEntries, 
