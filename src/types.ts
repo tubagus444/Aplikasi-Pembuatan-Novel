@@ -110,6 +110,7 @@ export interface StoryBibleRule {
   projectId: number;
   key: string;
   instruction: string; // e.g. "Tone: Dark Fantasy", "POV: Third Person Limited"
+  isVirtual?: boolean;
 }
 
 export type ContextDepth = 'minimal' | 'balanced' | 'deep';

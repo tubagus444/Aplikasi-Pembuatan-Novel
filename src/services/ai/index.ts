@@ -170,11 +170,8 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
 
   const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
   
-  // STATIC: Persona & Rules stay the same for ALL rewrite requests
-  const systemInstruction = `${AI_PROMPTS.REWRITE.PERSONA}\n\n${AI_PROMPTS.REWRITE.RULES}`;
-  
-  // DYNAMIC: Context block changes based on passage relevance
-  const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt, contextBlock);
+  const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
 
   try {
     const controller = new AbortController();
@@ -210,16 +207,8 @@ export async function processChat(params: ChatParams): Promise<string> {
 
   const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
 
-  // STATIC: Persona & Rules stay the same for ALL chat requests
-  const systemInstruction = `${AI_PROMPTS.CHAT.PERSONA}\n\n${AI_PROMPTS.CHAT.RULES}`;
-
-  // Use a context message to inject lore if no history exists, otherwise prepend to user message
-  const contextData = AI_PROMPTS.CHAT.CONTEXT_MESSAGE(
-    contextBlock,
-    params.contextText?.substring(0, 3000) || ''
-  );
-
-  const userPromptWithContext = `${contextData}\n\nUSER MESSAGE: ${params.message}`;
+  const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock);
+  const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, params.contextText?.substring(0, 3000));
 
   // SMART PRUNING: Keep only the most recent part of history to save tokens
   // A turn is 2 messages (user + model). 10 messages = 5 turns.
@@ -255,8 +244,8 @@ export async function extractToCodex(
   ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
   const settings = getSettings();
   const contextBlock = buildContextBlock(bibleRules, [], undefined, settings.contextDepth);
-  const systemInstruction = `${AI_PROMPTS.EXTRACT_CODEX.PERSONA}\n\n${AI_PROMPTS.EXTRACT_CODEX.RULES}`;
-  const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text), contextBlock);
+  const systemInstruction = AI_PROMPTS.EXTRACT_CODEX.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
 
   try {
     const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3 });
@@ -287,8 +276,8 @@ export async function expandCodexEntry(
   ): Promise<string> {
   const settings = getSettings();
   const contextBlock = buildContextBlock(bibleRules, [], undefined, settings.contextDepth);
-  const systemInstruction = `${AI_PROMPTS.EXPAND_CODEX.PERSONA}\n\n${AI_PROMPTS.EXPAND_CODEX.RULES}`;
-  const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription, contextBlock);
+  const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
   
   return await callAI({ 
     systemInstruction, 
@@ -301,8 +290,8 @@ export async function expandCodexEntry(
 export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {
   try {
     const params: AIRenderParams = {
-      systemInstruction: `${AI_PROMPTS.TEST_CONNECTION.PERSONA} ${AI_PROMPTS.TEST_CONNECTION.RULES}`,
-      userPrompt: AI_PROMPTS.TEST_CONNECTION.USER,
+      systemInstruction: AI_PROMPTS.TEST_CONNECTION.SYSTEM(),
+      userPrompt: AI_PROMPTS.TEST_CONNECTION.USER(),
       temperature: 0.1,
       model: model || undefined
     };

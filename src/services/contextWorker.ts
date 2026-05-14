@@ -163,6 +163,7 @@ function condenseCoreRules(rules: StoryBibleRule[]): StoryBibleRule[] {
 
   return [{
     id: -1, // Virtual ID
+    isVirtual: true,
     projectId: rules[0].projectId,
     key: 'STORY_PROFILE',
     instruction: condensedInstruction
