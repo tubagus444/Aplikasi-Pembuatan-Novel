@@ -12,7 +12,6 @@ interface UseChatSessionProps {
   codexEntries: CodexEntry[];
   bibleRules: StoryBibleRule[];
   contextText?: string;
-  chapterContext?: string;
   sessionMode?: SessionMode;
   provider?: string;
   initialMessages?: ChatMessage[];
@@ -27,7 +26,6 @@ export function useChatSession({
   codexEntries,
   bibleRules,
   contextText = '',
-  chapterContext = '',
   sessionMode,
   provider = 'google',
   initialMessages = [],
@@ -79,13 +77,10 @@ export function useChatSession({
 
       // 1. Gather relevant context
       let effectiveContext = customContext || contextText;
-      if (chapterContext) {
-        effectiveContext += `\n${chapterContext}`;
-      }
       const queryContext = effectiveContext + " " + resolvedText;
       
-      const filteredCodex = await getRelevantContext(queryContext, codexEntries);
-      const filteredBibleRules = await getRelevantBibleRules(queryContext, bibleRules);
+      const filteredCodex = getRelevantContext(queryContext, codexEntries);
+      const filteredBibleRules = getRelevantBibleRules(queryContext, bibleRules);
 
       // 2. Prepare history for AI
       const history = newMessages
@@ -99,8 +94,8 @@ export function useChatSession({
       const reply = await processChat({
         message: resolvedText,
         history,
-        bibleRules: filteredBibleRules,
-        codexEntries: filteredCodex,
+        bibleRules: await filteredBibleRules,
+        codexEntries: await filteredCodex,
         contextText: effectiveContext,
         chapterId,
         provider,

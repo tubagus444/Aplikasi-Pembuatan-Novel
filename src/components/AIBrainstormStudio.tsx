@@ -176,6 +176,18 @@ export function AIBrainstormStudio() {
   const [chapterContext, setChapterContext] = useState('');
   const [sceneMetadata, setSceneMetadata] = useState<{ name: string; wordCount: number; isManual: boolean; manualType?: 'excerpt' | 'summary' } | null>(null);
 
+  const [scenes, setScenes] = useState<Scene[]>([]);
+
+  // Split scenes only when chapter content changes
+  useEffect(() => {
+    if (activeChapter?.content) {
+      const splitScenes = splitIntoScenes(activeChapter.content);
+      setScenes(splitScenes);
+    } else {
+      setScenes([]);
+    }
+  }, [activeChapter?.id, activeChapter?.content]);
+
   // Run chunk engine on input change
   useEffect(() => {
     if (!activeSession) return;
@@ -184,10 +196,17 @@ export function AIBrainstormStudio() {
     const hasManualSummary = input.includes('@chapter-summary');
 
     if (hasManualExcerpt) {
-      if (activeChapter) {
-        // Just take the whole chapter or we could mock a scene picker. For now take whole chapter.
-        setChapterContext(`[CHAPTER EXCERPT]\n${activeChapter.content}\n[END EXCERPT]`);
-        setSceneMetadata({ name: 'Whole Chapter', wordCount: activeChapter.content.split(/\\s+/).length, isManual: true, manualType: 'excerpt' });
+      if (activeChapter && activeChapter.content) {
+        const lastScene = getLastScene(scenes);
+        if (lastScene) {
+          setChapterContext(buildExcerptContext([lastScene]));
+          setSceneMetadata({
+            name: `Scene ${lastScene.index + 1}`,
+            wordCount: lastScene.wordCount,
+            isManual: true,
+            manualType: 'excerpt'
+          });
+        }
       }
       return;
     }
@@ -195,14 +214,13 @@ export function AIBrainstormStudio() {
     if (hasManualSummary) {
       if (activeChapter && activeChapter.summary) {
         setChapterContext(`[CHAPTER SUMMARY]\n${activeChapter.summary}\n[END SUMMARY]`);
-        setSceneMetadata({ name: 'Chapter Summary', wordCount: activeChapter.summary.split(/\\s+/).length, isManual: true, manualType: 'summary' });
+        setSceneMetadata({ name: 'Chapter Summary', wordCount: activeChapter.summary.split(/\s+/).length, isManual: true, manualType: 'summary' });
       }
       return;
     }
 
-    if (isSmartAuto && activeChapterId && activeChapter && activeChapter.content) {
+    if (isSmartAuto && activeChapterId && scenes.length > 0) {
       const runEngine = setTimeout(() => {
-        const scenes = splitIntoScenes(activeChapter.content);
         const relevant = getRelevantScenes(input, scenes, codexEntries || []);
         let chosenData: Scene[] = [];
         let name = '';
@@ -233,7 +251,7 @@ export function AIBrainstormStudio() {
       setChapterContext('');
       setSceneMetadata(null);
     }
-  }, [input, activeSession?.smartAutoEnabled, activeChapter, codexEntries]);
+  }, [input, activeSession?.smartAutoEnabled, scenes, codexEntries, activeChapter, activeChapterId]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
