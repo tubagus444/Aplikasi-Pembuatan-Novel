@@ -34,11 +34,14 @@ export function AIBrainstormStudio() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showLoreMenu, setShowLoreMenu] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isHeaderEditing, setIsHeaderEditing] = useState(false);
+  const [editingSidebarId, setEditingSidebarId] = useState<number | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
+  
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const loreMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pendingInputRef = useRef<string | null>(null);
 
   const codexEntries = useLiveQuery(() => 
     projectId ? db.codex.where('projectId').equals(projectId).toArray() : []
@@ -102,24 +105,33 @@ export function AIBrainstormStudio() {
     }
   });
 
-  // Sync messages when toggling active session
+  // Sync messages ONLY on session change to prevent overwrite loops
   useEffect(() => {
-    if (activeSession) {
-      setMessages(activeSession.messages);
+    if (activeSessionId) {
+      db.chatSessions.get(activeSessionId).then(session => {
+        if (session) setMessages(session.messages);
+      });
     } else {
       setMessages([]);
     }
-  }, [activeSessionId, activeSession]);
+  }, [activeSessionId, setMessages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeSession?.messages, isLoading]);
+  }, [messages, isLoading]);
 
-  const deleteSession = async (id: number, e: React.SyntheticEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const codexRef = useRef(codexEntries);
+  useEffect(() => {
+    codexRef.current = codexEntries;
+  }, [codexEntries]);
+
+  const deleteSession = async (id: number, e?: React.SyntheticEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     try {
       await db.chatSessions.delete(id);
       if (activeSessionId === id) {
@@ -131,14 +143,16 @@ export function AIBrainstormStudio() {
     }
   };
 
-  const handleRename = async () => {
-    if (!activeSessionId || !editTitleValue.trim()) {
-      setIsEditingTitle(false);
+  const handleRename = async (sessionIdToRename: number) => {
+    if (!editTitleValue.trim()) {
+      setIsHeaderEditing(false);
+      setEditingSidebarId(null);
       return;
     }
     try {
-      await db.chatSessions.update(activeSessionId, { title: editTitleValue.trim() });
-      setIsEditingTitle(false);
+      await db.chatSessions.update(sessionIdToRename, { title: editTitleValue.trim() });
+      setIsHeaderEditing(false);
+      setEditingSidebarId(null);
     } catch (error) {
       console.error('Failed to rename session:', error);
     }
@@ -161,13 +175,6 @@ export function AIBrainstormStudio() {
     });
     setActiveSessionId(newId);
     setShowModeSelector(false);
-    
-    // If there is pending input, send it
-    if (input.trim()) {
-      setTimeout(() => {
-         handleSend();
-      }, 100);
-    }
   };
 
   const [showModeSelector, setShowModeSelector] = useState(false);
@@ -177,16 +184,41 @@ export function AIBrainstormStudio() {
   const [sceneMetadata, setSceneMetadata] = useState<{ name: string; wordCount: number; isManual: boolean; manualType?: 'excerpt' | 'summary' } | null>(null);
 
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const scenesRef = useRef(scenes);
 
   // Split scenes only when chapter content changes
   useEffect(() => {
     if (activeChapter?.content) {
       const splitScenes = splitIntoScenes(activeChapter.content);
       setScenes(splitScenes);
+      scenesRef.current = splitScenes;
     } else {
       setScenes([]);
+      scenesRef.current = [];
     }
   }, [activeChapter?.id, activeChapter?.content]);
+
+  // Process pending input
+  useEffect(() => {
+    if (activeSessionId && pendingInputRef.current) {
+      const textToSend = pendingInputRef.current;
+      pendingInputRef.current = null;
+      setInput('');
+      
+      const sendPending = async () => {
+        try {
+          const newTitle = textToSend.substring(0, 40) + (textToSend.length > 40 ? '...' : '');
+          await db.chatSessions.update(activeSessionId, { title: newTitle });
+          await sendMessage(textToSend, chapterContext);
+        } catch (err: any) {
+          console.error(err);
+          toast.error(err.message || 'Gagal mengirim pesan.');
+        }
+      };
+      
+      sendPending();
+    }
+  }, [activeSessionId]);
 
   // Run chunk engine on input change
   useEffect(() => {
@@ -219,9 +251,9 @@ export function AIBrainstormStudio() {
       return;
     }
 
-    if (isSmartAuto && activeChapterId && scenes.length > 0) {
+    if (isSmartAuto && activeChapterId && scenesRef.current.length > 0) {
       const runEngine = setTimeout(() => {
-        const relevant = getRelevantScenes(input, scenes, codexEntries || []);
+        const relevant = getRelevantScenes(input, scenesRef.current, codexRef.current || []);
         let chosenData: Scene[] = [];
         let name = '';
         
@@ -229,7 +261,7 @@ export function AIBrainstormStudio() {
           chosenData = relevant;
           name = relevant.length === 1 ? `Scene ${relevant[0].index + 1}` : `Scenes ${relevant.map(s => s.index + 1).join(' & ')}`;
         } else {
-          const last = getLastScene(scenes);
+          const last = getLastScene(scenesRef.current);
           if (last) {
             chosenData = [last];
             name = `Scene ${last.index + 1} (Latest)`;
@@ -251,17 +283,16 @@ export function AIBrainstormStudio() {
       setChapterContext('');
       setSceneMetadata(null);
     }
-  }, [input, activeSession?.smartAutoEnabled, scenes, codexEntries, activeChapter, activeChapterId]);
+  }, [input, activeSession?.smartAutoEnabled, activeChapter, activeChapterId]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
 
-    let sessionId = activeSessionId;
-
     // Create session if none active
-    if (!sessionId) {
+    if (!activeSessionId) {
+      pendingInputRef.current = input;
       setShowModeSelector(true);
-      return; // Will handle in createSession callback
+      return;
     }
 
     const textToSend = input;
@@ -270,22 +301,16 @@ export function AIBrainstormStudio() {
     try {
       if (messages.length === 0) {
         const newTitle = textToSend.substring(0, 40) + (textToSend.length > 40 ? '...' : '');
-        await db.chatSessions.update(sessionId, { title: newTitle });
+        await db.chatSessions.update(activeSessionId, { title: newTitle });
       }
 
-      // chapterContext is automatically handled by the hook
       await sendMessage(textToSend, chapterContext);
     } catch (err: any) {
       console.error(err);
       const errorMessage = err.message || 'Gagal mengirim pesan ke AI.';
       
       if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
-        toast.error(errorMessage, {
-          action: {
-            label: 'Buka Pengaturan',
-            onClick: () => setViewMode('settings')
-          }
-        });
+        toast.error(`${errorMessage} (Cek Pengaturan API)`);
       } else {
         toast.error(errorMessage);
       }
@@ -357,21 +382,21 @@ export function AIBrainstormStudio() {
                   <MessageSquare size={14} className="opacity-70" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  {isEditingTitle && activeSessionId === session.id ? (
+                  {editingSidebarId === session.id ? (
                     <div className="flex items-center gap-1 pr-2">
                        <input 
                          autoFocus
                          value={editTitleValue}
                          onChange={e => setEditTitleValue(e.target.value)}
                          onKeyDown={e => {
-                           if (e.key === 'Enter') handleRename();
-                           if (e.key === 'Escape') setIsEditingTitle(false);
+                           if (e.key === 'Enter') handleRename(session.id!);
+                           if (e.key === 'Escape') setEditingSidebarId(null);
                          }}
                          onClick={e => e.stopPropagation()}
                          className="flex-1 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 rounded px-1.5 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                        />
                        <button 
-                         onClick={(e) => { e.stopPropagation(); handleRename(); }}
+                         onClick={(e) => { e.stopPropagation(); handleRename(session.id!); }}
                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
                        >
                          <Check size={14} />
@@ -452,28 +477,28 @@ export function AIBrainstormStudio() {
                   <ArrowLeft size={18} />
                 </button>
                 <div className="flex-1 min-w-0">
-                  {isEditingTitle ? (
+                  {isHeaderEditing ? (
                     <div className="flex items-center gap-2">
                       <input 
                         autoFocus
                         value={editTitleValue}
                         onChange={e => setEditTitleValue(e.target.value)}
                         onKeyDown={e => {
-                          if (e.key === 'Enter') handleRename();
-                          if (e.key === 'Escape') setIsEditingTitle(false);
+                          if (e.key === 'Enter') handleRename(activeSessionId!);
+                          if (e.key === 'Escape') setIsHeaderEditing(false);
                         }}
                         className="bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-1 text-sm font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 w-full max-w-xs"
                       />
                       <div className="flex items-center gap-1">
                         <button 
-                          onClick={handleRename}
+                          onClick={() => handleRename(activeSessionId!)}
                           className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
                           title="Simpan"
                         >
                           <Check size={18} />
                         </button>
                         <button 
-                          onClick={() => setIsEditingTitle(false)}
+                          onClick={() => setIsHeaderEditing(false)}
                           className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                           title="Batal"
                         >
@@ -487,7 +512,7 @@ export function AIBrainstormStudio() {
                         className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-md cursor-pointer hover:text-indigo-600 transition-colors flex items-center gap-2"
                         onClick={() => {
                           setEditTitleValue(activeSession?.title || '');
-                          setIsEditingTitle(true);
+                          setIsHeaderEditing(true);
                         }}
                       >
                         {activeSession?.title}
@@ -550,7 +575,7 @@ export function AIBrainstormStudio() {
                     <button
                       onClick={() => {
                         setEditTitleValue(activeSession?.title || '');
-                        setIsEditingTitle(true);
+                        setIsHeaderEditing(true);
                         setShowMoreMenu(false);
                       }}
                       className="w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-slate-800"
@@ -741,9 +766,6 @@ export function AIBrainstormStudio() {
                       onRemove={() => {
                         setSceneMetadata(null);
                         setChapterContext('');
-                        if (activeSessionId && activeSession?.smartAutoEnabled) {
-                           db.chatSessions.update(activeSessionId, { smartAutoEnabled: false });
-                        }
                         if (sceneMetadata.isManual) {
                           if (sceneMetadata.manualType === 'excerpt') {
                             setInput(prev => prev.replace('@chapter-excerpt', '').trim());

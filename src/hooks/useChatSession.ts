@@ -94,8 +94,8 @@ export function useChatSession({
       const reply = await processChat({
         message: resolvedText,
         history,
-        bibleRules: await filteredBibleRules,
-        codexEntries: await filteredCodex,
+        bibleRules: filteredBibleRules as unknown as StoryBibleRule[],
+        codexEntries: filteredCodex as unknown as CodexEntry[],
         contextText: effectiveContext,
         chapterId,
         provider,
