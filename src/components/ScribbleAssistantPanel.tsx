@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash, Trash2 } from 'lucide-react';
 import { db } from '../db';
 import { cancelAI } from '../services/ai';
 import ReactMarkdown from 'react-markdown';
@@ -50,6 +50,8 @@ export function ScribbleAssistantPanel({
     setSelectedProvider 
   } = useAvailableProviders();
 
+  const [sessionId, setSessionId] = useState<number | null>(null);
+
   const {
     messages,
     setMessages,
@@ -61,16 +63,53 @@ export function ScribbleAssistantPanel({
     codexEntries,
     bibleRules,
     provider: selectedProvider,
-    initialMessages: [
-      { 
-        id: '1', 
-        role: 'model', 
-        content: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
-        isWelcome: true,
-        timestamp: Date.now()
+    onMessageAdded: async (newMessages) => {
+      if (sessionId) {
+        await db.chatSessions.update(sessionId, {
+          messages: newMessages,
+          lastMessageAt: Date.now()
+        });
       }
-    ]
+    }
   });
+
+  // Load or create session based on chapterId
+  useEffect(() => {
+    const loadSession = async () => {
+      if (!projectId) return;
+
+      const session = await db.chatSessions
+        .where('projectId').equals(projectId)
+        .and(s => s.chapterId === chapterId)
+        .first();
+
+      if (session && session.id) {
+        setSessionId(session.id);
+        setMessages(session.messages);
+      } else {
+        const welcomeMsg: ChatMessage = { 
+          id: '1', 
+          role: 'model', 
+          content: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
+          isWelcome: true,
+          timestamp: Date.now()
+        };
+
+        const newId = await db.chatSessions.add({
+          projectId,
+          chapterId,
+          title: chapterId ? `Chapter ${chapterId} Scribble` : 'Global Scribble',
+          lastMessageAt: Date.now(),
+          messages: [welcomeMsg]
+        });
+        
+        setSessionId(newId);
+        setMessages([welcomeMsg]);
+      }
+    };
+
+    loadSession();
+  }, [projectId, chapterId, setMessages]);
 
   const [input, setInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -144,6 +183,24 @@ export function ScribbleAssistantPanel({
 
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
+
+  const handleClear = async () => {
+    const welcomeMsg: ChatMessage = { 
+      id: Date.now().toString(), 
+      role: 'model', 
+      content: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
+      isWelcome: true,
+      timestamp: Date.now()
+    };
+    
+    setMessages([welcomeMsg]);
+    if (sessionId) {
+      await db.chatSessions.update(sessionId, {
+        messages: [welcomeMsg],
+        lastMessageAt: Date.now()
+      });
+    }
+  };
 
   const handleSend = async (textToProcess?: string) => {
     const textToSend = textToProcess || input;
@@ -225,9 +282,18 @@ export function ScribbleAssistantPanel({
             </div>
           )}
         </div>
-        <button onClick={onClose} aria-label="Tutup asisten" className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-200 rounded-md transition-colors">
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleClear}
+            title="Hapus riwayat chat"
+            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+          >
+            <Trash2 size={16} />
+          </button>
+          <button onClick={onClose} aria-label="Tutup asisten" className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-200 rounded-md transition-colors">
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 dark:bg-slate-800/50 custom-scrollbar">

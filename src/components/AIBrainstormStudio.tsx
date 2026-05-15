@@ -513,22 +513,63 @@ export function AIBrainstormStudio() {
             </div>
 
             <div className="p-6 bg-transparent">
-              <div className="max-w-3xl mx-auto relative group">
+              <div className="max-w-3xl mx-auto relative group" ref={loreMenuRef}>
                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-10 group-focus-within:opacity-25 transition-all duration-500" />
+                
+                {isMentionOpen && mentionSuggestions.length > 0 && (
+                  <MentionDropdown 
+                    suggestions={mentionSuggestions}
+                    selectedIndex={mentionSelectedIndex}
+                    onSelect={(item) => {
+                      const newValue = selectMention(item, input);
+                      setInput(newValue);
+                      setIsMentionOpen(false);
+                      inputRef.current?.focus();
+                    }}
+                    onClose={() => setIsMentionOpen(false)}
+                  />
+                )}
+
+                {showLoreMenu && (
+                  <div className="absolute left-6 bottom-full mb-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in slide-in-from-bottom-2 duration-100">
+                    <div className="px-2 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lampirkan dari Lore</p>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-0.5">
+                      {codexEntries?.length === 0 && bibleRules?.length === 0 && (
+                        <p className="px-2 py-4 text-center text-[11px] text-slate-500 italic">Lore masih kosong</p>
+                      )}
+                      {bibleRules?.map(rule => (
+                        <button
+                          key={rule.id}
+                          onClick={() => {
+                            setInput(prev => prev + (prev ? ' ' : '') + `@rule:${rule.key} `);
+                            setShowLoreMenu(false);
+                          }}
+                          className="w-full px-2 py-1.5 text-left text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors flex flex-col gap-0.5"
+                        >
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400">#{rule.key}</span>
+                          <span className="opacity-60 truncate">{rule.instruction}</span>
+                        </button>
+                      ))}
+                      {codexEntries?.map(entry => (
+                          <button
+                          key={entry.id}
+                          onClick={() => {
+                            setInput(prev => prev + (prev ? ' ' : '') + `@codex:${entry.name} `);
+                            setShowLoreMenu(false);
+                          }}
+                          className="w-full px-2 py-1.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex flex-col gap-0.5"
+                        >
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{entry.name}</span>
+                          <span className="opacity-60 truncate">{entry.description.substring(0, 40)}...</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                  {isMentionOpen && mentionSuggestions.length > 0 && (
-                    <MentionDropdown 
-                      suggestions={mentionSuggestions}
-                      selectedIndex={mentionSelectedIndex}
-                      onSelect={(item) => {
-                        const newValue = selectMention(item, input);
-                        setInput(newValue);
-                        setIsMentionOpen(false);
-                        inputRef.current?.focus();
-                      }}
-                      onClose={() => setIsMentionOpen(false)}
-                    />
-                  )}
                   <textarea
                     ref={inputRef}
                     value={input}
@@ -551,7 +592,7 @@ export function AIBrainstormStudio() {
                   />
                   <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-4 text-slate-400">
-                       <div className="relative" ref={loreMenuRef}>
+                       <div className="relative">
                          <button 
                            onClick={() => setShowLoreMenu(!showLoreMenu)}
                            className={cn(
@@ -562,45 +603,6 @@ export function AIBrainstormStudio() {
                          >
                            <Plus size={20} />
                          </button>
-
-                         {showLoreMenu && (
-                           <div className="absolute left-0 bottom-full mb-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in slide-in-from-bottom-2 duration-100">
-                             <div className="px-2 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
-                               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lampirkan dari Lore</p>
-                             </div>
-                             <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-0.5">
-                               {codexEntries?.length === 0 && bibleRules?.length === 0 && (
-                                 <p className="px-2 py-4 text-center text-[11px] text-slate-500 italic">Lore masih kosong</p>
-                               )}
-                               {bibleRules?.map(rule => (
-                                 <button
-                                   key={rule.id}
-                                   onClick={() => {
-                                     setInput(prev => prev + (prev ? ' ' : '') + `@rule:${rule.key} `);
-                                     setShowLoreMenu(false);
-                                   }}
-                                   className="w-full px-2 py-1.5 text-left text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors flex flex-col gap-0.5"
-                                 >
-                                   <span className="font-bold text-indigo-600 dark:text-indigo-400">#{rule.key}</span>
-                                   <span className="opacity-60 truncate">{rule.instruction}</span>
-                                 </button>
-                               ))}
-                               {codexEntries?.map(entry => (
-                                   <button
-                                   key={entry.id}
-                                   onClick={() => {
-                                     setInput(prev => prev + (prev ? ' ' : '') + `@codex:${entry.name} `);
-                                     setShowLoreMenu(false);
-                                   }}
-                                   className="w-full px-2 py-1.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex flex-col gap-0.5"
-                                 >
-                                   <span className="font-medium text-slate-900 dark:text-slate-100">{entry.name}</span>
-                                   <span className="opacity-60 truncate">{entry.description.substring(0, 40)}...</span>
-                                 </button>
-                               ))}
-                             </div>
-                           </div>
-                         )}
                        </div>
                     </div>
                     <button

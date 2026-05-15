@@ -70,6 +70,10 @@ export class AetherScribeDB extends Dexie {
       chatSessions: '++id, projectId, lastMessageAt',
       backups: '++id, timestamp'
     });
+
+    this.version(13).stores({
+      chatSessions: '++id, projectId, chapterId, lastMessageAt'
+    });
   }
 }
 

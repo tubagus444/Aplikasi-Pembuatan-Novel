@@ -65,6 +65,7 @@ export interface ChatMessage {
 export interface ChatSession {
   id?: number;
   projectId: number;
+  chapterId?: number;
   title: string;
   messages: ChatMessage[];
   lastMessageAt: number;
