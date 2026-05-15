@@ -1,4 +1,4 @@
-import { StoryBibleRule, CodexEntry } from "../../types";
+import { StoryBibleRule, CodexEntry, SessionMode } from "../../types";
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -35,4 +35,5 @@ export interface ChatParams {
   contextText: string;
   chapterId?: number; // Added/verified for chapter-specific AI context
   provider?: string;
+  sessionMode?: SessionMode;
 }

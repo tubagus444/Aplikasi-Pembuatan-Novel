@@ -57,7 +57,7 @@ export function resolveLoreTags(
 export interface MentionSegment {
   text: string;
   isMention: boolean;
-  type?: 'codex' | 'rule';
+  type?: 'codex' | 'rule' | 'chapter';
   value?: string;
   original?: string;
 }
@@ -67,8 +67,8 @@ export interface MentionSegment {
  */
 export function parseMentionTags(input: string): MentionSegment[] {
   const segments: MentionSegment[] = [];
-  // Regex to match @rule:key or @codex:name
-  const mentionRegex = /@(codex|rule):(\S+)/g;
+  // Regex to match @rule:key, @codex:name, @chapter-excerpt, @chapter-summary
+  const mentionRegex = /@(codex|rule):(\S+)|@(chapter-excerpt|chapter-summary)/g;
   
   let lastIndex = 0;
   let match;
@@ -83,13 +83,23 @@ export function parseMentionTags(input: string): MentionSegment[] {
     }
 
     // Add the mention segment
-    segments.push({
-      text: match[2].replace(/_/g, ' '), // Display name (replacing underscores)
-      isMention: true,
-      type: match[1] as 'codex' | 'rule',
-      value: match[2],
-      original: match[0]
-    });
+    if (match[3]) {
+      segments.push({
+        text: match[3],
+        isMention: true,
+        type: 'chapter',
+        value: match[3],
+        original: match[0]
+      });
+    } else {
+      segments.push({
+        text: match[2].replace(/_/g, ' '), // Display name (replacing underscores)
+        isMention: true,
+        type: match[1] as 'codex' | 'rule',
+        value: match[2],
+        original: match[0]
+      });
+    }
 
     lastIndex = mentionRegex.lastIndex;
   }

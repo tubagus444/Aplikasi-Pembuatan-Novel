@@ -4,12 +4,16 @@ import { processChat, cancelAI } from '../services/ai';
 import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
 import { resolveLoreTags } from '../lib/loreUtils';
 
+import { SessionMode } from '../types';
+
 interface UseChatSessionProps {
   projectId: number;
   chapterId?: number;
   codexEntries: CodexEntry[];
   bibleRules: StoryBibleRule[];
   contextText?: string;
+  chapterContext?: string;
+  sessionMode?: SessionMode;
   provider?: string;
   initialMessages?: ChatMessage[];
   onMessageAdded?: (messages: ChatMessage[]) => void;
@@ -23,6 +27,8 @@ export function useChatSession({
   codexEntries,
   bibleRules,
   contextText = '',
+  chapterContext = '',
+  sessionMode,
   provider = 'google',
   initialMessages = [],
   onMessageAdded,
@@ -72,7 +78,10 @@ export function useChatSession({
       const resolvedText = resolveLoreTags(text, codexEntries, bibleRules);
 
       // 1. Gather relevant context
-      const effectiveContext = customContext || contextText;
+      let effectiveContext = customContext || contextText;
+      if (chapterContext) {
+        effectiveContext += `\n${chapterContext}`;
+      }
       const queryContext = effectiveContext + " " + resolvedText;
       
       const filteredCodex = await getRelevantContext(queryContext, codexEntries);
@@ -94,7 +103,8 @@ export function useChatSession({
         codexEntries: filteredCodex,
         contextText: effectiveContext,
         chapterId,
-        provider
+        provider,
+        sessionMode
       });
 
       const assistantMsg: ChatMessage = { 

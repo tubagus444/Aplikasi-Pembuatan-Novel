@@ -52,6 +52,8 @@ export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
 export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm';
 
+export type SessionMode = 'prose-review' | 'plot-check' | 'brainstorm';
+
 export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
@@ -69,6 +71,9 @@ export interface ChatSession {
   title: string;
   messages: ChatMessage[];
   lastMessageAt: number;
+  mode?: SessionMode;
+  smartAutoEnabled?: boolean;
+  activeChapterId?: number;
 }
 
 export interface Chapter {

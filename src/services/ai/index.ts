@@ -221,7 +221,7 @@ export async function processChat(params: ChatParams): Promise<string> {
 
   const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
 
-  const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock);
+  const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
   const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, params.contextText?.substring(0, 3000));
 
   // SMART PRUNING: Keep only the most recent part of history to save tokens

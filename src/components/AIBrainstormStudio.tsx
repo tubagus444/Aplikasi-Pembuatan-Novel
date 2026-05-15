@@ -4,13 +4,13 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, Plus, Trash2, MessageSquare, BrainCircuit, History, ArrowLeft, MoreVertical, Search, Edit2, Check, X, Hash } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, Plus, Trash2, MessageSquare, BrainCircuit, History, ArrowLeft, MoreVertical, Search, Edit2, Check, X, Hash, Zap } from 'lucide-react';
 import { db } from '../db';
 import { processChat } from '../services/ai';
 import { useLiveQuery } from 'dexie-react-hooks';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '../lib/utils';
-import { ChatSession, ChatMessage, CodexEntry, StoryBibleRule } from '../types';
+import { ChatSession, ChatMessage, CodexEntry, StoryBibleRule, SessionMode } from '../types';
 import { parseMentionTags } from '../lib/loreUtils';
 import { useMentionAutocomplete } from '../hooks/useMentionAutocomplete';
 import { MentionDropdown } from './MentionDropdown';
@@ -19,9 +19,15 @@ import { useChatSession } from '../hooks/useChatSession';
 import { useToast } from '../hooks/useToast';
 import { useNavigation } from '../contexts/NavigationContext';
 import { format } from 'date-fns';
+import { SessionModeSelector } from './SessionModeSelector';
+import { ContextPreview } from './ContextPreview';
+import { splitIntoScenes, getRelevantScenes, getLastScene, buildExcerptContext, Scene } from '../lib/chunkEngine';
 
 export function AIBrainstormStudio() {
   const { projectId } = useProject();
+  const { setViewMode, activeChapterId, activeChapter } = useNavigation();
+  const { toast } = useToast();
+  
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [input, setInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,8 +86,10 @@ export function AIBrainstormStudio() {
     sendMessage
   } = useChatSession({
     projectId: projectId || 0,
+    chapterId: activeChapterId || undefined,
     codexEntries: codexEntries || [],
     bibleRules: bibleRules || [],
+    sessionMode: activeSession?.mode,
     provider: localStorage.getItem('ai_provider') || 'google',
     initialMessages: activeSession?.messages || [],
     onMessageAdded: async (newMessages) => {
@@ -137,18 +145,95 @@ export function AIBrainstormStudio() {
   };
 
   const createSession = async () => {
+    setShowModeSelector(true);
+  };
+
+  const executeCreateSession = async (mode: SessionMode, smartAuto: boolean) => {
     if (!projectId) return;
     const newId = await db.chatSessions.add({
       projectId,
       title: 'Percakapan Baru',
       lastMessageAt: Date.now(),
-      messages: []
+      messages: [],
+      mode,
+      smartAutoEnabled: smartAuto,
+      activeChapterId: activeChapterId || undefined
     });
     setActiveSessionId(newId);
+    setShowModeSelector(false);
+    
+    // If there is pending input, send it
+    if (input.trim()) {
+      setTimeout(() => {
+         handleSend();
+      }, 100);
+    }
   };
 
-  const { toast } = useToast();
-  const { setViewMode } = useNavigation();
+  const [showModeSelector, setShowModeSelector] = useState(false);
+  const [sessionParams, setSessionParams] = useState<{ mode: SessionMode; smartAuto: boolean } | null>(null);
+  
+  const [chapterContext, setChapterContext] = useState('');
+  const [sceneMetadata, setSceneMetadata] = useState<{ name: string; wordCount: number; isManual: boolean; manualType?: 'excerpt' | 'summary' } | null>(null);
+
+  // Run chunk engine on input change
+  useEffect(() => {
+    if (!activeSession) return;
+    const isSmartAuto = activeSession.smartAutoEnabled;
+    const hasManualExcerpt = input.includes('@chapter-excerpt');
+    const hasManualSummary = input.includes('@chapter-summary');
+
+    if (hasManualExcerpt) {
+      if (activeChapter) {
+        // Just take the whole chapter or we could mock a scene picker. For now take whole chapter.
+        setChapterContext(`[CHAPTER EXCERPT]\n${activeChapter.content}\n[END EXCERPT]`);
+        setSceneMetadata({ name: 'Whole Chapter', wordCount: activeChapter.content.split(/\\s+/).length, isManual: true, manualType: 'excerpt' });
+      }
+      return;
+    }
+
+    if (hasManualSummary) {
+      if (activeChapter && activeChapter.summary) {
+        setChapterContext(`[CHAPTER SUMMARY]\n${activeChapter.summary}\n[END SUMMARY]`);
+        setSceneMetadata({ name: 'Chapter Summary', wordCount: activeChapter.summary.split(/\\s+/).length, isManual: true, manualType: 'summary' });
+      }
+      return;
+    }
+
+    if (isSmartAuto && activeChapterId && activeChapter && activeChapter.content) {
+      const runEngine = setTimeout(() => {
+        const scenes = splitIntoScenes(activeChapter.content);
+        const relevant = getRelevantScenes(input, scenes, codexEntries || []);
+        let chosenData: Scene[] = [];
+        let name = '';
+        
+        if (relevant.length > 0) {
+          chosenData = relevant;
+          name = relevant.length === 1 ? `Scene ${relevant[0].index + 1}` : `Scenes ${relevant.map(s => s.index + 1).join(' & ')}`;
+        } else {
+          const last = getLastScene(scenes);
+          if (last) {
+            chosenData = [last];
+            name = `Scene ${last.index + 1} (Latest)`;
+          }
+        }
+        
+        if (chosenData.length > 0) {
+          setChapterContext(buildExcerptContext(chosenData));
+          setSceneMetadata({
+            name,
+            wordCount: chosenData.reduce((acc, s) => acc + s.wordCount, 0),
+            isManual: false
+          });
+        }
+      }, 500); // 500ms debounce
+      
+      return () => clearTimeout(runEngine);
+    } else if (!hasManualExcerpt && !hasManualSummary) {
+      setChapterContext('');
+      setSceneMetadata(null);
+    }
+  }, [input, activeSession?.smartAutoEnabled, activeChapter, codexEntries]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
@@ -157,26 +242,21 @@ export function AIBrainstormStudio() {
 
     // Create session if none active
     if (!sessionId) {
-      sessionId = await db.chatSessions.add({
-        projectId,
-        title: input.substring(0, 30).trim() || 'Percakapan Baru',
-        lastMessageAt: Date.now(),
-        messages: []
-      });
-      setActiveSessionId(sessionId);
+      setShowModeSelector(true);
+      return; // Will handle in createSession callback
     }
 
     const textToSend = input;
     setInput('');
 
     try {
-      // Update title if it's the first message
       if (messages.length === 0) {
         const newTitle = textToSend.substring(0, 40) + (textToSend.length > 40 ? '...' : '');
         await db.chatSessions.update(sessionId, { title: newTitle });
       }
 
-      await sendMessage(textToSend);
+      // chapterContext is automatically handled by the hook
+      await sendMessage(textToSend, chapterContext);
     } catch (err: any) {
       console.error(err);
       const errorMessage = err.message || 'Gagal mengirim pesan ke AI.';
@@ -386,18 +466,51 @@ export function AIBrainstormStudio() {
                   ) : (
                     <>
                       <h3 
-                        className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-md cursor-pointer hover:text-indigo-600 transition-colors"
+                        className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-md cursor-pointer hover:text-indigo-600 transition-colors flex items-center gap-2"
                         onClick={() => {
                           setEditTitleValue(activeSession?.title || '');
                           setIsEditingTitle(true);
                         }}
                       >
                         {activeSession?.title}
+                        {activeSession?.mode && (
+                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider">
+                             {activeSession.mode.replace('-', ' ')}
+                           </span>
+                        )}
                       </h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                        Integrated with lore
-                      </p>
+                      <div className="flex items-center gap-4 mt-1">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                          Integrated with lore
+                        </p>
+                        {activeSession?.mode !== 'brainstorm' && (
+                          <label className="flex items-center gap-1.5 cursor-pointer group">
+                             <input 
+                               type="checkbox"
+                               checked={!!activeSession?.smartAutoEnabled}
+                               className="sr-only"
+                               onChange={async (e) => {
+                                  if (activeSessionId) {
+                                    await db.chatSessions.update(activeSessionId, { smartAutoEnabled: e.target.checked });
+                                  }
+                               }}
+                             />
+                             <div className={cn(
+                               "w-6 h-3.5 rounded-full transition-colors relative",
+                               activeSession?.smartAutoEnabled ? "bg-indigo-500" : "bg-slate-300 dark:bg-slate-700"
+                             )}>
+                                <div className={cn(
+                                  "w-2.5 h-2.5 rounded-full bg-white absolute top-0.5 transition-transform",
+                                  activeSession?.smartAutoEnabled ? "translate-x-3" : "translate-x-0.5"
+                                )} />
+                             </div>
+                             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                                Smart Auto
+                             </span>
+                          </label>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -565,11 +678,64 @@ export function AIBrainstormStudio() {
                           <span className="opacity-60 truncate">{entry.description.substring(0, 40)}...</span>
                         </button>
                       ))}
+                      {activeChapterId && (
+                        <>
+                           <div className="px-2 py-1.5 border-t border-b border-slate-100 dark:border-slate-800 my-1">
+                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Chapter</p>
+                           </div>
+                           <button
+                             onClick={() => {
+                               setInput(prev => prev + (prev ? ' ' : '') + `@chapter-excerpt `);
+                               setShowLoreMenu(false);
+                               inputRef.current?.focus();
+                             }}
+                             className="w-full px-2 py-1.5 text-left text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors flex flex-col gap-0.5 text-indigo-600 dark:text-indigo-400 font-medium"
+                           >
+                             @chapter-excerpt
+                           </button>
+                           {activeChapter?.summary && (
+                              <button
+                               onClick={() => {
+                                 setInput(prev => prev + (prev ? ' ' : '') + `@chapter-summary `);
+                                 setShowLoreMenu(false);
+                                 inputRef.current?.focus();
+                               }}
+                               className="w-full px-2 py-1.5 text-left text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors flex flex-col gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium"
+                             >
+                               @chapter-summary
+                             </button>
+                           )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
 
-                <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                  {sceneMetadata && chapterContext && (
+                    <ContextPreview 
+                      chapterTitle={activeChapter?.title}
+                      sceneName={sceneMetadata.name}
+                      wordCount={sceneMetadata.wordCount}
+                      onChange={() => {
+                         // Placeholder for manual scene change
+                      }}
+                      onRemove={() => {
+                        setSceneMetadata(null);
+                        setChapterContext('');
+                        if (activeSessionId && activeSession?.smartAutoEnabled) {
+                           db.chatSessions.update(activeSessionId, { smartAutoEnabled: false });
+                        }
+                        if (sceneMetadata.isManual) {
+                          if (sceneMetadata.manualType === 'excerpt') {
+                            setInput(prev => prev.replace('@chapter-excerpt', '').trim());
+                          } else {
+                            setInput(prev => prev.replace('@chapter-summary', '').trim());
+                          }
+                        }
+                      }}
+                    />
+                  )}
                   <textarea
                     ref={inputRef}
                     value={input}
@@ -619,6 +785,12 @@ export function AIBrainstormStudio() {
           </>
         )}
       </div>
+      {showModeSelector && (
+         <SessionModeSelector 
+           onSelect={(mode, smartAuto) => executeCreateSession(mode, smartAuto)} 
+           onCancel={() => setShowModeSelector(false)} 
+         />
+      )}
     </div>
   );
 }
