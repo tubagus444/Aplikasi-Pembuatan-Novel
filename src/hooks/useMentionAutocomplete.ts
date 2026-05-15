@@ -21,6 +21,7 @@ export function useMentionAutocomplete(
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const handleInputChange = useCallback((value: string, position: number) => {
     // Look for @ character before cursor
@@ -42,6 +43,7 @@ export function useMentionAutocomplete(
         setIsOpen(true);
         setQuery(textAfterAt);
         setCursorPosition(lastAtSymbol);
+        setSelectedIndex(0); // Reset selection
         return;
       }
     }
@@ -86,11 +88,51 @@ export function useMentionAutocomplete(
     return newValue;
   }, [cursorPosition, query]);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, fullValue: string, onSelected: (newValue: string) => void) => {
+    if (!isOpen || suggestions.length === 0) return false;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev + 1) % suggestions.length);
+      return true;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+      return true;
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const selected = suggestions[selectedIndex];
+      if (selected) {
+        const newValue = selectMention(selected, fullValue);
+        onSelected(newValue);
+      }
+      return true;
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+      return true;
+    } else if (e.key === 'Tab') {
+      // Also allow Tab for selection
+      e.preventDefault();
+      const selected = suggestions[selectedIndex];
+      if (selected) {
+        const newValue = selectMention(selected, fullValue);
+        onSelected(newValue);
+      }
+      return true;
+    }
+
+    return false;
+  }, [isOpen, suggestions, selectedIndex, selectMention]);
+
   return {
     isOpen,
     setIsOpen,
     suggestions,
+    selectedIndex,
+    setSelectedIndex,
     handleInputChange,
+    handleKeyDown,
     selectMention,
     query
   };

@@ -17,35 +17,12 @@ interface SuggestionItem {
 
 interface MentionDropdownProps {
   suggestions: SuggestionItem[];
+  selectedIndex: number;
   onSelect: (item: SuggestionItem) => void;
   onClose: () => void;
 }
 
-export function MentionDropdown({ suggestions, onSelect, onClose }: MentionDropdownProps) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % suggestions.length);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (suggestions[selectedIndex]) {
-          onSelect(suggestions[selectedIndex]);
-        }
-      } else if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [suggestions, selectedIndex, onSelect, onClose]);
-
+export function MentionDropdown({ suggestions, selectedIndex, onSelect, onClose }: MentionDropdownProps) {
   if (suggestions.length === 0) return null;
 
   return (

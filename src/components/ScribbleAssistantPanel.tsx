@@ -79,7 +79,9 @@ export function ScribbleAssistantPanel({
     isOpen: isMentionOpen,
     setIsOpen: setIsMentionOpen,
     suggestions: mentionSuggestions,
+    selectedIndex: mentionSelectedIndex,
     handleInputChange: handleMentionInputChange,
+    handleKeyDown: handleMentionKeyDown,
     selectMention
   } = useMentionAutocomplete(codexEntries, bibleRules);
 
@@ -250,8 +252,8 @@ export function ScribbleAssistantPanel({
                          className={cn(
                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-bold mx-0.5 shadow-sm border whitespace-nowrap",
                            segment.type === 'rule' 
-                             ? "bg-amber-100 text-amber-700 border-amber-200" 
-                             : "bg-indigo-100 text-indigo-700 border-indigo-200"
+                             ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:border-amber-800" 
+                             : "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:border-indigo-800"
                          )}
                        >
                          {segment.type === 'rule' ? <Hash size={10} /> : <Sparkles size={10} />}
@@ -343,6 +345,7 @@ export function ScribbleAssistantPanel({
           {isMentionOpen && mentionSuggestions.length > 0 && (
             <MentionDropdown 
               suggestions={mentionSuggestions}
+              selectedIndex={mentionSelectedIndex}
               onSelect={(item) => {
                 const newValue = selectMention(item, input);
                 setInput(newValue);
@@ -358,14 +361,12 @@ export function ScribbleAssistantPanel({
             onChange={e => {
               const val = e.target.value;
               setInput(val);
-              handleMentionInputChange(val, e.target.selectionStart);
-            }}
-            onKeyUp={e => {
-              if (e.currentTarget instanceof HTMLTextAreaElement) {
-                handleMentionInputChange(e.currentTarget.value, e.currentTarget.selectionStart);
-              }
+              handleMentionInputChange(val, e.target.selectionStart ?? val.length);
             }}
             onKeyDown={e => {
+              if (handleMentionKeyDown(e, input, (val) => setInput(val))) {
+                return;
+              }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
