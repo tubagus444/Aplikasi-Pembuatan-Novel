@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash } from 'lucide-react';
 import { db } from '../db';
 import { cancelAI } from '../services/ai';
 import ReactMarkdown from 'react-markdown';
@@ -17,6 +17,9 @@ import { useToast } from '../hooks/useToast';
 import { useNavigation } from '../contexts/NavigationContext';
 import { Editor } from '@tiptap/core';
 import { ChatMessage, CodexEntry, StoryBibleRule } from '../types';
+import { parseMentionTags } from '../lib/loreUtils';
+import { useMentionAutocomplete } from '../hooks/useMentionAutocomplete';
+import { MentionDropdown } from './MentionDropdown';
 
 interface ScribbleAssistantPanelProps {
   projectId: number;
@@ -72,7 +75,16 @@ export function ScribbleAssistantPanel({
   const [input, setInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const {
+    isOpen: isMentionOpen,
+    setIsOpen: setIsMentionOpen,
+    suggestions: mentionSuggestions,
+    handleInputChange: handleMentionInputChange,
+    selectMention
+  } = useMentionAutocomplete(codexEntries, bibleRules);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasReceivedReply = messages.some(m => m.role === 'model' && !m.isWelcome);
@@ -230,7 +242,26 @@ export function ScribbleAssistantPanel({
                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none font-serif [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:text-slate-900 dark:[&_strong]:text-slate-100 [&_strong]:font-bold'
                }`}>
                {m.role === 'user' ? (
-                 m.content
+                 <div className="whitespace-pre-wrap">
+                   {parseMentionTags(m.content).map((segment, i) => (
+                     segment.isMention ? (
+                       <span 
+                         key={i} 
+                         className={cn(
+                           "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-bold mx-0.5 shadow-sm border whitespace-nowrap",
+                           segment.type === 'rule' 
+                             ? "bg-amber-100 text-amber-700 border-amber-200" 
+                             : "bg-indigo-100 text-indigo-700 border-indigo-200"
+                         )}
+                       >
+                         {segment.type === 'rule' ? <Hash size={10} /> : <Sparkles size={10} />}
+                         {segment.text}
+                       </span>
+                     ) : (
+                       <span key={i}>{segment.text}</span>
+                     )
+                   ))}
+                 </div>
                ) : (
                  <div className="relative">
                    <div className="markdown-body">
@@ -309,9 +340,31 @@ export function ScribbleAssistantPanel({
           </div>
         )}
         <div className="relative">
+          {isMentionOpen && mentionSuggestions.length > 0 && (
+            <MentionDropdown 
+              suggestions={mentionSuggestions}
+              onSelect={(item) => {
+                const newValue = selectMention(item, input);
+                setInput(newValue);
+                setIsMentionOpen(false);
+                inputRef.current?.focus();
+              }}
+              onClose={() => setIsMentionOpen(false)}
+            />
+          )}
           <textarea
+            ref={inputRef}
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => {
+              const val = e.target.value;
+              setInput(val);
+              handleMentionInputChange(val, e.target.selectionStart);
+            }}
+            onKeyUp={e => {
+              if (e.currentTarget instanceof HTMLTextAreaElement) {
+                handleMentionInputChange(e.currentTarget.value, e.currentTarget.selectionStart);
+              }
+            }}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

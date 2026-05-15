@@ -4,13 +4,16 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, Plus, Trash2, MessageSquare, BrainCircuit, History, ArrowLeft, MoreVertical, Search, Edit2, Check, X } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, Plus, Trash2, MessageSquare, BrainCircuit, History, ArrowLeft, MoreVertical, Search, Edit2, Check, X, Hash } from 'lucide-react';
 import { db } from '../db';
 import { processChat } from '../services/ai';
 import { useLiveQuery } from 'dexie-react-hooks';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '../lib/utils';
 import { ChatSession, ChatMessage, CodexEntry, StoryBibleRule } from '../types';
+import { parseMentionTags } from '../lib/loreUtils';
+import { useMentionAutocomplete } from '../hooks/useMentionAutocomplete';
+import { MentionDropdown } from './MentionDropdown';
 import { useProject } from '../contexts/ProjectContext';
 import { useChatSession } from '../hooks/useChatSession';
 import { useToast } from '../hooks/useToast';
@@ -29,6 +32,23 @@ export function AIBrainstormStudio() {
   const [editTitleValue, setEditTitleValue] = useState('');
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const loreMenuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const codexEntries = useLiveQuery(() => 
+    projectId ? db.codex.where('projectId').equals(projectId).toArray() : []
+  , [projectId]);
+
+  const bibleRules = useLiveQuery(() => 
+    projectId ? db.bible.where('projectId').equals(projectId).toArray() : []
+  , [projectId]);
+
+  const {
+    isOpen: isMentionOpen,
+    setIsOpen: setIsMentionOpen,
+    suggestions: mentionSuggestions,
+    handleInputChange: handleMentionInputChange,
+    selectMention
+  } = useMentionAutocomplete(codexEntries || [], bibleRules || []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,14 +70,6 @@ export function AIBrainstormStudio() {
   const activeSession = useLiveQuery(() => 
     activeSessionId ? db.chatSessions.get(activeSessionId) : undefined
   , [activeSessionId]);
-
-  const codexEntries = useLiveQuery(() => 
-    projectId ? db.codex.where('projectId').equals(projectId).toArray() : []
-  , [projectId]);
-
-  const bibleRules = useLiveQuery(() => 
-    projectId ? db.bible.where('projectId').equals(projectId).toArray() : []
-  , [projectId]);
 
   const {
     messages,
@@ -451,7 +463,30 @@ export function AIBrainstormStudio() {
                         "text-[15px] leading-relaxed dark:text-slate-200 markdown-body",
                         m.role === 'user' ? "font-serif italic text-slate-700" : "font-sans font-normal"
                       )}>
-                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                        {m.role === 'user' ? (
+                          <div className="whitespace-pre-wrap">
+                            {parseMentionTags(m.content).map((segment, i) => (
+                              segment.isMention ? (
+                                <span 
+                                  key={i} 
+                                  className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-sm font-bold mx-0.5 shadow-sm border whitespace-nowrap non-italic not-italic",
+                                    segment.type === 'rule' 
+                                      ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:border-amber-800" 
+                                      : "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:border-indigo-800"
+                                  )}
+                                >
+                                  {segment.type === 'rule' ? <Hash size={12} /> : <Sparkles size={12} />}
+                                  {segment.text}
+                                </span>
+                              ) : (
+                                <span key={i}>{segment.text}</span>
+                              )
+                            ))}
+                          </div>
+                        ) : (
+                          <ReactMarkdown>{m.content}</ReactMarkdown>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -479,9 +514,31 @@ export function AIBrainstormStudio() {
               <div className="max-w-3xl mx-auto relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-10 group-focus-within:opacity-25 transition-all duration-500" />
                 <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                  {isMentionOpen && mentionSuggestions.length > 0 && (
+                    <MentionDropdown 
+                      suggestions={mentionSuggestions}
+                      onSelect={(item) => {
+                        const newValue = selectMention(item, input);
+                        setInput(newValue);
+                        setIsMentionOpen(false);
+                        inputRef.current?.focus();
+                      }}
+                      onClose={() => setIsMentionOpen(false)}
+                    />
+                  )}
                   <textarea
+                    ref={inputRef}
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setInput(val);
+                      handleMentionInputChange(val, e.target.selectionStart);
+                    }}
+                    onKeyUp={e => {
+                      if (e.currentTarget instanceof HTMLTextAreaElement) {
+                        handleMentionInputChange(e.currentTarget.value, e.currentTarget.selectionStart);
+                      }
+                    }}
                     onKeyDown={e => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();

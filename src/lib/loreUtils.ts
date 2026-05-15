@@ -53,3 +53,54 @@ export function resolveLoreTags(
 
   return resolved;
 }
+
+export interface MentionSegment {
+  text: string;
+  isMention: boolean;
+  type?: 'codex' | 'rule';
+  value?: string;
+  original?: string;
+}
+
+/**
+ * Parses a string into segments of text and mentions for visual rendering.
+ */
+export function parseMentionTags(input: string): MentionSegment[] {
+  const segments: MentionSegment[] = [];
+  // Regex to match @rule:key or @codex:name
+  const mentionRegex = /@(codex|rule):(\S+)/g;
+  
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(input)) !== null) {
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      segments.push({
+        text: input.substring(lastIndex, match.index),
+        isMention: false
+      });
+    }
+
+    // Add the mention segment
+    segments.push({
+      text: match[2].replace(/_/g, ' '), // Display name (replacing underscores)
+      isMention: true,
+      type: match[1] as 'codex' | 'rule',
+      value: match[2],
+      original: match[0]
+    });
+
+    lastIndex = mentionRegex.lastIndex;
+  }
+
+  // Add remaining text
+  if (lastIndex < input.length) {
+    segments.push({
+      text: input.substring(lastIndex),
+      isMention: false
+    });
+  }
+
+  return segments;
+}
