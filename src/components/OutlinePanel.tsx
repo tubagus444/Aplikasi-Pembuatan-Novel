@@ -3,143 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
-import { db } from '../db';
-import { useLiveQuery } from 'dexie-react-hooks';
+import React, { useMemo } from 'react';
 import { Plus, Sparkles, LayoutList, GripVertical, Trash2, UserCircle, Target } from 'lucide-react';
 import { motion } from 'motion/react';
-import { processChat } from '../services/ai';
-import { ChapterStatus } from '../types';
 import { cn, countWords } from '../lib/utils';
 import { STATUS_COLORS } from '../lib/constants';
-import { useToast } from '../hooks/useToast';
+import { useChapterManagement } from '../hooks/useChapterManagement';
+import { useChapterDragAndDrop } from '../hooks/useChapterDragAndDrop';
+import { useGenerateBeats } from '../hooks/useGenerateBeats';
 
 interface OutlinePanelProps {
   projectId: number;
 }
 
 export function OutlinePanel({ projectId }: OutlinePanelProps) {
-  const chapters = useLiveQuery(() => 
-    db.chapters.where('projectId').equals(projectId).sortBy('order')
-  , [projectId]);
-
-  const [isGenerating, setIsGenerating] = useState<number | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  
-  // Drag and Drop state
-  const [draggedId, setDraggedId] = useState<number | null>(null);
-  const { toast } = useToast();
-
-  const handleDragStart = (e: React.DragEvent, id: number) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
-    // Small delay to allow the drag image to be generated before styling
-    setTimeout(() => {
-      if (e.target instanceof HTMLElement) {
-        e.target.style.opacity = '0.5';
-      }
-    }, 0);
-  };
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    setDraggedId(null);
-    if (e.target instanceof HTMLElement) {
-      e.target.style.opacity = '1';
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: number) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId || !chapters) return;
-
-    const oldIndex = chapters.findIndex(c => c.id === draggedId);
-    const newIndex = chapters.findIndex(c => c.id === targetId);
-
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const newChapters = [...chapters];
-    const [moved] = newChapters.splice(oldIndex, 1);
-    newChapters.splice(newIndex, 0, moved);
-
-    // Update orders in DB atomically
-    await db.transaction('rw', db.chapters, async () => {
-      const updates = newChapters.map((ch, index) => 
-        db.chapters.update(ch.id!, { order: index })
-      );
-      await Promise.all(updates);
-    });
-  };
-
-  const updateField = (id: number, field: string, value: any) => {
-    db.chapters.update(id, { [field]: value });
-  };
-
-  const deleteChapter = async (id: number) => {
-    if (deleteConfirmId === id) {
-      await db.chapters.delete(id);
-      setDeleteConfirmId(null);
-    } else {
-      setDeleteConfirmId(id);
-      setTimeout(() => setDeleteConfirmId(null), 3000);
-    }
-  };
-
-  const generateBeats = async (chapterId: number, currentTitle: string, currentSummary: string) => {
-    setIsGenerating(chapterId);
-    try {
-      const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
-      const bibleRules = await db.bible.where('projectId').equals(projectId).toArray();
-      const allChapters = await db.chapters.where('projectId').equals(projectId).sortBy('order');
-      const currentChapter = allChapters.find(c => c.id === chapterId);
-      const currentOrder = currentChapter ? currentChapter.order : 0;
-      
-      const projectContext = allChapters
-        .filter(c => Math.abs(c.order - currentOrder) <= 3)
-        .map(c => {
-          let summary = c.summary || 'None';
-          if (summary.length > 200) {
-            summary = summary.substring(0, 200) + '...';
-          }
-          return `Chapter: ${c.title}\nSummary: ${summary}`;
-        }).join('\n\n');
-
-      const prompt = `Based on the overall story outline:\n\n${projectContext}\n\nPlease generate a bulleted list of 3-5 scene beats/plot points for the chapter titled "${currentTitle}". Keep it concise and focus on advancing the plot. Avoid mentioning that you are an AI. Only output the beats.`;
-
-      const reply = await processChat({
-        message: prompt,
-        history: [],
-        bibleRules,
-        codexEntries: allCodex,
-        contextText: ""
-      });
-
-      const newSummary = (currentSummary ? currentSummary + '\n\n' : '') + reply;
-      await db.chapters.update(chapterId, { summary: newSummary });
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || 'Failed to generate beats.');
-    } finally {
-      setIsGenerating(null);
-    }
-  };
-
-  const addChapter = async () => {
-    const nextOrder = chapters ? chapters.length : 0;
-    await db.chapters.add({
-      projectId,
-      title: `Chapter ${nextOrder + 1}`,
-      content: '',
-      summary: '',
-      status: 'outline',
-      order: nextOrder,
-      lastModified: Date.now(),
-    });
-  };
+  const { chapters, deleteConfirmId, updateField, deleteChapter, addChapter } = useChapterManagement(projectId);
+  const { draggedId, handleDragStart, handleDragEnd, handleDragOver, handleDrop } = useChapterDragAndDrop(chapters);
+  const { generateBeats, isGenerating } = useGenerateBeats(projectId);
 
   return (
     <div className="max-w-5xl mx-auto pb-24">
