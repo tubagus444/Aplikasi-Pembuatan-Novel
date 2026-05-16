@@ -11,10 +11,10 @@ import { useBrainstormSession } from '../../hooks/useBrainstormSession';
 import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
 
 // New Sub-components
-import { BrainstormSidebar } from './/BrainstormSidebar';
-import { BrainstormHeader } from './/BrainstormHeader';
-import { BrainstormMessageList } from './/BrainstormMessageList';
-import { BrainstormInputArea } from './/BrainstormInputArea';
+import { BrainstormSidebar } from './BrainstormSidebar';
+import { BrainstormHeader } from './BrainstormHeader';
+import { BrainstormMessageList } from './BrainstormMessageList';
+import { BrainstormInputArea } from './BrainstormInputArea';
 
 export function AIBrainstormStudio() {
   const { projectId } = useProject();
@@ -132,6 +132,7 @@ export function AIBrainstormStudio() {
             <BrainstormMessageList
               messages={messages}
               isLoading={isLoading}
+              onSelectPrompt={(prompt) => setInput(prompt)}
             />
 
             <BrainstormInputArea

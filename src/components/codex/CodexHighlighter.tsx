@@ -4,11 +4,11 @@
  */
 
 import React, { useCallback } from 'react';
-import { db } from '../db';
+import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { cn } from '../lib/utils';
-import { useHighlightedSegments } from '../hooks/useHighlightedSegments';
-import { CodexEntry } from '../types';
+import { cn } from '../../lib/utils';
+import { useHighlightedSegments } from '../../hooks/useHighlightedSegments';
+import { CodexEntry } from '../../types';
 
 interface CodexHighlighterProps {
   text: string;

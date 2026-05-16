@@ -8,7 +8,7 @@ import { ChevronRight, Search, Moon, Sun, Zap, Download } from 'lucide-react';
 import { useProject } from '../../contexts/ProjectContext';
 import { useNavigation } from '../../contexts/NavigationContext';
 import { useUI } from '../../contexts/UIContext';
-import { WritingStats } from '../WritingStats';
+import { WritingStats } from '../common/WritingStats';
 import { cn } from '../../lib/utils';
 
 export function Header() {

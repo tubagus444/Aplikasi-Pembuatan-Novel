@@ -13,7 +13,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useUI } from '../../contexts/UIContext';
 import { EditorContent } from '@tiptap/react';
-import { SelectionFloatingMenu } from '../SelectionFloatingMenu';
+import { SelectionFloatingMenu } from './SelectionFloatingMenu';
 import { EditorPanelProvider } from '@/src/contexts/EditorPanelContext';
 import { useProjectData } from '../../hooks/useProjectData';
 import { useGlobalEvents } from '../../hooks/useGlobalEvents';

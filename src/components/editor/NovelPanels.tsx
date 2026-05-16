@@ -15,7 +15,7 @@ import { db } from '../../db';
 const ScribbleAssistantPanel = React.lazy(() => import('@/src/components/panels/ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
 const SnapshotPanel = React.lazy(() => import('@/src/components/panels/SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
 const TimelinePanel = React.lazy(() => import('@/src/components/panels/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
-const ProseInsights = React.lazy(() => import('../ProseInsights').then(m => ({ default: m.ProseInsights })));
+const ProseInsights = React.lazy(() => import('../panels/ProseInsights').then(m => ({ default: m.ProseInsights })));
 
 interface NovelPanelsProps {
   projectId: number;

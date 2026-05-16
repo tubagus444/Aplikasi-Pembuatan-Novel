@@ -17,8 +17,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { MainView } from './components/layout/MainView';
 import { ProjectManagerModal } from './components/modals/ProjectManagerModal';
-import { GlobalSearch } from './components/GlobalSearch';
-import { ExportManager } from './components/ExportManager';
+import { GlobalSearch } from './components/common/GlobalSearch';
+import { ExportManager } from './components/modals/ExportManager';
 import { Suspense, useEffect } from 'react';
 
 export default function App() {

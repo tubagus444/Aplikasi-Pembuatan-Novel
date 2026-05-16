@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Bold, Italic, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { cn } from '../../lib/utils';
 import { Editor } from '@tiptap/react';
-import { AIAction } from '../types';
-import { useAvailableProviders } from '../hooks/useAvailableProviders';
+import { AIAction } from '../../types';
+import { useAvailableProviders } from '../../hooks/useAvailableProviders';
 
 interface SelectionFloatingMenuProps {
   editor: Editor;

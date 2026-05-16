@@ -10,7 +10,7 @@ import { useNavigation } from '../../contexts/NavigationContext';
 import { useUI } from '../../contexts/UIContext';
 import { db } from '../../db';
 import { cn } from '../../lib/utils';
-import { ChapterList } from '../ChapterList';
+import { ChapterList } from './ChapterList';
 
 export function Sidebar() {
   const { projectId, project } = useProject();

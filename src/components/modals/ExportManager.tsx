@@ -9,9 +9,9 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import { saveAs } from 'file-saver';
 import { FileDown, FileText, Globe, Loader2, CheckCircle2, X, FileEdit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db } from '../db';
-import { Project, Chapter } from '../types';
-import { stripHtml, htmlToMarkdown } from '../lib/editorUtils';
+import { db } from '../../db';
+import { Project, Chapter } from '../../types';
+import { stripHtml, htmlToMarkdown } from '../../lib/editorUtils';
 
 interface ExportManagerProps {
   projectId: number;

@@ -19,7 +19,7 @@ import { Editor } from '@tiptap/core';
 import { ChatMessage, CodexEntry, StoryBibleRule } from '../../types';
 import { parseMentionTags } from '../../lib/loreUtils';
 import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
-import { MentionDropdown } from '../MentionDropdown';
+import { MentionDropdown } from '../common/MentionDropdown';
 
 interface ScribbleAssistantPanelProps {
   projectId: number;

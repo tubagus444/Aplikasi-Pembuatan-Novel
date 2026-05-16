@@ -5,10 +5,10 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { db } from '../../db';
 import { Target, TrendingUp, Edit2, Clock, BarChart2, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { countWords } from '../lib/utils';
+import { countWords } from '../../lib/utils';
 
 interface WritingStatsProps {
   projectId: number;

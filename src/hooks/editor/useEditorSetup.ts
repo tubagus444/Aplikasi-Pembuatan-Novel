@@ -5,7 +5,7 @@ import Mention from '@tiptap/extension-mention';
 import TiptapHistory from '@tiptap/extension-history';
 import { SearchAndReplace } from '../../extensions/SearchAndReplace';
 import { PassiveCodexHighlight } from '../../extensions/PassiveCodexHighlight';
-import { MentionList } from '../../components/MentionList';
+import { MentionList } from '../../components/editor/MentionList';
 import { CustomAIKeymap } from './useEditorAI';
 import tippy from 'tippy.js';
 import { cn } from '../../lib/utils';

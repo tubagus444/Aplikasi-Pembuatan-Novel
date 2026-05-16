@@ -5,12 +5,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { db } from '../../db';
 import { Plus, FileText, Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-react';
-import { cn, countWords } from '../lib/utils';
+import { cn, countWords } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChapterStatus } from '../types';
-import { STATUS_DOTS } from '../lib/constants';
+import { ChapterStatus } from '../../types';
+import { STATUS_DOTS } from '../../lib/constants';
 
 interface ChapterListProps {
   projectId: number;
