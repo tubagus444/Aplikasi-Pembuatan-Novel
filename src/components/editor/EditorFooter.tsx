@@ -17,7 +17,7 @@ import {
   Search
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useEditorPanel } from '../../EditorPanelContext';
+import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
 
 interface EditorFooterProps {
   editor: Editor | null;

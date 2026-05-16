@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { cn } from './lib/utils';
-import { ToastContainer } from './components/Toast';
+import { ToastContainer } from './components/common/Toast';
 import { useProject } from './contexts/ProjectContext';
 import { useNavigation } from './contexts/NavigationContext';
 import { useUI } from './contexts/UIContext';
@@ -16,7 +16,7 @@ import { motion } from 'motion/react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { MainView } from './components/layout/MainView';
-import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { ProjectManagerModal } from './components/modals/ProjectManagerModal';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ExportManager } from './components/ExportManager';
 import { Suspense, useEffect } from 'react';

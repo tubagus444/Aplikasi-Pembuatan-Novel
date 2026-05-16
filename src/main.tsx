@@ -7,7 +7,7 @@ import { NavigationProvider } from './contexts/NavigationContext';
 import { UIProvider } from './contexts/UIContext';
 import { BackupProvider } from './hooks/useAutoBackup';
 import { ToastProvider } from './hooks/useToast';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ErrorService } from './services/errorService';
 
 // Global error handlers

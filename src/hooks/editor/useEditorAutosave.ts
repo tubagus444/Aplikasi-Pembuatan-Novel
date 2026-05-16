@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
 import { db } from '../../db';
-import { useEditorPanel } from '../../EditorPanelContext';
+import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
 
 interface UseEditorAutosaveProps {
   chapterId: number;

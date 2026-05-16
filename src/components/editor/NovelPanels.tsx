@@ -7,14 +7,14 @@ import React from 'react';
 import { Editor } from '@tiptap/core';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2 } from 'lucide-react';
-import { useEditorPanel } from '../../EditorPanelContext';
+import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
 import { PANEL_WIDTH } from '../../lib/constants';
 import { db } from '../../db';
 
 // Lazy load side panels
-const ScribbleAssistantPanel = React.lazy(() => import('../ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
-const SnapshotPanel = React.lazy(() => import('../SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
-const TimelinePanel = React.lazy(() => import('../TimelinePanel').then(m => ({ default: m.TimelinePanel })));
+const ScribbleAssistantPanel = React.lazy(() => import('@/src/components/panels/ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
+const SnapshotPanel = React.lazy(() => import('@/src/components/panels/SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
+const TimelinePanel = React.lazy(() => import('@/src/components/panels/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const ProseInsights = React.lazy(() => import('../ProseInsights').then(m => ({ default: m.ProseInsights })));
 
 interface NovelPanelsProps {
