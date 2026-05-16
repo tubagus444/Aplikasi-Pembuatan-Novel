@@ -75,12 +75,17 @@ export function AIBrainstormStudio() {
   }, []);
 
   const sessions = useLiveQuery(() => 
-    projectId ? db.chatSessions.where('projectId').equals(projectId).reverse().sortBy('lastMessageAt') : []
+    projectId ? db.chatSessions.where('projectId').equals(projectId).reverse().sortBy('lastMessageAt').then(arr => arr.slice(0, 50)) : []
   , [projectId]);
 
   const activeSession = useLiveQuery(() => 
     activeSessionId ? db.chatSessions.get(activeSessionId) : undefined
   , [activeSessionId]);
+
+  const activeSessionIdRef = useRef(activeSessionId);
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId;
+  }, [activeSessionId]);
 
   const {
     messages,
@@ -96,8 +101,8 @@ export function AIBrainstormStudio() {
     provider: localStorage.getItem('ai_provider') || 'google',
     initialMessages: activeSession?.messages || [],
     onMessageAdded: async (newMessages) => {
-      if (activeSessionId) {
-        await db.chatSessions.update(activeSessionId, {
+      if (activeSessionIdRef.current) {
+        await db.chatSessions.update(activeSessionIdRef.current, {
           messages: newMessages,
           lastMessageAt: Date.now()
         });
@@ -107,13 +112,15 @@ export function AIBrainstormStudio() {
 
   // Sync messages ONLY on session change to prevent overwrite loops
   useEffect(() => {
+    let isSubscribed = true;
     if (activeSessionId) {
       db.chatSessions.get(activeSessionId).then(session => {
-        if (session) setMessages(session.messages);
+        if (session && isSubscribed) setMessages(session.messages);
       });
     } else {
       setMessages([]);
     }
+    return () => { isSubscribed = false; };
   }, [activeSessionId, setMessages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -127,7 +134,7 @@ export function AIBrainstormStudio() {
     codexRef.current = codexEntries;
   }, [codexEntries]);
 
-  const deleteSession = async (id: number, e?: React.SyntheticEvent) => {
+  const deleteSession = async (id: number, e?: React.MouseEvent | React.KeyboardEvent) => {
     if (e) {
       e.stopPropagation();
       e.preventDefault();
@@ -174,7 +181,24 @@ export function AIBrainstormStudio() {
       activeChapterId: activeChapterId || undefined
     });
     setActiveSessionId(newId);
+    activeSessionIdRef.current = newId; // Update ref immediately
     setShowModeSelector(false);
+
+    if (pendingInputRef.current) {
+      const textToSend = pendingInputRef.current;
+      pendingInputRef.current = null;
+      setInput('');
+      setMessages([]); // clean local state
+      
+      try {
+        const newTitle = textToSend.substring(0, 40) + (textToSend.length > 40 ? '...' : '');
+        await db.chatSessions.update(newId, { title: newTitle });
+        await sendMessage(textToSend, chapterContext);
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.message || 'Gagal mengirim pesan.');
+      }
+    }
   };
 
   const [showModeSelector, setShowModeSelector] = useState(false);
@@ -198,38 +222,18 @@ export function AIBrainstormStudio() {
     }
   }, [activeChapter?.id, activeChapter?.content]);
 
-  // Process pending input
-  useEffect(() => {
-    if (activeSessionId && pendingInputRef.current) {
-      const textToSend = pendingInputRef.current;
-      pendingInputRef.current = null;
-      setInput('');
-      
-      const sendPending = async () => {
-        try {
-          const newTitle = textToSend.substring(0, 40) + (textToSend.length > 40 ? '...' : '');
-          await db.chatSessions.update(activeSessionId, { title: newTitle });
-          await sendMessage(textToSend, chapterContext);
-        } catch (err: any) {
-          console.error(err);
-          toast.error(err.message || 'Gagal mengirim pesan.');
-        }
-      };
-      
-      sendPending();
-    }
-  }, [activeSessionId]);
-
   // Run chunk engine on input change
+  const isSmartAuto = activeSession?.smartAutoEnabled;
+
   useEffect(() => {
-    if (!activeSession) return;
-    const isSmartAuto = activeSession.smartAutoEnabled;
+    if (isSmartAuto === undefined && activeSessionId) return; // wait for session loaded unless null
+    
     const hasManualExcerpt = input.includes('@chapter-excerpt');
     const hasManualSummary = input.includes('@chapter-summary');
 
     if (hasManualExcerpt) {
       if (activeChapter && activeChapter.content) {
-        const lastScene = getLastScene(scenes);
+        const lastScene = getLastScene(scenesRef.current);
         if (lastScene) {
           setChapterContext(buildExcerptContext([lastScene]));
           setSceneMetadata({
@@ -283,7 +287,7 @@ export function AIBrainstormStudio() {
       setChapterContext('');
       setSceneMetadata(null);
     }
-  }, [input, activeSession?.smartAutoEnabled, activeChapter, activeChapterId]);
+  }, [input, isSmartAuto, activeChapter?.id, activeChapter?.summary, activeChapter?.content, activeSessionId]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
@@ -585,7 +589,7 @@ export function AIBrainstormStudio() {
                     </button>
                     <button
                       onClick={(e) => {
-                        deleteSession(activeSessionId!, e);
+                        deleteSession(activeSessionId!);
                         setShowMoreMenu(false);
                       }}
                       className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
