@@ -1,5 +1,5 @@
-import { db } from '../db';
-import { AppError } from '../types';
+import { db } from '@/src/db';
+import { AppError } from '@/src/types';
 
 export const ErrorService = {
   async log(error: Partial<AppError>) {

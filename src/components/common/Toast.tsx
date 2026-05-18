@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
-import { useToast, ToastMessage } from '../../hooks/useToast';
-import { cn } from '../../lib/utils';
+import { useToast, ToastMessage } from '@/src/hooks/useToast';
+import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 const icons = {

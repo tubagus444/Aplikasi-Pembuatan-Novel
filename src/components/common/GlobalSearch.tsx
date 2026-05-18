@@ -4,11 +4,11 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { db } from '../../db';
+import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Search, FileText, Book, X, Hash } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../lib/utils';
+import { cn } from '@/src/lib/utils';
 
 interface GlobalSearchProps {
   projectId: number;

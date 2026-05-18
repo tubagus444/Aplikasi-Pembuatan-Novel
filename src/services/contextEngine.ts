@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { db } from "../db";
-import { CodexEntry, StoryBibleRule, StoryBeat } from "../types";
-import ContextWorker from './contextWorker?worker';
+import { db } from '@/src/db';
+import { CodexEntry, StoryBibleRule, StoryBeat } from '@/src/types';
+import ContextWorker from '@/src/services/contextWorker?worker';
 
 // Worker instance and communication state
 let worker: Worker | null = null;

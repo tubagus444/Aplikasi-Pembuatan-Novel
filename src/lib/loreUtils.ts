@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CodexEntry, StoryBibleRule } from '../types';
+import { CodexEntry, StoryBibleRule } from '@/src/types';
 
 /**
  * Resolves lore tags like @rule:key and @codex:name into more descriptive

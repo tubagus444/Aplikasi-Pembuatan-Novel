@@ -1,6 +1,6 @@
-import { AIRenderParams } from "./types";
-import { ErrorService } from "../errorService";
-import { classifyError, getErrorMessage } from "./errors";
+import { AIRenderParams } from '@/src/services/ai/types';
+import { ErrorService } from '@/src/services/errorService';
+import { classifyError, getErrorMessage } from '@/src/services/ai/errors';
 
 const MAX_PROXY_HISTORY = 8;
 

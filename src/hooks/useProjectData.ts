@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
-import { CodexEntry, AIAction, StoryBibleRule } from '../types';
+import { db } from '@/src/db';
+import { CodexEntry, AIAction, StoryBibleRule } from '@/src/types';
 
 export function useProjectData(projectId: number) {
   const codexEntries = useLiveQuery(() => 

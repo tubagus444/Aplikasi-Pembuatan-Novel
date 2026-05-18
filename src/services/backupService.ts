@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { db } from '../db';
-import { BackupRecord } from '../types';
+import { db } from '@/src/db';
+import { BackupRecord } from '@/src/types';
 
 export interface BackupData {
   version: number;

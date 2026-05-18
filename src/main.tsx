@@ -1,14 +1,14 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
+import App from '@/src/App.tsx';
 import './index.css';
-import { ProjectProvider } from './contexts/ProjectContext';
-import { NavigationProvider } from './contexts/NavigationContext';
-import { UIProvider } from './contexts/UIContext';
-import { BackupProvider } from './hooks/useAutoBackup';
-import { ToastProvider } from './hooks/useToast';
-import { ErrorBoundary } from './components/common/ErrorBoundary';
-import { ErrorService } from './services/errorService';
+import { ProjectProvider } from '@/src/contexts/ProjectContext';
+import { NavigationProvider } from '@/src/contexts/NavigationContext';
+import { UIProvider } from '@/src/contexts/UIContext';
+import { BackupProvider } from '@/src/hooks/useAutoBackup';
+import { ToastProvider } from '@/src/hooks/useToast';
+import { ErrorBoundary } from '@/src/components/common/ErrorBoundary';
+import { ErrorService } from '@/src/services/errorService';
 
 // Global error handlers
 window.addEventListener('error', (event) => {

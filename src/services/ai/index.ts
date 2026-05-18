@@ -1,9 +1,9 @@
-import { StoryBibleRule, CodexEntry, StoryBeat, ContextDepth } from "../../types";
-import { getRelevantContext, getRelevantBibleRules, getChapterBeats } from "../contextEngine";
-import { callProxy } from "./proxy";
-import { GenerateParams, ChatParams, AIRenderParams } from "./types";
-import { ErrorService } from "../errorService";
-import { AI_PROMPTS } from "../../lib/aiPrompts";
+import { StoryBibleRule, CodexEntry, StoryBeat, ContextDepth } from '@/src/types';
+import { getRelevantContext, getRelevantBibleRules, getChapterBeats } from '@/src/services/contextEngine';
+import { callProxy } from '@/src/services/ai/proxy';
+import { GenerateParams, ChatParams, AIRenderParams } from '@/src/services/ai/types';
+import { ErrorService } from '@/src/services/errorService';
+import { AI_PROMPTS } from '@/src/lib/aiPrompts';
 
 export class AIError extends Error {
   code: string;

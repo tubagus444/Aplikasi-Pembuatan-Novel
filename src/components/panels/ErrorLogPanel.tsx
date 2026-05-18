@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db';
-import { ErrorService } from '../../services/errorService';
+import { db } from '@/src/db';
+import { ErrorService } from '@/src/services/errorService';
 import { Trash2, AlertCircle, AlertTriangle, Info, Clock, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '../../lib/utils';
+import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function ErrorLogPanel() {

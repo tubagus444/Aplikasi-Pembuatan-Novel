@@ -5,11 +5,11 @@
 
 import React from 'react';
 import { ChevronRight, Search, Moon, Sun, Zap, Download } from 'lucide-react';
-import { useProject } from '../../contexts/ProjectContext';
-import { useNavigation } from '../../contexts/NavigationContext';
-import { useUI } from '../../contexts/UIContext';
-import { WritingStats } from '../common/WritingStats';
-import { cn } from '../../lib/utils';
+import { useProject } from '@/src/contexts/ProjectContext';
+import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useUI } from '@/src/contexts/UIContext';
+import { WritingStats } from '@/src/components/common/WritingStats';
+import { cn } from '@/src/lib/utils';
 
 export function Header() {
   const { projectId, project } = useProject();

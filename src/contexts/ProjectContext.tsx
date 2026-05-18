@@ -4,9 +4,9 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, ensureDefaultProject } from '../db';
+import { db, ensureDefaultProject } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ErrorService } from '../services/errorService';
+import { ErrorService } from '@/src/services/errorService';
 
 interface ProjectContextType {
   projectId: number | null;

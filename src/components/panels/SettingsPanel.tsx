@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History, BrainCircuit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db } from '../../db';
-import { testConnection } from '../../services/ai';
-import { cn } from '../../lib/utils';
-import { useAutoBackup } from '../../hooks/useAutoBackup';
-import { backupService } from '../../services/backupService';
+import { db } from '@/src/db';
+import { testConnection } from '@/src/services/ai';
+import { cn } from '@/src/lib/utils';
+import { useAutoBackup } from '@/src/hooks/useAutoBackup';
+import { backupService } from '@/src/services/backupService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
-import { useStorageQuota } from '../../hooks/useStorageQuota';
-import { ContextDepth } from '../../types';
+import { useStorageQuota } from '@/src/hooks/useStorageQuota';
+import { ContextDepth } from '@/src/types';
 import { OpenRouterModelSelect } from '@/src/components/common/OpenRouterModelSelect';
 
 export function SettingsPanel() {

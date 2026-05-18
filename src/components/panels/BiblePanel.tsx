@@ -4,10 +4,10 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { db } from '../../db';
+import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { cn } from '../../lib/utils';
-import { DB_KEY_MAP } from '../../lib/constants';
+import { cn } from '@/src/lib/utils';
+import { DB_KEY_MAP } from '@/src/lib/constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BookOpen, 

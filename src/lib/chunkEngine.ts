@@ -1,4 +1,4 @@
-import { CodexEntry } from '../types';
+import { CodexEntry } from '@/src/types';
 
 export interface Scene {
   index: number;

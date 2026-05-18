@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ChatMessage, CodexEntry, StoryBibleRule } from '../types';
-import { processChat, cancelAI } from '../services/ai';
-import { getRelevantContext, getRelevantBibleRules } from '../services/contextEngine';
-import { resolveLoreTags } from '../lib/loreUtils';
+import { ChatMessage, CodexEntry, StoryBibleRule } from '@/src/types';
+import { processChat, cancelAI } from '@/src/services/ai';
+import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
+import { resolveLoreTags } from '@/src/lib/loreUtils';
 
-import { SessionMode } from '../types';
+import { SessionMode } from '@/src/types';
 
 interface UseChatSessionProps {
   projectId: number;

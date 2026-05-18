@@ -4,12 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { db } from '../../db';
+import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { History, RotateCcw, Trash2, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { useStorageQuota } from '../../hooks/useStorageQuota';
+import { useStorageQuota } from '@/src/hooks/useStorageQuota';
 
 interface SnapshotPanelProps {
   chapterId: number;

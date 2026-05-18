@@ -4,9 +4,9 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { ProseMetrics } from '../../types';
+import { ProseMetrics } from '@/src/types';
 import { Gauge, BookOpen, AlertCircle, Sparkles, Wand2, Globe } from 'lucide-react';
-import { stripHtml } from '../../lib/editorUtils';
+import { stripHtml } from '@/src/lib/editorUtils';
 
 interface ProseInsightsProps {
   content: string;

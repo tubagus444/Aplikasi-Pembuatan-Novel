@@ -5,21 +5,21 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash, Trash2 } from 'lucide-react';
-import { db } from '../../db';
-import { cancelAI } from '../../services/ai';
+import { db } from '@/src/db';
+import { cancelAI } from '@/src/services/ai';
 import ReactMarkdown from 'react-markdown';
-import { PANEL_WIDTH } from '../../lib/constants';
-import { cn } from '../../lib/utils';
-import { getActiveWindowText } from '../../lib/editorUtils';
-import { useAvailableProviders } from '../../hooks/useAvailableProviders';
-import { useChatSession } from '../../hooks/useChatSession';
-import { useToast } from '../../hooks/useToast';
-import { useNavigation } from '../../contexts/NavigationContext';
+import { PANEL_WIDTH } from '@/src/lib/constants';
+import { cn } from '@/src/lib/utils';
+import { getActiveWindowText } from '@/src/lib/editorUtils';
+import { useAvailableProviders } from '@/src/hooks/useAvailableProviders';
+import { useChatSession } from '@/src/hooks/useChatSession';
+import { useToast } from '@/src/hooks/useToast';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 import { Editor } from '@tiptap/core';
-import { ChatMessage, CodexEntry, StoryBibleRule } from '../../types';
-import { parseMentionTags } from '../../lib/loreUtils';
-import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
-import { MentionDropdown } from '../common/MentionDropdown';
+import { ChatMessage, CodexEntry, StoryBibleRule } from '@/src/types';
+import { parseMentionTags } from '@/src/lib/loreUtils';
+import { useMentionAutocomplete } from '@/src/hooks/useMentionAutocomplete';
+import { MentionDropdown } from '@/src/components/common/MentionDropdown';
 
 interface ScribbleAssistantPanelProps {
   projectId: number;

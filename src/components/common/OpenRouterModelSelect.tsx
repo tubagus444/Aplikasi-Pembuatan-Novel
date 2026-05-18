@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Loader2, ChevronDown, Check, AlertCircle } from 'lucide-react';
-import { fetchOpenRouterModels, OpenRouterModel } from '../../services/ai/modelService';
-import { cn } from '../../lib/utils';
+import { fetchOpenRouterModels, OpenRouterModel } from '@/src/services/ai/modelService';
+import { cn } from '@/src/lib/utils';
 
 interface Props {
   value: string;

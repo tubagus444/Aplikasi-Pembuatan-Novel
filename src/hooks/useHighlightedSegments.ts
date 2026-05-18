@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { CodexEntry } from '../types';
-import { getCodexRegex } from '../lib/utils';
+import { CodexEntry } from '@/src/types';
+import { getCodexRegex } from '@/src/lib/utils';
 
 const segmentRegexCache = new Map<string, RegExp>();
 

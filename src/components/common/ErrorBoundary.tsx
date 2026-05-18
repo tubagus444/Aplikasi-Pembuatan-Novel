@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { ErrorService } from '../../services/errorService';
+import { ErrorService } from '@/src/services/errorService';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {

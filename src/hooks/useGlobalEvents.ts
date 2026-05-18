@@ -4,7 +4,7 @@
  */
 
 import { useEffect } from 'react';
-import { ErrorService } from '../services/errorService';
+import { ErrorService } from '@/src/services/errorService';
 
 interface GlobalEventsProps {
   setIsSearchOpen?: (open: boolean) => void;

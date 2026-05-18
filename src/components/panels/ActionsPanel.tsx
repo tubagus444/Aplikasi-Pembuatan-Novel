@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { db } from '../../db';
+import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Trash2, Cpu, Zap, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';

@@ -6,22 +6,22 @@
 import React, { Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScrollText, Plus, Loader2 } from 'lucide-react';
-import { useProject } from '../../contexts/ProjectContext';
-import { useNavigation } from '../../contexts/NavigationContext';
-import { useUI } from '../../contexts/UIContext';
-import { NovelEditor } from '@/src/components/editor/NovelEditor';
-import { cn } from '../../lib/utils';
+import { useProject } from '@/src/contexts/ProjectContext';
+import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useUI } from '@/src/contexts/UIContext';
+import { NovelEditor } from '@/src/features/editor/components/NovelEditor';
+import { cn } from '@/src/lib/utils';
 
 // Lazy load heavy components
-const OutlinePanel = lazy(() => import('@/src/components/panels/OutlinePanel').then(m => ({ default: m.OutlinePanel })));
-const CodexPanel = lazy(() => import('@/src/components/panels/CodexPanel').then(m => ({ default: m.CodexPanel })));
+const OutlinePanel = lazy(() => import('@/src/features/chapters/components/OutlinePanel').then(m => ({ default: m.OutlinePanel })));
+const CodexPanel = lazy(() => import('@/src/features/codex/components/CodexPanel').then(m => ({ default: m.CodexPanel })));
 const ActionsPanel = lazy(() => import('@/src/components/panels/ActionsPanel').then(m => ({ default: m.ActionsPanel })));
 const RelationshipMapper = lazy(() => import('@/src/components/panels/RelationshipMapper').then(m => ({ default: m.RelationshipMapper })));
 const BiblePanel = lazy(() => import('@/src/components/panels/BiblePanel').then(m => ({ default: m.BiblePanel })));
 const SettingsPanel = lazy(() => import('@/src/components/panels/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 const GuidePanel = lazy(() => import('@/src/components/panels/GuidePanel').then(m => ({ default: m.GuidePanel })));
 const ErrorLogPanel = lazy(() => import('@/src/components/panels/ErrorLogPanel').then(m => ({ default: m.ErrorLogPanel })));
-const AIBrainstormStudio = lazy(() => import('@/src/components/brainstorm/AIBrainstormStudio').then(m => ({ default: m.AIBrainstormStudio })));
+const AIAssistantPanel = lazy(() => import('@/src/features/assistant/components/AIAssistantPanel').then(m => ({ default: m.AIAssistantPanel })));
 
 function LoadingFallback() {
   return (
@@ -111,7 +111,7 @@ export function MainView() {
           {viewMode === 'brainstorm' && projectId && (
             <ViewContainer key="brainstorm" className="z-20 !p-0">
               <Suspense fallback={<LoadingFallback />}>
-                <AIBrainstormStudio />
+                <AIAssistantPanel />
               </Suspense>
             </ViewContainer>
           )}

@@ -4,11 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { db } from '../../db';
+import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Trash2, GripVertical, MessageCircle, Zap, Swords, Trophy, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { StoryBeat } from '../../types';
+import { StoryBeat } from '@/src/types';
 
 interface TimelinePanelProps {
   chapterId: number;

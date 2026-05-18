@@ -4,21 +4,21 @@
  */
 
 import React from 'react';
-import { cn } from './lib/utils';
-import { ToastContainer } from './components/common/Toast';
-import { useProject } from './contexts/ProjectContext';
-import { useNavigation } from './contexts/NavigationContext';
-import { useUI } from './contexts/UIContext';
-import { useGlobalEvents } from './hooks/useGlobalEvents';
-import { useAutoBackup } from './hooks/useAutoBackup';
-import { useStorageQuota } from './hooks/useStorageQuota';
+import { cn } from '@/src/lib/utils';
+import { ToastContainer } from '@/src/components/common/Toast';
+import { useProject } from '@/src/contexts/ProjectContext';
+import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useUI } from '@/src/contexts/UIContext';
+import { useGlobalEvents } from '@/src/hooks/useGlobalEvents';
+import { useAutoBackup } from '@/src/hooks/useAutoBackup';
+import { useStorageQuota } from '@/src/hooks/useStorageQuota';
 import { motion } from 'motion/react';
-import { Sidebar } from './components/layout/Sidebar';
-import { Header } from './components/layout/Header';
-import { MainView } from './components/layout/MainView';
-import { ProjectManagerModal } from './components/modals/ProjectManagerModal';
-import { GlobalSearch } from './components/common/GlobalSearch';
-import { ExportManager } from './components/modals/ExportManager';
+import { Sidebar } from '@/src/components/layout/Sidebar';
+import { Header } from '@/src/components/layout/Header';
+import { MainView } from '@/src/components/layout/MainView';
+import { ProjectManagerModal } from '@/src/components/modals/ProjectManagerModal';
+import { GlobalSearch } from '@/src/components/common/GlobalSearch';
+import { ExportManager } from '@/src/components/modals/ExportManager';
 import { Suspense, useEffect } from 'react';
 
 export default function App() {

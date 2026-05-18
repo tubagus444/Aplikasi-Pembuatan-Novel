@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useToast } from './useToast';
+import { useToast } from '@/src/hooks/useToast';
 
 export function useStorageQuota() {
   const { toast } = useToast();

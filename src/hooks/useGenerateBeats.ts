@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { db } from '../db';
-import { processChat } from '../services/ai';
-import { useToast } from './useToast';
+import { db } from '@/src/db';
+import { processChat } from '@/src/services/ai';
+import { useToast } from '@/src/hooks/useToast';
 
 export function useGenerateBeats(projectId: number) {
   const [isGenerating, setIsGenerating] = useState<number | null>(null);

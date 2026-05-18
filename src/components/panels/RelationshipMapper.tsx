@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db';
+import { db } from '@/src/db';
 import { Trash2, Edit2, Link as LinkIcon, Users, Heart, Sword, ShieldAlert, ArrowRight, Search, UserCircle2, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

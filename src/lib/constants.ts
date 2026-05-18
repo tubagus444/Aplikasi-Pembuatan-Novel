@@ -1,4 +1,4 @@
-import { ChapterStatus } from '../types';
+import { ChapterStatus } from '@/src/types';
 
 export const PANEL_WIDTH = 340;
 

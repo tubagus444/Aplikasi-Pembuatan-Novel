@@ -1,4 +1,4 @@
-import { StoryBibleRule, CodexEntry, SessionMode } from "../../types";
+import { StoryBibleRule, CodexEntry, SessionMode } from '@/src/types';
 
 export interface AIProviderConfig {
   apiKey: string;

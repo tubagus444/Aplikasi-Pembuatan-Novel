@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback } from 'react';
-import { ErrorService } from '../services/errorService';
+import { ErrorService } from '@/src/services/errorService';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 

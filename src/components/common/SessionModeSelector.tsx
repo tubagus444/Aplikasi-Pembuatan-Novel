@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { PenTool, Layers, Zap, X } from 'lucide-react';
-import { SessionMode } from '../../types';
+import { SessionMode } from '@/src/types';
 
 interface SessionModeSelectorProps {
   onSelect: (mode: SessionMode, smartAutoEnabled: boolean) => void;
@@ -26,7 +26,7 @@ export function SessionModeSelector({ onSelect, onCancel }: SessionModeSelectorP
     },
     {
       id: 'brainstorm',
-      title: 'Brainstorm Bebas',
+      title: 'Tanya Bebas',
       desc: 'Sesi ide liar tanpa constraint ketat dari chapter.',
       icon: <Zap size={20} />,
       defaultAuto: false

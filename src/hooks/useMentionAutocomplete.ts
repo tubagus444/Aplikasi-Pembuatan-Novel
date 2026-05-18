@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { CodexEntry, StoryBibleRule } from '../types';
+import { CodexEntry, StoryBibleRule } from '@/src/types';
 
 interface SuggestionItem {
   id: string;

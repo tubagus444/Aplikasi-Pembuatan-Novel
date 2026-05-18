@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CodexEntry, StoryBibleRule } from "../types";
-import { getCodexRegex } from "../lib/utils";
+import { CodexEntry, StoryBibleRule } from '@/src/types';
+import { getCodexRegex } from '@/src/lib/utils';
 
 const ALWAYS_INCLUDE = [
   '__STORY_TITLE__',

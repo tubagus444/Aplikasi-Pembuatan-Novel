@@ -4,10 +4,10 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db } from '../db';
+import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ViewMode } from '../types';
-import { useProject } from './ProjectContext';
+import { ViewMode } from '@/src/types';
+import { useProject } from '@/src/contexts/ProjectContext';
 
 interface NavigationContextType {
   activeChapterId: number | null;

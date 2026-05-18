@@ -7,9 +7,9 @@ import {
   BrainCircuit, GripVertical, ChevronRight, Info, BookOpen, 
   MousePointer2, Command, ShieldCheck, ArrowRight
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { useNavigation } from '../../contexts/NavigationContext';
-import { ViewMode } from '../../types';
+import { cn } from '@/src/lib/utils';
+import { useNavigation } from '@/src/contexts/NavigationContext';
+import { ViewMode } from '@/src/types';
 
 export function GuidePanel() {
   const [activeSection, setActiveSection] = useState('getting-started');
@@ -45,7 +45,7 @@ export function GuidePanel() {
       targetView: 'brainstorm' as ViewMode,
       icon: <BrainCircuit className="w-6 h-6 text-purple-500" />,
       bg: "bg-purple-50 dark:bg-purple-500/10",
-      title: "2. AI Brainstorm Studio",
+      title: "2. AI Assistant Studio",
       description: "Ruang diskusi khusus untuk menyusun plot, lore, dan ide-ide liar.",
       howItWorks: "Chat terpisah yang memiliki akses penuh ke Story Bible dan Codex Anda. Sempurna untuk sesi 'ngobrol' panjang dengan asisten.",
       howToUse: (
@@ -214,7 +214,7 @@ export function GuidePanel() {
     },
     {
       title: "Poles dengan Asisten AI",
-      description: "Gunakan Brainstorm Studio untuk membedah plot hole atau Sparkles untuk memperindah gaya bahasa.",
+      description: "Gunakan Assistant Studio untuk membedah plot hole atau Sparkles untuk memperindah gaya bahasa.",
       status: "Iterasi"
     }
   ];
@@ -310,7 +310,7 @@ export function GuidePanel() {
              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-5 rounded-2xl text-white shadow-lg overflow-hidden relative group">
                 <Sparkles className="absolute -right-2 -bottom-2 w-24 h-24 opacity-20 rotate-12 group-hover:scale-110 transition-transform duration-700" />
                 <h4 className="font-bold text-sm mb-2 relative z-10">Butuh Bantuan?</h4>
-                <p className="text-xs text-indigo-100 leading-relaxed mb-4 relative z-10">Tanyakan langsung pada AI Brainstorm Studio.</p>
+                <p className="text-xs text-indigo-100 leading-relaxed mb-4 relative z-10">Tanyakan langsung pada AI Assistant Studio.</p>
                 <button 
                   onClick={() => setViewMode('brainstorm')}
                   className="relative z-10 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 group/btn"

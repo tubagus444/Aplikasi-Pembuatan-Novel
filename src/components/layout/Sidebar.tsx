@@ -5,12 +5,12 @@
 
 import React from 'react';
 import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit } from 'lucide-react';
-import { useProject } from '../../contexts/ProjectContext';
-import { useNavigation } from '../../contexts/NavigationContext';
-import { useUI } from '../../contexts/UIContext';
-import { db } from '../../db';
-import { cn } from '../../lib/utils';
-import { ChapterList } from './ChapterList';
+import { useProject } from '@/src/contexts/ProjectContext';
+import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useUI } from '@/src/contexts/UIContext';
+import { db } from '@/src/db';
+import { cn } from '@/src/lib/utils';
+import { ChapterList } from '@/src/features/chapters/components/ChapterList';
 
 export function Sidebar() {
   const { projectId, project } = useProject();
@@ -45,7 +45,7 @@ export function Sidebar() {
                 active={viewMode === 'brainstorm'} 
                 onClick={() => setViewMode('brainstorm')} 
                 icon={<BrainCircuit size={14} />} 
-                label="Brainstorm Studio" 
+                label="Assistant Studio" 
               />
               <NavItem 
                 active={viewMode === 'outline'} 
