@@ -3,6 +3,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import TiptapHistory from '@tiptap/extension-history';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
 import { SearchAndReplace } from '../../extensions/SearchAndReplace';
 import { PassiveCodexHighlight } from '../../extensions/PassiveCodexHighlight';
 import { MentionList } from '../../components/editor/MentionList';
@@ -36,6 +38,10 @@ export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEdit
         undoRedo: false,
       }),
       TiptapHistory,
+      Underline,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
       CustomAIKeymap,
       SearchAndReplace.configure({
         disableRegex: false,
@@ -115,7 +121,7 @@ export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEdit
     editorProps: {
       attributes: {
         class: cn(
-          "relative w-full font-serif text-lg leading-relaxed text-foreground bg-transparent focus:outline-none min-h-[500px]"
+          "relative w-full font-serif text-lg sm:text-[19px] leading-[1.8] text-slate-800 dark:text-slate-300 bg-transparent focus:outline-none min-h-[500px]"
         ),
       },
     },

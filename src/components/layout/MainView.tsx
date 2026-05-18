@@ -47,10 +47,10 @@ export function MainView() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => setIsFocusMode(false)}
-            className="fixed top-6 right-6 z-[var(--z-modal)] p-3 rounded-full shadow-2xl transition-all duration-300 bg-slate-900 dark:bg-slate-800 text-white hover:scale-110 border border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700"
+            className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[var(--z-modal)] p-2.5 rounded-full transition-all duration-300 bg-slate-100/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 shadow-sm"
             title="Exit Focus Mode"
           >
-            <Plus className="rotate-45" size={24} />
+            <Plus className="rotate-45" size={22} />
           </motion.button>
         )}
       </AnimatePresence>

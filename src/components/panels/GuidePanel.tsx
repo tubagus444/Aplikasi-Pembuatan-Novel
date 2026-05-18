@@ -51,7 +51,7 @@ export function GuidePanel() {
       howToUse: (
         <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
           <li><strong>Lampirkan Lore:</strong> Gunakan ikon (+) di area chat untuk melampirkan profil Karakter ke dalam percakapan.</li>
-          <li><strong>Eksplorasi Ide:</strong> Tanya seperti rekan kerja: <em>\"Bagaimana @Tokoh Utama bereaksi terhadap tragedi ini?\"</em></li>
+          <li><strong>Eksplorasi Ide:</strong> Tanya seperti rekan kerja: <em>"Bagaimana @Tokoh Utama bereaksi terhadap tragedi ini?"</em></li>
         </ul>
       )
     },
@@ -72,11 +72,26 @@ export function GuidePanel() {
       )
     },
     {
+      id: 'feature-relationships',
+      targetView: 'relationships' as ViewMode,
+      icon: <Share2 className="w-6 h-6 text-rose-500" />,
+      bg: "bg-rose-50 dark:bg-rose-500/10",
+      title: "4. Relationship Mapper",
+      description: "Peta visual untuk melihat keterkaitan antar karakter dan faksi.",
+      howItWorks: "Asisten menggunakan data hubungan ini untuk memastikan dialog dan perilaku AI sesuai konteks antar-karakter.",
+      howToUse: (
+        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
+          <li>Tambahkan link antar entri Codex (misalnya: Musuh, Sahabat, Guru).</li>
+          <li>Catatan ini sangat berguna dalam menjaga konsistensi intrik atau drama antar tokoh.</li>
+        </ul>
+      )
+    },
+    {
       id: 'feature-timeline',
-      targetView: 'write' as ViewMode, // Timeline is a panel in write mode
+      targetView: 'write' as ViewMode,
       icon: <GripVertical className="w-6 h-6 text-orange-500" />,
       bg: "bg-orange-50 dark:bg-orange-500/10",
-      title: "4. Timeline & Story Beats",
+      title: "5. Timeline & Story Beats",
       description: "Pelacak alur peristiwa dalam setiap bab secara kronologis.",
       howItWorks: "Sistem kartu yang mengikuti garis waktu linear untuk memastikan urutan adegan tetap konsisten.",
       howToUse: (
@@ -91,7 +106,7 @@ export function GuidePanel() {
       targetView: 'outline' as ViewMode,
       icon: <LayoutList className="w-6 h-6 text-fuchsia-500" />,
       bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10",
-      title: "5. Planning Board",
+      title: "6. Planning Board",
       description: "Pusat kendali struktur bab dan manajemen proyek.",
       howItWorks: "Papan visual yang mengelola status setiap bab (Draft, Review, Final).",
       howToUse: (
@@ -106,13 +121,58 @@ export function GuidePanel() {
       targetView: 'bible' as ViewMode,
       icon: <Target className="w-6 h-6 text-sky-500" />,
       bg: "bg-sky-50 dark:bg-sky-500/10",
-      title: "6. Story Bible",
+      title: "7. Story Bible",
       description: "Pilar utama gaya bahasa, tema, dan aturan dunia cerita.",
       howItWorks: "Data di sini akan 'memaksa' AI mengikuti instruksi global Anda di setiap fitur.",
       howToUse: (
         <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Tentukan 'Voice & Tone'. Contoh: <em>\"Gunakan bahasa puitis namun kelam.\"</em></li>
+          <li>Tentukan 'Voice & Tone'. Contoh: <em>"Gunakan bahasa puitis namun kelam."</em></li>
           <li>Atur aturan dunia secara eksplisit agar AI tetap konsisten pada logika cerita.</li>
+        </ul>
+      )
+    },
+    {
+      id: 'feature-insights',
+      targetView: 'write' as ViewMode,
+      icon: <BarChart3 className="w-6 h-6 text-cyan-500" />,
+      bg: "bg-cyan-50 dark:bg-cyan-500/10",
+      title: "8. Prose Insights",
+      description: "Analisis statistik dan gaya tulisan secara otomatis.",
+      howItWorks: "Mengevaluasi skor keterbacaan, mendeteksi jumlah kalimat pasif dan adverbia pada bab yang aktif.",
+      howToUse: (
+        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
+          <li>Buka di panel sebelah kanan pada mode Editor Utama.</li>
+          <li>Perbaiki kalimat yang terlalu panjang (Long Sentences) untuk memutar ritme tulisan.</li>
+        </ul>
+      )
+    },
+    {
+      id: 'feature-actions',
+      targetView: 'actions' as ViewMode,
+      icon: <Sparkles className="w-6 h-6 text-yellow-500" />,
+      bg: "bg-yellow-50 dark:bg-yellow-500/10",
+      title: "9. Custom AI Snippets",
+      description: "Prompt khusus dan kustom yang siap dipanggil kapan saja.",
+      howItWorks: "Memungkinkan Anda membuat fungsi AI milik Anda sendiri (misal: 'Beri Kritik Tajam').",
+      howToUse: (
+        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
+          <li>Buat Snippet baru di tab 'AI Snippets'.</li>
+          <li>Panggil saat memindai paragraf untuk hasil yang jauh lebih konsisten!</li>
+        </ul>
+      )
+    },
+    {
+      id: 'feature-snapshots',
+      targetView: 'write' as ViewMode,
+      icon: <SettingsIcon className="w-6 h-6 text-teal-500" />,
+      bg: "bg-teal-50 dark:bg-teal-500/10",
+      title: "10. Snapshots (Mesin Waktu)",
+      description: "Sistem Auto-Backup dan riwayat versi teks Anda.",
+      howItWorks: "Menyimpan secara presisi draf pada waktu tertentu. Jika AI merusak dokumen, kembalikan saja lewat Snapshot.",
+      howToUse: (
+        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
+          <li>Sistem melakukan back-up berkala.</li>
+          <li>Anda juga dapat membuat snapshot manual dengan memberi label (Misal: 'Sebelum Edit Besar').</li>
         </ul>
       )
     }

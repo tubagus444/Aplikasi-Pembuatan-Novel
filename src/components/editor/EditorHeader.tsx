@@ -12,17 +12,15 @@ interface EditorHeaderProps {
 
 export function EditorHeader({ title, onTitleChange }: EditorHeaderProps) {
   return (
-    <div className="pt-8 pb-4 mb-4 border-b border-transparent group-focus-within:border-slate-100 dark:group-focus-within:border-slate-800 transition-all">
-      <div className="mb-6 group">
-        <input 
-          type="text" 
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          placeholder="Judul Bab..."
-          className="w-full text-4xl font-serif font-bold text-foreground focus:outline-none placeholder:text-slate-200 dark:placeholder:text-slate-800 dark:text-slate-200 placeholder:italic border-none selection:bg-indigo-100 dark:selection:bg-indigo-900 mb-2 truncate bg-transparent"
-        />
-        <div className="h-px w-24 bg-indigo-200 group-focus-within:w-48 transition-all duration-500" />
-      </div>
+    <div className="mb-12 flex flex-col items-center group">
+      <input 
+        type="text" 
+        value={title}
+        onChange={(e) => onTitleChange(e.target.value)}
+        placeholder="Judul Bab..."
+        className="w-full text-center text-4xl sm:text-5xl font-serif font-bold text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-300 dark:placeholder:text-slate-700 bg-transparent transition-all leading-tight"
+      />
+      <div className="h-0.5 w-12 bg-slate-200 dark:bg-slate-800 mt-6 group-focus-within:w-24 group-focus-within:bg-indigo-400/60 transition-all duration-700 rounded-full" />
     </div>
   );
 }

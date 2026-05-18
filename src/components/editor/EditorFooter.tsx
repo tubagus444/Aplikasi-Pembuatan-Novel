@@ -14,7 +14,9 @@ import {
   Redo,
   Zap,
   Type,
-  Search
+  Search,
+  Minus,
+  Plus
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
@@ -27,6 +29,8 @@ interface EditorFooterProps {
   setIsFocusMode: (val: boolean) => void;
   isSearchOpen?: boolean;
   setIsSearchOpen: (val: boolean) => void;
+  zoomLevel: number;
+  setZoomLevel: (val: number) => void;
 }
 
 export function EditorFooter({ 
@@ -36,7 +40,9 @@ export function EditorFooter({
   isFocusMode, 
   setIsFocusMode,
   isSearchOpen,
-  setIsSearchOpen 
+  setIsSearchOpen,
+  zoomLevel,
+  setZoomLevel
 }: EditorFooterProps) {
   const { activePanel, setActivePanel, saveStatus } = useEditorPanel();
   
@@ -49,12 +55,35 @@ export function EditorFooter({
 
   return (
     <div className="h-12 border-t border-slate-200 dark:border-slate-800 bg-background/90 backdrop-blur-md px-6 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest z-10 transition-colors">
-      {/* Left: Stats */}
+      {/* Left: Stats & Zoom */}
       <div className="flex gap-4 items-center">
-        <span className="bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50">
+        <span className="bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors cursor-default">
           KATA: {wordCount}
         </span>
-        <span className="hidden sm:inline">KARAKTER: {charCount}</span>
+        <span className="hidden sm:inline hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-default">KARAKTER: {charCount}</span>
+
+        <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
+        
+        {/* Zoom Controls */}
+        <div className="hidden sm:flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-full px-1 py-0.5 border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+          <button 
+            onClick={() => setZoomLevel(Math.max(50, zoomLevel - 10))}
+            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all active:scale-95"
+            title="Perkecil Zoom"
+          >
+            <Minus size={12} strokeWidth={3} />
+          </button>
+          <span className="w-10 text-center font-mono text-[10px] text-slate-600 dark:text-slate-300 font-bold select-none cursor-ew-resize" title="Ukuran Teks">
+            {zoomLevel}%
+          </span>
+          <button 
+            onClick={() => setZoomLevel(Math.min(250, zoomLevel + 10))}
+            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all active:scale-95"
+            title="Perbesar Zoom"
+          >
+            <Plus size={12} strokeWidth={3} />
+          </button>
+        </div>
       </div>
 
       {/* Middle: Save Status */}

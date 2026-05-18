@@ -23,6 +23,7 @@ import { useNovelEditor } from '../../hooks/useNovelEditor';
 import { EditorHeader } from '../editor/EditorHeader';
 import { EditorFooter } from '../editor/EditorFooter';
 import { EditorLayout } from '../editor/EditorLayout';
+import { EditorToolbar } from '../editor/EditorToolbar';
 import { AiProcessingOverlay } from '../editor/AiProcessingOverlay';
 import { NovelPanels } from '../editor/NovelPanels';
 import { SearchReplaceBar } from '../editor/SearchReplaceBar';
@@ -43,6 +44,15 @@ export function NovelEditor(props: NovelEditorProps) {
 function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   const [chapter, setChapter] = useState<any>(undefined);
   const [isTypewriterMode, setIsTypewriterMode] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('editor_zoom');
+    return saved ? parseInt(saved, 10) : 100;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('editor_zoom', zoomLevel.toString());
+  }, [zoomLevel]);
+
   const { isFocusMode, setIsFocusMode } = useUI();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -123,6 +133,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
       isFocusMode={isFocusMode}
       containerRef={containerRef}
       header={<EditorHeader title={title} onTitleChange={handleTitleChange} />}
+      toolbar={<EditorToolbar editor={editor} />}
       footer={
         <EditorFooter 
           editor={editor} 
@@ -132,6 +143,8 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
           setIsFocusMode={setIsFocusMode}
           isSearchOpen={isSearchOpen}
           setIsSearchOpen={setIsSearchOpen}
+          zoomLevel={zoomLevel}
+          setZoomLevel={setZoomLevel}
         />
       }
       panels={
@@ -205,7 +218,9 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
           })()}
         </AnimatePresence>
 
-        <EditorContent editor={editor} />
+        <div style={{ zoom: zoomLevel / 100 }} className="transition-all duration-300 origin-top">
+          <EditorContent editor={editor} />
+        </div>
 
         <AiProcessingOverlay isProcessing={isAiProcessing} />
       </div>
