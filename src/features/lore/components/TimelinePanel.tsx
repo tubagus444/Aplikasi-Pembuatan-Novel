@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { db } from '@/src/db';
-import { useLiveQuery } from 'dexie-react-hooks';
+import React from 'react';
 import { Plus, Trash2, GripVertical, MessageCircle, Zap, Swords, Trophy, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StoryBeat } from '@/src/types';
+import { useTimelinePanel } from '@/src/features/lore/hooks/useTimelinePanel';
 
 interface TimelinePanelProps {
   chapterId: number;
@@ -24,30 +23,15 @@ const BEAT_TYPES: { type: StoryBeat['type']; icon: any; color: string }[] = [
 ];
 
 export function TimelinePanel({ chapterId, projectId }: TimelinePanelProps) {
-  const beats = useLiveQuery(() => 
-    db.timeline.where('chapterId').equals(chapterId).sortBy('order')
-  , [chapterId]);
-
-  const [newBeatTitle, setNewBeatTitle] = useState('');
-  const [selectedType, setSelectedType] = useState<StoryBeat['type']>('setup');
-
-  const addBeat = async () => {
-    if (!newBeatTitle.trim()) return;
-    const order = (beats?.length || 0);
-    await db.timeline.add({
-      chapterId,
-      projectId,
-      title: newBeatTitle,
-      description: '',
-      type: selectedType,
-      order
-    });
-    setNewBeatTitle('');
-  };
-
-  const deleteBeat = async (id: number) => {
-    await db.timeline.delete(id);
-  };
+  const {
+    beats,
+    newBeatTitle,
+    setNewBeatTitle,
+    selectedType,
+    setSelectedType,
+    addBeat,
+    deleteBeat
+  } = useTimelinePanel(chapterId, projectId);
 
   return (
     <div className="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 h-full flex flex-col shadow-2xl">

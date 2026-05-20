@@ -12,10 +12,10 @@ import { PANEL_WIDTH } from '@/src/lib/constants';
 import { db } from '@/src/db';
 
 // Lazy load side panels
-const ScribbleAssistantPanel = React.lazy(() => import('@/src/components/panels/ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
-const SnapshotPanel = React.lazy(() => import('@/src/components/panels/SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
-const TimelinePanel = React.lazy(() => import('@/src/components/panels/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
-const ProseInsights = React.lazy(() => import('@/src/components/panels/ProseInsights').then(m => ({ default: m.ProseInsights })));
+const ScribbleAssistantPanel = React.lazy(() => import('@/src/features/assistant/components/ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
+const SnapshotPanel = React.lazy(() => import('@/src/features/editor/components/SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
+const TimelinePanel = React.lazy(() => import('@/src/features/lore/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
+const ProseInsights = React.lazy(() => import('@/src/features/editor/components/ProseInsights').then(m => ({ default: m.ProseInsights })));
 
 interface NovelPanelsProps {
   projectId: number;

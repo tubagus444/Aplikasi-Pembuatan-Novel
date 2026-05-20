@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Search, MessageSquareText, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ScribbleAssistantPanel } from '@/src/components/panels/ScribbleAssistantPanel';
+import { ScribbleAssistantPanel } from '@/src/features/assistant/components/ScribbleAssistantPanel';
 
 import { CodexForm } from '@/src/features/codex/components/CodexForm';
 import { CodexCard } from '@/src/features/codex/components/CodexCard';

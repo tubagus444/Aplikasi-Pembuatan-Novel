@@ -15,9 +15,9 @@ import { cn } from '@/src/lib/utils';
 // Lazy load heavy components
 const OutlinePanel = lazy(() => import('@/src/features/chapters/components/OutlinePanel').then(m => ({ default: m.OutlinePanel })));
 const CodexPanel = lazy(() => import('@/src/features/codex/components/CodexPanel').then(m => ({ default: m.CodexPanel })));
-const ActionsPanel = lazy(() => import('@/src/components/panels/ActionsPanel').then(m => ({ default: m.ActionsPanel })));
-const RelationshipMapper = lazy(() => import('@/src/components/panels/RelationshipMapper').then(m => ({ default: m.RelationshipMapper })));
-const BiblePanel = lazy(() => import('@/src/components/panels/BiblePanel').then(m => ({ default: m.BiblePanel })));
+const ActionsPanel = lazy(() => import('@/src/features/editor/components/ActionsPanel').then(m => ({ default: m.ActionsPanel })));
+const BiblePanel = lazy(() => import('@/src/features/lore/components/BiblePanel').then(m => ({ default: m.BiblePanel })));
+const RelationshipMapper = lazy(() => import('@/src/features/lore/components/RelationshipMapper').then(m => ({ default: m.RelationshipMapper })));
 const SettingsPanel = lazy(() => import('@/src/components/panels/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 const GuidePanel = lazy(() => import('@/src/components/panels/GuidePanel').then(m => ({ default: m.GuidePanel })));
 const ErrorLogPanel = lazy(() => import('@/src/components/panels/ErrorLogPanel').then(m => ({ default: m.ErrorLogPanel })));
