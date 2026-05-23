@@ -3,7 +3,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import TiptapHistory from '@tiptap/extension-history';
-import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import { SearchAndReplace } from '@/src/features/editor/extensions/SearchAndReplace';
 import { PassiveCodexHighlight } from '@/src/features/editor/extensions/PassiveCodexHighlight';
@@ -38,7 +37,6 @@ export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEdit
         undoRedo: false,
       }),
       TiptapHistory,
-      Underline,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
