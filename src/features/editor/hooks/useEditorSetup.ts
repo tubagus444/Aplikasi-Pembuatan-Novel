@@ -34,7 +34,20 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
   const providerRef = useRef<IndexeddbPersistence | null>(null);
   const [isSynced, setIsSynced] = useState(false);
 
-  // Initialize Yjs synchronously on first render
+  // Keep track of the previous chapter ID for safe render-phase cleanup/transitions
+  const prevChapterIdRef = useRef<number>(chapterId);
+
+  if (prevChapterIdRef.current !== chapterId) {
+    // Synchronously clean up old instances before initializing new ones
+    providerRef.current?.destroy();
+    ydocRef.current?.destroy();
+    providerRef.current = null;
+    ydocRef.current = null;
+    setIsSynced(false);
+    prevChapterIdRef.current = chapterId;
+  }
+
+  // Initialize Yjs synchronously on first render or after chapterId change
   if (!ydocRef.current) {
     ydocRef.current = new Y.Doc();
     providerRef.current = new IndexeddbPersistence(`aetherscribe-chapter-${chapterId}`, ydocRef.current);
@@ -50,12 +63,15 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
 
   useEffect(() => {
     isMountedRef.current = true;
+    const currentDoc = ydocRef.current;
+    const currentProvider = providerRef.current;
+
     return () => {
       isMountedRef.current = false;
-      providerRef.current?.destroy();
-      ydocRef.current?.destroy();
+      currentProvider?.destroy();
+      currentDoc?.destroy();
     };
-  }, []);
+  }, [chapterId]);
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;

@@ -11,37 +11,37 @@ async function startServer() {
 
   // API Proxy Layer for AI Calls
   app.post("/api/ai/proxy", async (req, res) => {
-    const { provider, body, headers: customHeaders } = req.body;
+    const { provider, body } = req.body;
+    const clientApiKey = (req.headers['x-api-key'] as string) || '';
     
     // Resolve API Key
     let apiKey = '';
     let url = '';
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...customHeaders
+      'Content-Type': 'application/json'
     };
 
     switch (provider) {
       case 'groq':
-        apiKey = process.env.GROQ_API_KEY || (customHeaders?.['Authorization']?.replace('Bearer ', '')) || '';
+        apiKey = process.env.GROQ_API_KEY || clientApiKey || '';
         url = 'https://api.groq.com/openai/v1/chat/completions';
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
         break;
       case 'openrouter':
-        apiKey = process.env.OPENROUTER_API_KEY || (customHeaders?.['Authorization']?.replace('Bearer ', '')) || '';
+        apiKey = process.env.OPENROUTER_API_KEY || clientApiKey || '';
         url = 'https://openrouter.ai/api/v1/chat/completions';
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
         headers['HTTP-Referer'] = 'http://localhost:3000';
         headers['X-Title'] = 'AetherScribe IWE';
         break;
       case 'claude':
-        apiKey = process.env.CLAUDE_API_KEY || customHeaders?.['x-api-key'] || '';
+        apiKey = process.env.CLAUDE_API_KEY || clientApiKey || '';
         url = 'https://api.anthropic.com/v1/messages';
         if (apiKey) headers['x-api-key'] = apiKey;
         headers['anthropic-version'] = '2023-06-01';
         break;
       case 'google':
-        apiKey = customHeaders?.['x-api-key'] || process.env.GEMINI_API_KEY || '';
+        apiKey = process.env.GEMINI_API_KEY || clientApiKey || '';
         // Ensure model name is correctly formatted for the URL
         const modelName = body.model || 'gemini-1.5-flash';
         const sanitizedModel = modelName.includes('/') ? modelName : `models/${modelName}`;

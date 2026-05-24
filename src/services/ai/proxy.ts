@@ -44,19 +44,20 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     ];
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (apiKey) {
+    headers['x-api-key'] = apiKey;
+  }
+
   const response = await fetch('/api/ai/proxy', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: headers,
     body: JSON.stringify({
       provider,
-      body,
-      headers: apiKey ? (
-        provider === 'claude' ? { 'x-api-key': apiKey } : 
-        provider === 'google' ? { 'x-api-key': apiKey } :
-        { 'Authorization': `Bearer ${apiKey}` }
-      ) : {}
+      body
     }),
     signal: params.signal
   }).catch(networkError => {

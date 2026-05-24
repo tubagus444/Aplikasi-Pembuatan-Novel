@@ -19,6 +19,9 @@ interface UseScribbleAssistantPanelProps {
   editor?: Editor | null;
 }
 
+// Memory cache lock registry to prevent double-inserting scribble sessions when React 19's StrictMode double-mounts effects concurrently.
+const scribbleLocks = new Map<string, Promise<{ id: number; messages: ChatMessage[] }>>();
+
 export function useScribbleAssistantPanel({
   projectId,
   chapterId,
@@ -35,6 +38,12 @@ export function useScribbleAssistantPanel({
   } = useAvailableProviders();
 
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const sessionIdRef = useRef<number | null>(null);
+
+  // Sync state to ref for stable access in callbacks (avoiding stale closures in useChatSession)
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   const {
     messages,
@@ -48,8 +57,9 @@ export function useScribbleAssistantPanel({
     bibleRules,
     provider: selectedProvider,
     onMessageAdded: async (newMessages) => {
-      if (sessionId) {
-        await db.chatSessions.update(sessionId, {
+      const activeId = sessionIdRef.current;
+      if (activeId) {
+        await db.chatSessions.update(activeId, {
           messages: newMessages,
           lastMessageAt: Date.now()
         });
@@ -57,42 +67,66 @@ export function useScribbleAssistantPanel({
     }
   });
 
-  // Load or create session based on chapterId
+  // Load or create session based on chapterId & projectId
   useEffect(() => {
+    let isSubscribed = true;
+    if (!projectId) return;
+
     const loadSession = async () => {
-      if (!projectId) return;
+      const key = `${projectId}_${chapterId ?? 'global'}`;
+      
+      let sessionPromise = scribbleLocks.get(key);
+      if (!sessionPromise) {
+        sessionPromise = (async () => {
+          const session = await db.chatSessions
+            .where('projectId').equals(projectId)
+            .and(s => s.chapterId === chapterId)
+            .first();
 
-      const session = await db.chatSessions
-        .where('projectId').equals(projectId)
-        .and(s => s.chapterId === chapterId)
-        .first();
+          if (session && session.id) {
+            return { id: session.id, messages: session.messages };
+          } else {
+            const welcomeMsg: ChatMessage = { 
+              id: '1', 
+              role: 'model', 
+              content: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
+              isWelcome: true,
+              timestamp: Date.now()
+            };
 
-      if (session && session.id) {
-        setSessionId(session.id);
-        setMessages(session.messages);
-      } else {
-        const welcomeMsg: ChatMessage = { 
-          id: '1', 
-          role: 'model', 
-          content: 'Halo! Saya Scribble Assistant. Saya memantau draf Anda secara real-time untuk membantu detail lore atau brainstorming cepat di sini.',
-          isWelcome: true,
-          timestamp: Date.now()
-        };
+            const newId = await db.chatSessions.add({
+              projectId,
+              chapterId,
+              title: chapterId ? `Chapter ${chapterId} Scribble` : 'Global Scribble',
+              lastMessageAt: Date.now(),
+              messages: [welcomeMsg]
+            });
+            
+            return { id: newId, messages: [welcomeMsg] };
+          }
+        })();
+        scribbleLocks.set(key, sessionPromise);
+      }
 
-        const newId = await db.chatSessions.add({
-          projectId,
-          chapterId,
-          title: chapterId ? `Chapter ${chapterId} Scribble` : 'Global Scribble',
-          lastMessageAt: Date.now(),
-          messages: [welcomeMsg]
-        });
-        
-        setSessionId(newId);
-        setMessages([welcomeMsg]);
+      try {
+        const result = await sessionPromise;
+        if (isSubscribed) {
+          sessionIdRef.current = result.id;
+          setSessionId(result.id);
+          setMessages(result.messages);
+        }
+      } catch (err) {
+        console.error('Failed to load/create scribble session:', err);
+        // Clear lock if failed so we can retry on next effect trigger
+        scribbleLocks.delete(key);
       }
     };
 
     loadSession();
+
+    return () => {
+      isSubscribed = false;
+    };
   }, [projectId, chapterId, setMessages]);
 
   const [input, setInput] = useState('');
@@ -170,8 +204,9 @@ export function useScribbleAssistantPanel({
     };
     
     setMessages([welcomeMsg]);
-    if (sessionId) {
-      await db.chatSessions.update(sessionId, {
+    const activeId = sessionIdRef.current;
+    if (activeId) {
+      await db.chatSessions.update(activeId, {
         messages: [welcomeMsg],
         lastMessageAt: Date.now()
       });
@@ -194,16 +229,27 @@ export function useScribbleAssistantPanel({
 
       await sendMessage(textToSend, focusedContext);
       
-      // Update the last message to be actionable
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last && last.role === 'model') {
-           const updated = [...prev];
-           updated[updated.length - 1] = { ...last, isActionable: true, id: Date.now().toString() };
-           return updated;
-        }
-        return prev;
-      });
+      // Update the last message to be actionable and persist
+      const activeId = sessionIdRef.current;
+      if (activeId) {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'model') {
+             const updated = [...prev];
+             const updatedMessage = { ...last, isActionable: true, id: Date.now().toString() };
+             updated[updated.length - 1] = updatedMessage;
+             
+             // Persist to Dexie DB since setMessages directly doesn't trigger onMessageAdded
+             db.chatSessions.update(activeId, {
+               messages: updated,
+               lastMessageAt: Date.now()
+             }).catch(err => console.error('Failed to update actionable state in DB:', err));
+             
+             return updated;
+          }
+          return prev;
+        });
+      }
     } catch (err: any) {
       const errorMessage = err.message || 'Maaf, saya mengalami kesalahan saat memerinci lore Anda.';
       
@@ -218,13 +264,26 @@ export function useScribbleAssistantPanel({
         toast.error(errorMessage);
       }
 
-      setMessages(prev => [...prev, { 
-        id: Date.now().toString(), 
-        role: 'model', 
-        content: `**Error:** ${errorMessage}`, 
-        isError: true, 
-        timestamp: Date.now() 
-      }]);
+      setMessages(prev => {
+        const updated: ChatMessage[] = [...prev, { 
+          id: Date.now().toString(), 
+          role: 'model' as const, 
+          content: `**Error:** ${errorMessage}`, 
+          isError: true, 
+          timestamp: Date.now() 
+        }];
+        
+        // Persist error messages to Dexie DB as well
+        const activeId = sessionIdRef.current;
+        if (activeId) {
+          db.chatSessions.update(activeId, {
+            messages: updated,
+            lastMessageAt: Date.now()
+          }).catch(e => console.error('Failed to update error log in DB:', e));
+        }
+        
+        return updated;
+      });
     }
   };
 

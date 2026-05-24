@@ -5,6 +5,7 @@
 
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
+import { AhoCorasick } from '@/src/lib/ahoCorasick';
 
 const ALWAYS_INCLUDE = [
   '__STORY_TITLE__',
@@ -47,34 +48,42 @@ function getBoundaryRegex(name: string): RegExp {
 }
 
 function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexEntry[] {
-  if (!text) return [];
-  
-  const lowerText = text.toLowerCase();
-  
-  const scored = allCodex.map(entry => {
-    let score = 0;
-    
-    // Check main name
-    const nameRegex = getBoundaryRegex(entry.name);
-    const nameMatches = lowerText.match(nameRegex);
-    if (nameMatches) {
-      score += nameMatches.length * 10;
-    }
-    
-    // Check aliases
-    entry.aliases.forEach(alias => {
-      const aliasRegex = getBoundaryRegex(alias);
-      const aliasMatches = lowerText.match(aliasRegex);
-      if (aliasMatches) {
-        score += aliasMatches.length * 5;
-      }
-    });
+  if (!text || !allCodex || allCodex.length === 0) return [];
 
-    return { entry, score };
+  // Convert all main names and aliases into keywords for AhoCorasick
+  const keywords = allCodex.flatMap(entry => {
+    const items = [];
+    if (entry.name) {
+      items.push({ word: entry.name, data: { entry, isAlias: false } });
+    }
+    if (entry.aliases && Array.isArray(entry.aliases)) {
+      entry.aliases.forEach(alias => {
+        if (alias) {
+          items.push({ word: alias, data: { entry, isAlias: true } });
+        }
+      });
+    }
+    return items;
   });
 
-  return scored
-    .filter(item => item.score > 0)
+  if (keywords.length === 0) return [];
+
+  const ac = new AhoCorasick(keywords);
+  const matches = ac.search(text);
+
+  const entryScores = new Map<string | number, { entry: CodexEntry; score: number }>();
+
+  matches.forEach(match => {
+    const { entry, isAlias } = match.data;
+    if (!entry) return;
+    const key = entry.id !== undefined ? entry.id : entry.name;
+
+    const current = entryScores.get(key) || { entry, score: 0 };
+    current.score += isAlias ? 5 : 10;
+    entryScores.set(key, current);
+  });
+
+  return Array.from(entryScores.values())
     .sort((a, b) => b.score - a.score)
     .map(item => item.entry);
 }
