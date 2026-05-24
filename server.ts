@@ -69,6 +69,32 @@ async function startServer() {
     }
   });
 
+  // Query Allowed Gemini Models from Google API
+  app.post("/api/ai/google-models", async (req, res) => {
+    const clientApiKey = (req.headers['x-api-key'] as string) || '';
+    const apiKey = process.env.GEMINI_API_KEY || clientApiKey || '';
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "Google API Key is required. Please check that it is entered." });
+    }
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error: any) {
+      console.error(`Google models listing error:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

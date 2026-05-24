@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History, BrainCircuit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '@/src/db';
-import { testConnection } from '@/src/services/ai';
+import { testConnection, fetchGoogleModels } from '@/src/services/ai';
 import { cn } from '@/src/lib/utils';
 import { useAutoBackup } from '@/src/hooks/useAutoBackup';
 import { backupService } from '@/src/services/backupService';
@@ -81,6 +81,55 @@ export function SettingsPanel() {
     claude: 'idle'
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [googleModels, setGoogleModels] = useState<any[]>([]);
+  const [isQueryingModels, setIsQueryingModels] = useState(false);
+  const [queryModelsError, setQueryModelsError] = useState<string | null>(null);
+  const [showModelsDropdown, setShowModelsDropdown] = useState(false);
+
+  const handleInspectGoogleModels = async () => {
+    const key = keys.google?.trim();
+    if (!key) {
+      setQueryModelsError("Silakan masukkan Google API Key terlebih dahulu.");
+      setShowModelsDropdown(true);
+      return;
+    }
+
+    setIsQueryingModels(true);
+    setQueryModelsError(null);
+    setShowModelsDropdown(true);
+
+    try {
+      const data = await fetchGoogleModels(key);
+      if (data.models && Array.isArray(data.models)) {
+        // Filter generateContent models
+        const list = data.models
+          .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+          .map((m: any) => {
+            // strip 'models/' prefix
+            const name = m.name.startsWith('models/') ? m.name.substring(7) : m.name;
+            return {
+              name,
+              displayName: m.displayName || name,
+              description: m.description || ''
+            };
+          });
+        setGoogleModels(list);
+      } else {
+        setQueryModelsError(data.error || "Format data yang diterima dari Google API tidak sesuai.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setQueryModelsError(err.message || "Gagal mengambil daftar model.");
+    } finally {
+      setIsQueryingModels(false);
+    }
+  };
+
+  const selectGoogleModel = (modelName: string) => {
+    setModels(prev => ({ ...prev, google: modelName }));
+    setShowModelsDropdown(false);
+  };
 
   useEffect(() => {
     // Load from localStorage on mount with minimal obfuscation
@@ -366,13 +415,73 @@ export function SettingsPanel() {
                       onChange={(val) => setModels({...models, openrouter: val})}
                     />
                   ) : (
-                    <input 
-                      type="text" 
-                      value={models[item.id as keyof typeof models]}
-                      onChange={(e) => setModels({...models, [item.id]: e.target.value})}
-                      placeholder="Model name (e.g. gpt-4o, claude-3-5-sonnet...)"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                    <div className="space-y-1.5 flex-1 select-none">
+                      <input 
+                        type="text" 
+                        value={models[item.id as keyof typeof models]}
+                        onChange={(e) => setModels({...models, [item.id]: e.target.value})}
+                        placeholder={item.id === 'google' ? "Model name (e.g. gemini-3.5-flash)" : "Model name (e.g. gpt-4o...)"}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      {item.id === 'google' && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={handleInspectGoogleModels}
+                            className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center gap-1 mt-1 transition-all"
+                          >
+                            🔍 {isQueryingModels ? "Memeriksa model yang didukung..." : "Cek daftar model untuk API key ini"}
+                          </button>
+                          
+                          {showModelsDropdown && (
+                            <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-2 space-y-1">
+                              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5 mb-1.5">
+                                <span className="text-[10px] font-bold uppercase text-slate-400">Model yang Diizinkan:</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowModelsDropdown(false)}
+                                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                >
+                                  Tutup
+                                </button>
+                              </div>
+                              
+                              {isQueryingModels ? (
+                                <div className="text-[11px] text-slate-500 text-center py-4 flex items-center justify-center gap-2">
+                                  <Loader2 size={12} className="animate-spin" />
+                                  Memuat model...
+                                </div>
+                              ) : queryModelsError ? (
+                                <div className="text-[11px] text-red-500 p-1">
+                                  ⚠️ {queryModelsError}
+                                </div>
+                              ) : googleModels.length === 0 ? (
+                                <div className="text-[11px] text-slate-500 text-center py-2">
+                                  Tidak ada model yang ditemukan atau Key salah. Klik tombol di atas untuk memuat.
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 gap-1">
+                                  {googleModels.map((m) => (
+                                    <button
+                                      key={m.name}
+                                      type="button"
+                                      onClick={() => selectGoogleModel(m.name)}
+                                      className={cn(
+                                        "w-full text-left px-2 py-1 rounded text-[11px] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors flex flex-col gap-0.5",
+                                        models.google === m.name ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium" : "text-slate-700 dark:text-slate-300"
+                                      )}
+                                    >
+                                      <span className="font-semibold">{m.displayName}</span>
+                                      <span className="text-[9px] text-slate-400 line-clamp-1">{m.name}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <button
