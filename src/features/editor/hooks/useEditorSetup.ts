@@ -70,7 +70,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
       StarterKit.configure({
         history: false,
         undoRedo: false,
-      }),
+      } as any),
       Collaboration.configure({
         document: ydocRef.current!,
       }),

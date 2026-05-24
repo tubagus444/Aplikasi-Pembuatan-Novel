@@ -92,13 +92,23 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
-      await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], async () => {
+      await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions], async () => {
+        // Ambil semua chapter ID yang dimiliki project ini untuk menghapus snapshots-nya
+        const chapters = await db.chapters.where('projectId').equals(id).toArray();
+        const chapterIds = chapters.map(c => c.id!).filter(Boolean);
+        
+        // Hapus snapshots untuk chapter-chapter tersebut
+        if (chapterIds.length > 0) {
+          await db.snapshots.where('chapterId').anyOf(chapterIds).delete();
+        }
+
         await db.chapters.where('projectId').equals(id).delete();
         await db.codex.where('projectId').equals(id).delete();
         await db.bible.where('projectId').equals(id).delete();
         await db.aiActions.where('projectId').equals(id).delete();
         await db.timeline.where('projectId').equals(id).delete();
         await db.relationships.where('projectId').equals(id).delete();
+        await db.chatSessions.where('projectId').equals(id).delete();
         await db.projects.delete(id);
       });
     } catch (error) {

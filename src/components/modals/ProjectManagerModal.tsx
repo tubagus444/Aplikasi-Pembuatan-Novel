@@ -24,6 +24,7 @@ export function ProjectManagerModal() {
   const projects = useLiveQuery(() => db.projects.orderBy('lastOpened').reverse().toArray());
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   if (!isProjectManagerOpen) return null;
 
@@ -33,12 +34,6 @@ export function ProjectManagerModal() {
     await createProject(newProjectName.trim());
     setNewProjectName('');
     setIsCreating(false);
-  };
-
-  const handleDelete = async (id: number, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"? This will delete ALL chapters and data associated with this manuscript.`)) {
-      await deleteProject(id);
-    }
   };
 
   return (
@@ -109,22 +104,47 @@ export function ProjectManagerModal() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {currentProjectId !== p.id && (
+                    {confirmDeleteId === p.id ? (
+                      <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/20 p-1 rounded-lg border border-red-200 dark:border-red-900/40">
+                        <span className="text-[10px] font-bold text-red-600 dark:text-red-400 px-1.5">
+                          Delete?
+                        </span>
+                        <button
+                          onClick={async () => {
+                            await deleteProject(p.id!);
+                            setConfirmDeleteId(null);
+                          }}
+                          className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-[11px] font-semibold transition-colors"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-md text-[11px] font-semibold transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
                       <>
-                        <button 
-                          onClick={() => switchProject(p.id!)}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white rounded-lg text-xs font-medium transition-colors"
-                        >
-                          Switch
-                          <ChevronRight size={14} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(p.id!, p.name)}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Delete Manuscript"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {currentProjectId !== p.id && (
+                          <button 
+                            onClick={() => switchProject(p.id!)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white rounded-lg text-xs font-medium transition-colors"
+                          >
+                            Switch
+                            <ChevronRight size={14} />
+                          </button>
+                        )}
+                        {projects && projects.length > 1 && (
+                          <button 
+                            onClick={() => setConfirmDeleteId(p.id!)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                            title="Delete Manuscript"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
