@@ -95,6 +95,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
   // Hanlde drops onto specific Kanban Columns/Lanes
   const handleDropOnColumn = async (e: React.DragEvent, status: 'outline' | 'draft' | 'edit' | 'polish' | 'done') => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedId || !chapters) return;
     
     const draggedChapter = chapters.find(c => c.id === draggedId);
@@ -538,7 +539,7 @@ function ChapterCard({
       className={cn(
         "group bg-white dark:bg-slate-950 border rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden",
         isCurrentDragged 
-          ? "opacity-40 border-indigo-500 scale-[0.98] bg-slate-50 dark:bg-slate-900 pointer-events-none" 
+          ? "opacity-45 border-indigo-500 scale-[0.98] bg-indigo-50/10 dark:bg-indigo-950/10" 
           : "opacity-100 border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700",
         isCompactView ? "p-3.5 gap-2.5" : "p-5 gap-3.5"
       )}

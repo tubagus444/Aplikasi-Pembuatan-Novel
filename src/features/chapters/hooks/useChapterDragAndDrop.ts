@@ -7,6 +7,7 @@ export function useChapterDragAndDrop(chapters: any[] | undefined) {
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedId(id);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id.toString());
     // Small delay to allow the drag image to be generated before styling
     setTimeout(() => {
       if (e.target instanceof HTMLElement) {
@@ -29,6 +30,7 @@ export function useChapterDragAndDrop(chapters: any[] | undefined) {
 
   const handleDrop = async (e: React.DragEvent, targetId: number) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedId || draggedId === targetId || !chapters) return;
 
     const oldIndex = chapters.findIndex(c => c.id === draggedId);
@@ -38,12 +40,22 @@ export function useChapterDragAndDrop(chapters: any[] | undefined) {
 
     const newChapters = [...chapters];
     const [moved] = newChapters.splice(oldIndex, 1);
+    
+    // If dropped on an item with a different status (lane), update the status
+    const targetChapter = chapters[newIndex];
+    if (moved.status !== targetChapter.status) {
+      moved.status = targetChapter.status;
+    }
+    
     newChapters.splice(newIndex, 0, moved);
 
-    // Update orders in DB atomically
+    // Update orders in DB atomically (and status if changed)
     await db.transaction('rw', db.chapters, async () => {
       const updates = newChapters.map((ch, index) => 
-        db.chapters.update(ch.id!, { order: index })
+        db.chapters.update(ch.id!, { 
+          order: index,
+          status: ch.status
+        })
       );
       await Promise.all(updates);
     });
