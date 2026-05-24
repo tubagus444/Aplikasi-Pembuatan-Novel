@@ -14,7 +14,7 @@ async function startServer() {
     const { provider, body } = req.body;
     const clientApiKey = (req.headers['x-api-key'] as string) || '';
     
-    // Resolve API Key
+    // Resolve API Key (prioritize client-provided API keys)
     let apiKey = '';
     let url = '';
     const headers: Record<string, string> = {
@@ -23,25 +23,25 @@ async function startServer() {
 
     switch (provider) {
       case 'groq':
-        apiKey = process.env.GROQ_API_KEY || clientApiKey || '';
+        apiKey = clientApiKey || process.env.GROQ_API_KEY || '';
         url = 'https://api.groq.com/openai/v1/chat/completions';
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
         break;
       case 'openrouter':
-        apiKey = process.env.OPENROUTER_API_KEY || clientApiKey || '';
+        apiKey = clientApiKey || process.env.OPENROUTER_API_KEY || '';
         url = 'https://openrouter.ai/api/v1/chat/completions';
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
         headers['HTTP-Referer'] = 'http://localhost:3000';
         headers['X-Title'] = 'AetherScribe IWE';
         break;
       case 'claude':
-        apiKey = process.env.CLAUDE_API_KEY || clientApiKey || '';
+        apiKey = clientApiKey || process.env.CLAUDE_API_KEY || '';
         url = 'https://api.anthropic.com/v1/messages';
         if (apiKey) headers['x-api-key'] = apiKey;
         headers['anthropic-version'] = '2023-06-01';
         break;
       case 'google':
-        apiKey = process.env.GEMINI_API_KEY || clientApiKey || '';
+        apiKey = clientApiKey || process.env.GEMINI_API_KEY || '';
         // Ensure model name is correctly formatted for the URL
         const modelName = body.model || 'gemini-1.5-flash';
         const sanitizedModel = modelName.includes('/') ? modelName : `models/${modelName}`;
@@ -72,7 +72,7 @@ async function startServer() {
   // Query Allowed Gemini Models from Google API
   app.post("/api/ai/google-models", async (req, res) => {
     const clientApiKey = (req.headers['x-api-key'] as string) || '';
-    const apiKey = process.env.GEMINI_API_KEY || clientApiKey || '';
+    const apiKey = clientApiKey || process.env.GEMINI_API_KEY || '';
 
     if (!apiKey) {
       return res.status(400).json({ error: "Google API Key is required. Please check that it is entered." });

@@ -80,6 +80,12 @@ export function SettingsPanel() {
     openrouter: 'idle',
     claude: 'idle'
   });
+  const [testErrors, setTestErrors] = useState<Record<string, string>>({
+    google: '',
+    groq: '',
+    openrouter: '',
+    claude: ''
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [googleModels, setGoogleModels] = useState<any[]>([]);
@@ -206,15 +212,22 @@ export function SettingsPanel() {
     const model = models[prov as keyof typeof models]?.trim();
 
     setTestStatuses(prev => ({ ...prev, [prov]: 'loading' }));
+    setTestErrors(prev => ({ ...prev, [prov]: '' }));
     try {
       const ok = await testConnection(prov, key, model);
       setTestStatuses(prev => ({ ...prev, [prov]: ok ? 'success' : 'error' }));
-    } catch (error) {
+      if (!ok) {
+        setTestErrors(prev => ({ ...prev, [prov]: 'Koneksi gagal tanpa pesan error spesifik.' }));
+      }
+    } catch (error: any) {
       setTestStatuses(prev => ({ ...prev, [prov]: 'error' }));
+      console.error(error);
+      const msg = error.rawMessage || error.message || String(error);
+      setTestErrors(prev => ({ ...prev, [prov]: msg }));
     } finally {
       setTimeout(() => {
         setTestStatuses(prev => ({ ...prev, [prov]: 'idle' }));
-      }, 3000);
+      }, 6000); // 6 seconds to let user read the fail/success state
     }
   };
 
@@ -509,6 +522,12 @@ export function SettingsPanel() {
                   </span>
                 </button>
               </div>
+              {testErrors[item.id] && (
+                <div className="mt-2 text-[11px] text-red-500 flex items-start gap-1 p-2 bg-red-50/50 dark:bg-red-950/15 rounded border border-red-200/50 dark:border-red-900/30 font-mono select-text break-words">
+                  <span className="shrink-0 mt-0.5">⚠️</span>
+                  <span>{testErrors[item.id]}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -8,11 +8,11 @@ export type AIErrorCode =
 
 export function classifyError(status: number, message: string): AIErrorCode {
   const msg = message.toLowerCase();
-  if (status === 401 || status === 403) return 'INVALID_KEY';
+  if (status === 401 || status === 403 || msg.includes('api key') || msg.includes('key not valid') || msg.includes('invalid key') || msg.includes('aiza')) return 'INVALID_KEY';
   if (status === 429) {
     return msg.includes('quota') ? 'QUOTA_EXCEEDED' : 'RATE_LIMIT';
   }
-  if (status === 404) return 'MODEL_NOT_FOUND';
+  if (status === 404 || msg.includes('model not found') || (msg.includes('not found') && msg.includes('model'))) return 'MODEL_NOT_FOUND';
   if (msg.includes('network') || msg.includes('fetch')) return 'NETWORK_ERROR';
   return 'API_ERROR';
 }

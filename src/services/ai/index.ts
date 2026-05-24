@@ -362,7 +362,11 @@ export async function fetchGoogleModels(apiKey: string): Promise<any> {
     let errorMessage = text;
     try {
       const parsed = JSON.parse(text);
-      errorMessage = parsed.error || parsed.message || text;
+      if (parsed.error && typeof parsed.error === 'object') {
+        errorMessage = parsed.error.message || JSON.stringify(parsed.error);
+      } else {
+        errorMessage = parsed.error || parsed.message || text;
+      }
     } catch (e) {
       // ignore
     }
