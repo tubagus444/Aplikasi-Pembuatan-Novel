@@ -25,6 +25,7 @@ export interface GenerateParams {
   action: string;
   chapterId?: number;
   provider?: string;
+  contextText?: string;
 }
 
 export interface ChatParams {

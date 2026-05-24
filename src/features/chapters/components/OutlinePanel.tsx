@@ -10,7 +10,6 @@ import { cn, countWords } from '@/src/lib/utils';
 import { STATUS_COLORS } from '@/src/lib/constants';
 import { useChapterManagement } from '@/src/features/chapters/hooks/useChapterManagement';
 import { useChapterDragAndDrop } from '@/src/features/chapters/hooks/useChapterDragAndDrop';
-import { useGenerateBeats } from '@/src/hooks/useGenerateBeats';
 
 interface OutlinePanelProps {
   projectId: number;
@@ -19,14 +18,13 @@ interface OutlinePanelProps {
 export function OutlinePanel({ projectId }: OutlinePanelProps) {
   const { chapters, deleteConfirmId, updateField, deleteChapter, addChapter } = useChapterManagement(projectId);
   const { draggedId, handleDragStart, handleDragEnd, handleDragOver, handleDrop } = useChapterDragAndDrop(chapters);
-  const { generateBeats, isGenerating } = useGenerateBeats(projectId);
 
   return (
     <div className="max-w-5xl mx-auto pb-24">
       <div className="flex items-center justify-between mb-10 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
           <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 capitalize">Planning Board</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Outline your chapters, synthesize beats, and structure your narrative.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Outline your chapters and structure your narrative.</p>
         </div>
         <button 
           onClick={addChapter}
@@ -44,14 +42,12 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             index={index}
             draggedId={draggedId}
             deleteConfirmId={deleteConfirmId}
-            isGenerating={isGenerating === chapter.id}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
             onUpdateField={updateField}
             onDelete={deleteChapter}
-            onGenerateBeats={generateBeats}
           />
         ))}
       </div>
@@ -64,14 +60,12 @@ interface ChapterCardProps {
   index: number;
   draggedId: number | null;
   deleteConfirmId: number | null;
-  isGenerating: boolean;
   onDragStart: (e: React.DragEvent, id: number) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent, targetId: number) => void;
   onDragEnd: (e: React.DragEvent) => void;
   onUpdateField: (id: number, field: string, value: any) => void;
   onDelete: (id: number) => void;
-  onGenerateBeats: (chapterId: number, title: string, summary: string) => void;
 }
 
 function ChapterCard({ 
@@ -79,14 +73,12 @@ function ChapterCard({
   index, 
   draggedId, 
   deleteConfirmId, 
-  isGenerating,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
   onUpdateField,
-  onDelete,
-  onGenerateBeats
+  onDelete
 }: ChapterCardProps) {
   const wordCount = useMemo(() => countWords(chapter.content), [chapter.content]);
   const progressPercent = chapter.wordGoal ? Math.min(100, Math.round((wordCount / chapter.wordGoal) * 100)) : 0;
@@ -177,19 +169,11 @@ function ChapterCard({
 
       <div className="flex-1 flex flex-col pt-4 border-t border-slate-100 dark:border-slate-800">
         <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 dark:text-slate-500 mb-2 flex items-center justify-between">
-          <span>Directives & Beats</span>
-          <button 
-            onClick={() => onGenerateBeats(chapter.id!, chapter.title, chapter.summary || '')}
-            disabled={isGenerating}
-            className="flex items-center gap-1 text-indigo-500 hover:text-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            <Sparkles size={12} />
-            <span>{isGenerating ? '...' : 'AI Beats'}</span>
-          </button>
+          <span>Chapter Summary</span>
         </label>
         <textarea 
           className="w-full flex-1 min-h-[140px] text-[13px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg p-3 resize-none focus:outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200 transition-all font-serif italic"
-          placeholder="Story beats..."
+          placeholder="Ringkasan atau poin-poin cerita..."
           value={chapter.summary || ''}
           onChange={(e) => onUpdateField(chapter.id!, 'summary', e.target.value)}
         />

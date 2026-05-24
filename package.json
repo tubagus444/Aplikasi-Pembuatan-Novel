@@ -13,6 +13,7 @@
   "dependencies": {
     "@tiptap/core": "3.22.5",
     "@tiptap/extension-bubble-menu": "3.22.5",
+    "@tiptap/extension-collaboration": "^3.23.6",
     "@tiptap/extension-highlight": "3.22.5",
     "@tiptap/extension-history": "3.22.5",
     "@tiptap/extension-mention": "3.22.5",
@@ -41,7 +42,9 @@
     "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.5.0",
     "textarea-caret": "^3.1.0",
-    "tippy.js": "^6.3.7"
+    "tippy.js": "^6.3.7",
+    "y-indexeddb": "^9.0.12",
+    "yjs": "^13.6.30"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",

@@ -2,8 +2,11 @@ import { useEditor, ReactRenderer, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
-import TiptapHistory from '@tiptap/extension-history';
 import TextAlign from '@tiptap/extension-text-align';
+import Collaboration from '@tiptap/extension-collaboration';
+import * as Y from 'yjs';
+import { IndexeddbPersistence } from 'y-indexeddb';
+
 import { SearchAndReplace } from '@/src/features/editor/extensions/SearchAndReplace';
 import { PassiveCodexHighlight } from '@/src/features/editor/extensions/PassiveCodexHighlight';
 import { MentionList } from '@/src/features/editor/components/MentionList';
@@ -11,17 +14,48 @@ import { CustomAIKeymap } from '@/src/features/editor/hooks/useEditorAI';
 import tippy from 'tippy.js';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry } from '@/src/types';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 interface UseEditorSetupProps {
+  chapterId: number;
+  initialContent?: string;
   codexEntries: CodexEntry[];
   onCodexClick: (entryId: number, event: MouseEvent) => void;
   onUpdate: (props: { editor: Editor }) => void;
 }
 
-export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEditorSetupProps) {
+export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   const onUpdateRef = useRef(onUpdate);
+  const isMountedRef = useRef(true);
+
+  // Yjs Refs
+  const ydocRef = useRef<Y.Doc | null>(null);
+  const providerRef = useRef<IndexeddbPersistence | null>(null);
+  const [isSynced, setIsSynced] = useState(false);
+
+  // Initialize Yjs synchronously on first render
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc();
+    providerRef.current = new IndexeddbPersistence(`aetherscribe-chapter-${chapterId}`, ydocRef.current);
+    
+    providerRef.current.on('synced', () => {
+      // If the document is totally empty (e.g. migration or new chapter), prepopulate it
+      // Wait, Tiptap uses the fragment 'default' normally.
+      if (isMountedRef.current) {
+        setIsSynced(true);
+      }
+    });
+  }
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      providerRef.current?.destroy();
+      ydocRef.current?.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;
@@ -34,9 +68,12 @@ export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEdit
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        history: false,
         undoRedo: false,
       }),
-      TiptapHistory,
+      Collaboration.configure({
+        document: ydocRef.current!,
+      }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
@@ -112,7 +149,7 @@ export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEdit
         },
       }),
     ],
-    content: '',
+    // content: '', // Collaboration ignores initial content in useEditor, we'll set it manually if needed
     onUpdate: (props) => {
       onUpdateRef.current?.(props as any);
     },
@@ -124,6 +161,15 @@ export function useEditorSetup({ codexEntries, onCodexClick, onUpdate }: UseEdit
       },
     },
   });
+
+  // Prepopulate if new or migrated
+  useEffect(() => {
+    if (isSynced && editor && editor.isEmpty && initialContent && initialContent.length > 5) {
+      // Check if Y.Doc is literally empty (no content yet except empty paragraph)
+      // Tiptap's isEmpty returns true for `<p></p>`
+      editor.commands.setContent(initialContent);
+    }
+  }, [isSynced, editor, initialContent]);
 
   return editor;
 }

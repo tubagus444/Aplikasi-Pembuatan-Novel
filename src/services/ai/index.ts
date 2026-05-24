@@ -1,5 +1,5 @@
-import { StoryBibleRule, CodexEntry, StoryBeat, ContextDepth } from '@/src/types';
-import { getRelevantContext, getRelevantBibleRules, getChapterBeats } from '@/src/services/contextEngine';
+import { StoryBibleRule, CodexEntry, ContextDepth } from '@/src/types';
+import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
 import { callProxy } from '@/src/services/ai/proxy';
 import { GenerateParams, ChatParams, AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
@@ -63,14 +63,7 @@ function getSettings() {
   };
 }
 
-function formatBeats(beats: StoryBeat[]): string {
-  if (!beats || beats.length === 0) return '';
-  return beats
-    .map((b, i) => `${i + 1}. [${b.type}] ${b.title}${b.description ? `: ${b.description}` : ''}`)
-    .join('\n');
-}
-
-function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?: string, depth: ContextDepth = 'balanced'): string {
+function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], depth: ContextDepth = 'balanced'): string {
   // If depth is minimal, we only include the most core rules and no lore
   if (depth === 'minimal') {
     const coreKeys = ['__STORY_TITLE__', '__GENRES__', '__POV__'];
@@ -119,10 +112,6 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], beats?:
   }
   
   let block = `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
-  // Only deep depth gets full beats context
-  if (beats && depth === 'deep') {
-    block += `\n\nCHAPTER BEATS:\n${beats}`;
-  }
   return block;
 }
 
@@ -173,16 +162,30 @@ function extractCandidateSentences(text: string): string {
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
   const settings = getSettings();
-  const relevantCodex = await getRelevantContext(params.selection, params.codexEntries);
-  const relevantRules = await getRelevantBibleRules(params.selection, params.bibleRules);
   
-  let beatsStr = '';
-  if (params.chapterId) {
-    const beats = await getChapterBeats(params.chapterId);
-    beatsStr = formatBeats(beats);
+  // RAG for Rewrite
+  let textForRAG = params.selection;
+  let relevantScenesText = '';
+  
+  if (params.contextText && params.contextText.length > 500) {
+     const { splitIntoScenes, getRelevantScenes, buildExcerptContext } = await import('@/src/lib/chunkEngine');
+     const scenes = splitIntoScenes(params.contextText);
+     const relevantScenes = getRelevantScenes(params.selection, scenes, params.codexEntries);
+     if (relevantScenes.length > 0) {
+        relevantScenesText = buildExcerptContext(relevantScenes);
+        textForRAG += '\n' + relevantScenesText;
+     }
+  } else if (params.contextText) {
+     textForRAG += '\n' + params.contextText;
   }
 
-  const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
+  const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
+  const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
+  
+  let contextBlock = buildContextBlock(relevantRules, relevantCodex, settings.contextDepth);
+  if (relevantScenesText) {
+    contextBlock = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${contextBlock}`;
+  }
   
   const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
@@ -209,20 +212,40 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
 
 export async function processChat(params: ChatParams): Promise<string> {
   const settings = getSettings();
-  const contextSource = `${params.contextText || ''} ${params.message || ''}`;
-  const relevantCodex = await getRelevantContext(contextSource, params.codexEntries);
-  const relevantRules = await getRelevantBibleRules(contextSource, params.bibleRules);
   
-  let beatsStr = '';
-  if (params.chapterId) {
-    const beats = await getChapterBeats(params.chapterId);
-    beatsStr = formatBeats(beats);
+  // RAG for Chat
+  let textForRAG = params.message;
+  let relevantScenesText = '';
+  let draftSnippet = params.contextText?.substring(0, 3000) || '';
+  
+  if (params.contextText && params.contextText.length > 1000 && params.sessionMode !== 'plot-check') {
+     const { splitIntoScenes, getRelevantScenes, buildExcerptContext, getLastScene } = await import('@/src/lib/chunkEngine');
+     const scenes = splitIntoScenes(params.contextText);
+     const relevantScenes = getRelevantScenes(params.message, scenes, params.codexEntries);
+     
+     if (relevantScenes.length > 0) {
+        relevantScenesText = buildExcerptContext(relevantScenes);
+        textForRAG += '\n' + relevantScenesText;
+        draftSnippet = relevantScenesText; // Only send relevant scenes to AI instead of 3000 chars
+     } else {
+        const lastScene = getLastScene(scenes);
+        if (lastScene) {
+          relevantScenesText = buildExcerptContext([lastScene]);
+          textForRAG += '\n' + relevantScenesText;
+          draftSnippet = relevantScenesText;
+        }
+     }
+  } else {
+     textForRAG += ' ' + (params.contextText || '');
   }
 
-  const contextBlock = buildContextBlock(relevantRules, relevantCodex, beatsStr || undefined, settings.contextDepth);
+  const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
+  const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
+  
+  const contextBlock = buildContextBlock(relevantRules, relevantCodex, settings.contextDepth);
 
   const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
-  const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, params.contextText?.substring(0, 3000));
+  const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, draftSnippet);
 
   // SMART PRUNING: Keep only the most recent part of history to save tokens
   // A turn is 2 messages (user + model). 10 messages = 5 turns.
@@ -257,7 +280,7 @@ export async function extractToCodex(
   bibleRules: StoryBibleRule[]
   ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
   const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], undefined, settings.contextDepth);
+  const contextBlock = buildContextBlock(bibleRules, [], settings.contextDepth);
   const systemInstruction = AI_PROMPTS.EXTRACT_CODEX.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
 
@@ -290,7 +313,7 @@ export async function expandCodexEntry(
   bibleRules: StoryBibleRule[]
   ): Promise<string> {
   const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], undefined, settings.contextDepth);
+  const contextBlock = buildContextBlock(bibleRules, [], settings.contextDepth);
   const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
   

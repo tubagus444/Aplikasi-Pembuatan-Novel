@@ -15,12 +15,18 @@ import { ChapterList } from '@/src/features/chapters/components/ChapterList';
 export function Sidebar() {
   const { projectId, project } = useProject();
   const { activeChapterId, setActiveChapterId, viewMode, setViewMode } = useNavigation();
-  const { sidebarOpen, isFocusMode } = useUI();
+  const { sidebarOpen, setSidebarOpen, isFocusMode } = useUI();
+
+  // Helper to close sidebar on mobile after clicking
+  const handleViewChange = (mode: string) => {
+    setViewMode(mode as any);
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  };
 
   return (
-    <aside 
-      className="w-[260px] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col relative z-[var(--z-panel)] overflow-hidden shadow-sm shrink-0"
-    >
+    <aside className="w-[260px] h-full flex flex-col relative shrink-0">
       <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white shrink-0 shadow-sm">
@@ -37,61 +43,61 @@ export function Sidebar() {
             <nav role="navigation" className="mt-6 space-y-1">
               <NavItem 
                 active={viewMode === 'write'} 
-                onClick={() => setViewMode('write')} 
+                onClick={() => handleViewChange('write')} 
                 icon={<FileText size={14} />} 
                 label="Editor" 
               />
               <NavItem 
                 active={viewMode === 'brainstorm'} 
-                onClick={() => setViewMode('brainstorm')} 
+                onClick={() => handleViewChange('brainstorm')} 
                 icon={<BrainCircuit size={14} />} 
                 label="Assistant Studio" 
               />
               <NavItem 
                 active={viewMode === 'outline'} 
-                onClick={() => setViewMode('outline')} 
+                onClick={() => handleViewChange('outline')} 
                 icon={<LayoutList size={14} />} 
                 label="Planning Board" 
               />
               <NavItem 
                 active={viewMode === 'codex'} 
-                onClick={() => setViewMode('codex')} 
+                onClick={() => handleViewChange('codex')} 
                 icon={<Database size={14} />} 
                 label="Codex" 
               />
               <NavItem 
                 active={viewMode === 'bible'} 
-                onClick={() => setViewMode('bible')} 
+                onClick={() => handleViewChange('bible')} 
                 icon={<Book size={14} />} 
                 label="Story Bible" 
               />
               <NavItem 
                 active={viewMode === 'relationships'} 
-                onClick={() => setViewMode('relationships')} 
+                onClick={() => handleViewChange('relationships')} 
                 icon={<Share2 size={14} />} 
                 label="Relations" 
               />
               <NavItem 
                 active={viewMode === 'actions'} 
-                onClick={() => setViewMode('actions')} 
+                onClick={() => handleViewChange('actions')} 
                 icon={<Sparkles size={14} />} 
                 label="AI Snippets" 
               />
               <NavItem 
                 active={viewMode === 'guide'} 
-                onClick={() => setViewMode('guide')} 
+                onClick={() => handleViewChange('guide')} 
                 icon={<HelpCircle size={14} />} 
                 label="Panduan" 
               />
               <NavItem 
                 active={viewMode === 'settings'} 
-                onClick={() => setViewMode('settings')} 
+                onClick={() => handleViewChange('settings')} 
                 icon={<Settings size={14} />} 
                 label="Pengaturan" 
               />
               <NavItem 
                 active={viewMode === 'errors'} 
-                onClick={() => setViewMode('errors')} 
+                onClick={() => handleViewChange('errors')} 
                 icon={<AlertTriangle size={14} />} 
                 label="Log Error" 
               />
@@ -103,7 +109,12 @@ export function Sidebar() {
               <ChapterList 
                 projectId={projectId} 
                 activeChapterId={activeChapterId} 
-                onSelect={setActiveChapterId} 
+                onSelect={(id) => {
+                  setActiveChapterId(id);
+                  if (window.innerWidth < 768) {
+                    setSidebarOpen(false);
+                  }
+                }} 
               />
             )}
             {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Worldbuilding Data</p>}

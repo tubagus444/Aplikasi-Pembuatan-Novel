@@ -329,12 +329,12 @@ export function SettingsPanel() {
           >
             <option value="minimal">Minimal (Cheapest) - Core rules only, no lore.</option>
             <option value="balanced">Balanced (Recommended) - Relevant rules + relevant lore.</option>
-            <option value="deep">Deep (Rich) - More lore detail + story beats (Tokens heavy).</option>
+            <option value="deep">Deep (Rich) - Maximum lore detail (Tokens heavy).</option>
           </select>
           <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed italic">
             {contextDepth === 'minimal' && "Best for saving tokens. AI might forget specific character details or names but follows style."}
             {contextDepth === 'balanced' && "Smart context switching. Uses vector search to find and send only what's needed."}
-            {contextDepth === 'deep' && "Maximum quality. Sends larger lore snippets and chapter outlines. Increases token cost significantly."}
+            {contextDepth === 'deep' && "Maximum quality. Sends larger lore snippets. Increases token cost significantly."}
           </p>
         </div>
 

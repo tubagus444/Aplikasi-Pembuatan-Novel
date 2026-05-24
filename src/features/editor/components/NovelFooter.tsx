@@ -175,16 +175,6 @@ export function NovelFooter({
             <History size={16} />
           </button>
           <button 
-            onClick={() => togglePanel('timeline')}
-            className={cn(
-              "p-1.5 rounded transition-all",
-              activePanel === 'timeline' ? "bg-orange-50 dark:bg-orange-900/10 text-orange-700 shadow-sm" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-            )}
-            title="Alur Cerita"
-          >
-            <GripVertical size={16} />
-          </button>
-          <button 
             onClick={() => togglePanel('insights')}
             className={cn(
               "p-1.5 rounded transition-all",

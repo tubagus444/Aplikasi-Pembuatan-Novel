@@ -37,6 +37,8 @@ export function useNovelEditor({
   let onEditorUpdateRef: any = null;
 
   const editor = useEditorSetup({
+    chapterId,
+    initialContent: chapter?.content,
     codexEntries,
     onCodexClick: (id, e) => setActiveCodexPopup({ id, x: e.clientX, y: e.clientY }),
     onUpdate: (props) => onEditorUpdateRef?.(props),

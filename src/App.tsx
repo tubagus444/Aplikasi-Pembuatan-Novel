@@ -27,6 +27,7 @@ export default function App() {
   const { 
     isFocusMode, 
     sidebarOpen, 
+    setSidebarOpen,
     isSearchOpen, 
     setIsSearchOpen, 
     isExportOpen, 
@@ -65,21 +66,31 @@ export default function App() {
       isFocusMode && "bg-secondary"
     )}>
       <div className="flex h-full overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        {isSidebarActuallyOpen && (
+          <div 
+            className="md:hidden fixed inset-0 z-40 bg-black/20 dark:bg-black/40 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        
         <motion.div 
           initial={false}
           animate={{ 
             width: isSidebarActuallyOpen ? 260 : 0,
-            minWidth: isSidebarActuallyOpen ? 260 : 0
           }}
           transition={{ type: 'spring', damping: 27, stiffness: 220 }}
-          className="h-full overflow-hidden relative z-20 flex-none forced-dark:bg-slate-900"
+          className={cn(
+            "h-full overflow-hidden absolute md:relative z-50 flex-none bg-white dark:bg-slate-900 shadow-xl md:shadow-none border-r border-slate-200 dark:border-slate-800 transition-all",
+            !isSidebarActuallyOpen && "border-none"
+          )}
         >
           <div className="w-[260px] h-full">
             <Sidebar />
           </div>
         </motion.div>
         
-        <div className="flex-1 min-w-0 flex flex-col relative bg-background border-l border-slate-200 dark:border-slate-800 z-10">
+        <div className="flex-1 min-w-0 flex flex-col relative bg-background z-10 w-full overflow-hidden">
           <Header />
           <MainView />
         </div>

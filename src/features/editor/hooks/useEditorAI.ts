@@ -37,17 +37,17 @@ export function useEditorAI(
 
     setIsAiProcessing(true);
     try {
-      const relevantCodex = await getRelevantContext(selectedText, codexEntries || []);
-      const relevantBible = await getRelevantBibleRules(selectedText, bibleRules || []);
+      const chapterContent = editor.getText();
 
       const result = await processRewrite({
         action,
         selection: selectedText,
-        bibleRules: relevantBible,
-        codexEntries: relevantCodex,
+        bibleRules: bibleRules,
+        codexEntries: codexEntries,
         prompt: '',
         chapterId,
-        provider
+        provider,
+        contextText: chapterContent
       });
 
       editor.commands.insertContentAt({ from, to }, result);

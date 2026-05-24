@@ -87,26 +87,11 @@ export function GuidePanel() {
       )
     },
     {
-      id: 'feature-timeline',
-      targetView: 'write' as ViewMode,
-      icon: <GripVertical className="w-6 h-6 text-orange-500" />,
-      bg: "bg-orange-50 dark:bg-orange-500/10",
-      title: "5. Timeline & Story Beats",
-      description: "Pelacak alur peristiwa dalam setiap bab secara kronologis.",
-      howItWorks: "Sistem kartu yang mengikuti garis waktu linear untuk memastikan urutan adegan tetap konsisten.",
-      howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Tambahkan 'Beat' untuk setiap kejadian penting (misal: Pertemuan, Aksi, Kejutan).</li>
-          <li>Gunakan sebagai panduan cepat saat menulis (Outline mini di panel samping).</li>
-        </ul>
-      )
-    },
-    {
       id: 'feature-planning',
       targetView: 'outline' as ViewMode,
       icon: <LayoutList className="w-6 h-6 text-fuchsia-500" />,
       bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10",
-      title: "6. Planning Board",
+      title: "5. Planning Board",
       description: "Pusat kendali struktur bab dan manajemen proyek.",
       howItWorks: "Papan visual yang mengelola status setiap bab (Draft, Review, Final).",
       howToUse: (
@@ -121,7 +106,7 @@ export function GuidePanel() {
       targetView: 'bible' as ViewMode,
       icon: <Target className="w-6 h-6 text-sky-500" />,
       bg: "bg-sky-50 dark:bg-sky-500/10",
-      title: "7. Story Bible",
+      title: "6. Story Bible",
       description: "Pilar utama gaya bahasa, tema, dan aturan dunia cerita.",
       howItWorks: "Data di sini akan 'memaksa' AI mengikuti instruksi global Anda di setiap fitur.",
       howToUse: (
@@ -136,7 +121,7 @@ export function GuidePanel() {
       targetView: 'write' as ViewMode,
       icon: <BarChart3 className="w-6 h-6 text-cyan-500" />,
       bg: "bg-cyan-50 dark:bg-cyan-500/10",
-      title: "8. Prose Insights",
+      title: "7. Prose Insights",
       description: "Analisis statistik dan gaya tulisan secara otomatis.",
       howItWorks: "Mengevaluasi skor keterbacaan, mendeteksi jumlah kalimat pasif dan adverbia pada bab yang aktif.",
       howToUse: (
@@ -151,7 +136,7 @@ export function GuidePanel() {
       targetView: 'actions' as ViewMode,
       icon: <Sparkles className="w-6 h-6 text-yellow-500" />,
       bg: "bg-yellow-50 dark:bg-yellow-500/10",
-      title: "9. Custom AI Snippets",
+      title: "8. Custom AI Snippets",
       description: "Prompt khusus dan kustom yang siap dipanggil kapan saja.",
       howItWorks: "Memungkinkan Anda membuat fungsi AI milik Anda sendiri (misal: 'Beri Kritik Tajam').",
       howToUse: (
@@ -166,7 +151,7 @@ export function GuidePanel() {
       targetView: 'write' as ViewMode,
       icon: <SettingsIcon className="w-6 h-6 text-teal-500" />,
       bg: "bg-teal-50 dark:bg-teal-500/10",
-      title: "10. Snapshots (Mesin Waktu)",
+      title: "9. Snapshots (Mesin Waktu)",
       description: "Sistem Auto-Backup dan riwayat versi teks Anda.",
       howItWorks: "Menyimpan secara presisi draf pada waktu tertentu. Jika AI merusak dokumen, kembalikan saja lewat Snapshot.",
       howToUse: (

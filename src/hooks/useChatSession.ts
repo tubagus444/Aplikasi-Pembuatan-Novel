@@ -75,14 +75,7 @@ export function useChatSession({
       // 0. Resolve lore tags for AI consumption
       const resolvedText = resolveLoreTags(text, codexEntries, bibleRules);
 
-      // 1. Gather relevant context
-      let effectiveContext = customContext || contextText;
-      const queryContext = effectiveContext + " " + resolvedText;
-      
-      const filteredCodex = getRelevantContext(queryContext, codexEntries);
-      const filteredBibleRules = getRelevantBibleRules(queryContext, bibleRules);
-
-      // 2. Prepare history for AI
+      // 1. Prepare history for AI
       const history = newMessages
         .slice(-10) // Limit history to last 10 messages for performance
         .map(m => ({
@@ -90,13 +83,13 @@ export function useChatSession({
           parts: [{ text: m.content }]
         }));
 
-      // 3. Process chat
+      // 2. Process chat (RAG logic handled inside processChat)
       const reply = await processChat({
         message: resolvedText,
         history,
-        bibleRules: filteredBibleRules as unknown as StoryBibleRule[],
-        codexEntries: filteredCodex as unknown as CodexEntry[],
-        contextText: effectiveContext,
+        bibleRules: bibleRules,
+        codexEntries: codexEntries,
+        contextText: customContext || contextText,
         chapterId,
         provider,
         sessionMode

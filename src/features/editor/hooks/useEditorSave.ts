@@ -54,42 +54,14 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
     };
   }, [editor, performSave]);
 
-  // Sync title and content when chapter changes
+  // Sync title when chapter loads
   useEffect(() => {
-    if (chapter && editor) {
-      const oldId = chapterIdRef.current;
-      const newId = chapter.id;
-
-      if (oldId !== newId) {
-        // 1. Force save pending changes for old chapter
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current);
-          performSave(oldId, editor.getHTML());
-        }
-
-        // 2. Officially switch to new chapter
-        chapterIdRef.current = newId;
-
-        // 3. Update editor content
-        skipNextUpdateRef.current = true;
-        editor.commands.setContent(chapter.content);
-        if ((editor.commands as any).clearHistory) {
-          (editor.commands as any).clearHistory();
-        }
-        
-        if (title !== chapter.title) {
-          setTitle(chapter.title);
-        }
-      } else if (editor.isEmpty && chapter.content) {
-        // Initial load for the same chapter (e.g. refresh or first load)
-        skipNextUpdateRef.current = true;
-        editor.commands.setContent(chapter.content);
-        if (title !== chapter.title) {
-          setTitle(chapter.title);
-        }
+    if (chapter) {
+      if (title !== chapter.title) {
+        setTitle(chapter.title);
       }
     }
-  }, [chapter?.id, editor, performSave]);
+  }, [chapter?.title]); // Only dependency needed is title, not content
 
   const onEditorUpdate = useCallback(({ editor: currentEditor }: { editor: Editor }) => {
     if (skipNextUpdateRef.current) {

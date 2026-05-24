@@ -43,8 +43,8 @@ export function EditorLayout({
         >
           {/* Editor Surface */}
           <div className={cn(
-            "w-full max-w-[760px] mx-auto flex flex-col min-h-[850px] bg-white dark:bg-[#11141D] px-8 sm:px-20 py-16 sm:py-24 transition-all duration-700 rounded-sm shadow-sm border border-slate-200/50 dark:border-slate-800/50 ring-1 ring-slate-100 dark:ring-white/5",
-            isFocusMode && "max-w-[650px] bg-transparent dark:bg-transparent shadow-none border-transparent ring-0 px-4 sm:px-8 py-12"
+            "w-full max-w-[760px] mx-auto flex flex-col min-h-[850px] bg-white dark:bg-[#11141D] px-4 sm:px-12 md:px-20 py-8 sm:py-16 md:py-24 transition-all duration-700 rounded-sm shadow-sm border border-slate-200/50 dark:border-slate-800/50 ring-1 ring-slate-100 dark:ring-white/5",
+            isFocusMode && "max-w-[650px] bg-transparent dark:bg-transparent shadow-none border-transparent ring-0 px-3 sm:px-8 py-8 md:py-12"
           )}>
             {header}
             {children}

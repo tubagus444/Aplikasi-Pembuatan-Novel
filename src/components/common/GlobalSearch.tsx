@@ -63,27 +63,27 @@ export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClos
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-24 bg-slate-900/40 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-6 sm:pt-24 bg-slate-900/40 backdrop-blur-sm p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: -20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+        className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]"
       >
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-          <Search size={20} className="text-slate-400 dark:text-slate-500" />
+        <div className="flex-none p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+          <Search size={20} className="text-slate-400 dark:text-slate-500 shrink-0" />
           <input 
             autoFocus
-            className="flex-1 bg-transparent text-lg focus:outline-none placeholder:text-slate-300"
+            className="flex-1 bg-transparent text-base sm:text-lg focus:outline-none placeholder:text-slate-300 min-w-0"
             placeholder="Search chapters, characters, places..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:bg-slate-800 rounded-md text-slate-400 dark:text-slate-500">
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:bg-slate-800 rounded-md text-slate-400 dark:text-slate-500 shrink-0">
             <X size={16} />
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
           {!query && (
             <div className="py-12 text-center text-slate-400 dark:text-slate-500">
               <Search size={32} className="mx-auto mb-3 opacity-20" />

@@ -4,7 +4,7 @@
  */
 
 import { db } from '@/src/db';
-import { CodexEntry, StoryBibleRule, StoryBeat } from '@/src/types';
+import { CodexEntry, StoryBibleRule } from '@/src/types';
 import ContextWorker from '@/src/services/contextWorker?worker';
 
 // Worker instance and communication state
@@ -109,16 +109,4 @@ export async function getRelevantBibleRules(
     ].includes(r.key));
   }
   return sendToWorker('GET_RELEVANT_BIBLE_RULES', { text, allRules, maxChars });
-}
-
-export async function getChapterBeats(chapterId: number): Promise<StoryBeat[]> {
-  try {
-    return await db.timeline
-      .where('chapterId')
-      .equals(chapterId)
-      .sortBy('order');
-  } catch (err) {
-    console.error('Error fetching chapter beats:', err);
-    return [];
-  }
 }

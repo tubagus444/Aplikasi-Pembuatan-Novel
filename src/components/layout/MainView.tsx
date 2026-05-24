@@ -63,6 +63,7 @@ export function MainView() {
           >
             {activeChapterId && projectId ? (
               <NovelEditor 
+                key={activeChapterId}
                 chapterId={activeChapterId} 
                 projectId={projectId} 
               />
@@ -159,7 +160,7 @@ function ViewContainer({ children, className }: { children: React.ReactNode, cla
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={cn("absolute inset-0 p-10 overflow-y-auto custom-scrollbar bg-background", className)}
+      className={cn("absolute inset-0 p-4 sm:p-6 md:p-10 overflow-y-auto custom-scrollbar bg-background", className)}
     >
       {children}
     </motion.div>

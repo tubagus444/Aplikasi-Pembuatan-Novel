@@ -250,7 +250,7 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
         </header>
 
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { id: 'md', label: 'Markdown', icon: FileEdit, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' },
               { id: 'pdf', label: 'PDF Document', icon: FileText, color: 'text-red-600 bg-red-50 dark:bg-red-900/20' },
@@ -259,7 +259,7 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
               <button
                 key={f.id}
                 onClick={() => setFormat(f.id as any)}
-                className={`flex flex-col items-center gap-3 p-4 rounded-xl border transition-all ${
+                className={`flex sm:flex-col flex-row items-center justify-start sm:justify-center gap-3 p-4 rounded-xl border transition-all ${
                   format === f.id 
                     ? 'border-indigo-500 ring-4 ring-indigo-50 dark:ring-indigo-900/10 bg-white dark:bg-slate-800' 
                     : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-800 dark:hover:border-slate-700 opacity-60'
