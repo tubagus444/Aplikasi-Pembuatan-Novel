@@ -74,9 +74,14 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     title,
     handleTitleChange,
     isAiProcessing,
+    rewritePreview,
+    setRewritePreview,
+    runAiAction,
+    acceptRewrite,
+    insertRewriteBelow,
+    discardRewrite,
     activeCodexPopup,
     setActiveCodexPopup,
-    runAiAction,
     handleReplace,
     handleReplaceAll,
     handleNext,
@@ -181,7 +186,17 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
         </AnimatePresence>
 
         {editor && (
-          <SelectionFloatingMenu editor={editor} onAiAction={runAiAction} customActions={aiActions} />
+          <SelectionFloatingMenu 
+            editor={editor} 
+            onAiAction={runAiAction} 
+            customActions={aiActions} 
+            isAiProcessing={isAiProcessing}
+            rewritePreview={rewritePreview}
+            setRewritePreview={setRewritePreview}
+            onAcceptRewrite={acceptRewrite}
+            onInsertBelow={insertRewriteBelow}
+            onDiscardRewrite={discardRewrite}
+          />
         )}
         
         <AnimatePresence>

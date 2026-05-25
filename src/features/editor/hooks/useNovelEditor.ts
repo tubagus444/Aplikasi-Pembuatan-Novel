@@ -59,7 +59,15 @@ export function useNovelEditor({
   useTypewriterMode(editor, isTypewriterMode, containerRef, () => setActiveCodexPopup(null));
 
   // AI
-  const { isAiProcessing, runAiAction } = useEditorAI(editor, chapterId, codexEntries, bibleRules);
+  const { 
+    isAiProcessing, 
+    rewritePreview, 
+    setRewritePreview, 
+    runAiAction, 
+    acceptRewrite, 
+    insertRewriteBelow, 
+    discardRewrite 
+  } = useEditorAI(editor, chapterId, codexEntries, bibleRules);
 
   // Search
   const searchProps = useEditorSearch(editor);
@@ -73,9 +81,14 @@ export function useNovelEditor({
     title,
     handleTitleChange,
     isAiProcessing,
+    rewritePreview,
+    setRewritePreview,
+    runAiAction,
+    acceptRewrite,
+    insertRewriteBelow,
+    discardRewrite,
     activeCodexPopup,
     setActiveCodexPopup,
-    runAiAction,
     ...searchProps
   };
 }
