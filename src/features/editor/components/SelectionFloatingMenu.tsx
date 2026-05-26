@@ -16,7 +16,8 @@ import {
   Pin,
   PinOff,
   Minimize2,
-  Maximize2
+  Maximize2,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -70,6 +71,8 @@ export function SelectionFloatingMenu({
 
   // Keep menu collapsed in a small bubble to avoid blockages
   const [isMini, setIsMini] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     try {
@@ -87,13 +90,24 @@ export function SelectionFloatingMenu({
 
   const selectionTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  const showAiMenuRef = React.useRef(showAiMenu);
+  const isCustomOpenRef = React.useRef(isCustomOpen);
+
+  useEffect(() => {
+    showAiMenuRef.current = showAiMenu;
+  }, [showAiMenu]);
+
+  useEffect(() => {
+    isCustomOpenRef.current = isCustomOpen;
+  }, [isCustomOpen]);
+
   const handleSelection = React.useCallback(() => {
     const { selection } = editor.state;
     
     // Check if empty selection
     if (selection.empty) {
-      // Keep showing menu if we are in active preview mode, so user can read/decide
-      if (rewritePreview) return;
+      // Keep showing menu if we are in active preview mode, or interacting with Ai menu
+      if (rewritePreview || showAiMenuRef.current || isCustomOpenRef.current) return;
       
       setShow(false);
       setSelectedText('');
@@ -111,6 +125,12 @@ export function SelectionFloatingMenu({
     selectionTimerRef.current = setTimeout(() => {
       const domSelection = window.getSelection();
       if (domSelection && domSelection.rangeCount > 0) {
+        // If we are actively using the AI menu or custom input, don't auto-close or reposition based on DOM selection
+        // Because DOM selection might be inside the menu's input fields
+        if ((showAiMenuRef.current || isCustomOpenRef.current) && showRef.current) {
+          return;
+        }
+
         const range = domSelection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         
@@ -127,7 +147,9 @@ export function SelectionFloatingMenu({
           });
           setShow(true);
         } else {
-          if (!rewritePreview) setShow(false);
+          if (!rewritePreview && !showAiMenuRef.current && !isCustomOpenRef.current) {
+            setShow(false);
+          }
         }
       }
     }, 0);
@@ -142,7 +164,14 @@ export function SelectionFloatingMenu({
   useEffect(() => {
     editor.on('selectionUpdate', handleSelection);
     
-    const handleScrollOrResize = () => {
+    const handleScrollOrResize = (e: Event) => {
+      if (e && e.type === 'scroll') {
+        const target = e.target as HTMLElement;
+        if (target && target.closest && target.closest('#selection-floating-menu')) {
+          // Ignore scroll events originating from inside the floating menu itself
+          return;
+        }
+      }
       if (showRef.current) handleSelection();
     };
 
@@ -160,6 +189,8 @@ export function SelectionFloatingMenu({
   useEffect(() => {
     if (!show) {
       setIsCustomOpen(false);
+      setShowAiMenu(false);
+      setSearchQuery('');
       setCustomPromptText('');
     }
   }, [show]);
@@ -174,6 +205,15 @@ export function SelectionFloatingMenu({
 
   const hasLengthWarning = selectedText.trim().length < 5;
 
+  const builtInActions = [
+    { id: "Show don't tell", label: "Show, don't tell", icon: Sparkles, desc: "Ubah kalimat deskriptif pasif" },
+    { id: "Focus Senses", label: "Senses", icon: Eye, desc: "Perkaya deskripsi suasana" },
+    { id: "Intensify", label: "Intensify", icon: Flame, desc: "Tingkatkan ketegangan dramatis" }
+  ];
+
+  const filteredBuiltIn = builtInActions.filter(a => a.label.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredCustom = customActions.filter(a => a.label.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
     <AnimatePresence>
       {show && (
@@ -183,14 +223,16 @@ export function SelectionFloatingMenu({
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.12, ease: "easeOut" }}
           className={cn(
-            "fixed z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl border transition-colors duration-200 max-w-[95vw]",
+            "fixed z-[100] transition-colors duration-200 flex",
+            placement === 'top' ? "flex-col-reverse items-center" : "flex-col items-center",
+            (rewritePreview || isMini || isAiProcessing) ? "bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl border max-w-[95vw]" : "",
             rewritePreview 
               ? "rounded-2xl p-4 w-[480px] border-slate-200 dark:border-slate-800"
               : isMini
                 ? "rounded-full p-1 border-indigo-200 dark:border-indigo-800/80 ring-2 ring-indigo-500/20"
-                : isDocked
-                  ? "rounded-2xl p-2 border-slate-200/50 dark:border-slate-700/50 w-full md:w-auto md:max-w-[700px]"
-                  : "rounded-full p-1 border-slate-200/50 dark:border-slate-700/50"
+                : isAiProcessing
+                  ? "rounded-full p-2 border-slate-200/50 dark:border-slate-700/50"
+                  : ""
           )}
           style={isDocked ? { 
             position: 'fixed',
@@ -309,190 +351,236 @@ export function SelectionFloatingMenu({
               <Loader2 size={14} className="animate-spin text-indigo-500" />
               <span className="font-serif italic animate-pulse">Menenun prosa indah...</span>
             </div>
-          ) : isCustomOpen ? (
-            /* --- CUSTOM PROMPT TEXT INPUT MODE --- */
-            <form onSubmit={handleCustomSubmit} className="flex items-center gap-1.5 px-1 py-0.5 min-w-[320px] max-w-lg md:min-w-[400px]" id="custom-prompt-form">
-              <button
-                type="button"
-                onClick={() => setIsCustomOpen(false)}
-                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full transition-colors shrink-0"
-              >
-                <ArrowLeft size={14} />
-              </button>
-              
-              <input
-                autoFocus
-                type="text"
-                value={customPromptText}
-                onChange={(e) => setCustomPromptText(e.target.value)}
-                placeholder="Tulis instruksi khusus (misal: buat lebih sedih, puitis)..."
-                className="flex-1 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 text-xs px-1 py-1 text-slate-800 dark:text-slate-100"
-              />
-
-              <button
-                type="submit"
-                disabled={!customPromptText.trim()}
-                className={cn(
-                  "p-1.5 rounded-full shrink-0 transition-all",
-                  customPromptText.trim() 
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
-                    : "text-slate-300 dark:text-slate-700 pointer-events-none"
-                )}
-                title="Tenun Gaya Kustom"
-              >
-                <Send size={12} />
-              </button>
-            </form>
           ) : (
-            /* --- DEFAULT OPTION SELECTION PILLS --- */
-            <div className={cn(
-              "flex items-center gap-0.5",
-              isDocked ? "flex-wrap justify-center" : "flex-nowrap"
-            )} id="floating-menu-options">
-              {/* Optional Multi-provider indicators */}
-              {availableProviders.length > 1 && (
-                <div className="flex gap-1 px-1.5 border-r border-slate-200 dark:border-slate-800 mr-0.5">
-                  {availableProviders.map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setSelectedProvider(p)}
-                      title={`Gunakan provider ${p}`}
-                      className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all uppercase",
-                        selectedProvider === p 
-                          ? "ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-indigo-500 bg-indigo-600 text-white" 
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
-                      )}
-                    >
-                      {p[0]}
-                    </button>
-                  ))}
+            /* --- DEFAULT MULTI-LAYERED MENU --- */
+            <>
+              {/* LAYER 1: Core Actions Pill */}
+              <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 p-1.5 rounded-full flex items-center gap-1 shadow-xl">
+                {/* Formatting */}
+                <div className="flex gap-0.5 px-0.5 shrink-0">
+                  <button 
+                    onClick={() => editor.chain().focus().toggleBold().run()}
+                    className={cn(
+                      "p-1.5 rounded-full transition-colors flex items-center justify-center", 
+                      editor.isActive('bold') 
+                        ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 font-bold" 
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
+                    )}
+                    title="Tebalkan (Bold)"
+                  >
+                    <Bold size={14} />
+                  </button>
+                  <button 
+                    onClick={() => editor.chain().focus().toggleItalic().run()}
+                    className={cn(
+                      "p-1.5 rounded-full transition-colors flex items-center justify-center", 
+                      editor.isActive('italic') 
+                        ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 italic" 
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
+                    )}
+                    title="Miringkan (Italic)"
+                  >
+                    <Italic size={14} />
+                  </button>
                 </div>
-              )}
 
-              {/* Text formatting controls */}
-              <div className="flex px-1 gap-0.5 shrink-0">
-                <button 
-                  onClick={() => editor.chain().focus().toggleBold().run()}
-                  className={cn(
-                    "p-1.5 rounded-full transition-colors", 
-                    editor.isActive('bold') 
-                      ? "text-indigo-600 dark:text-indigo-400 bg-slate-100/90 dark:bg-slate-800/90 font-bold" 
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
-                  )}
-                  title="Tebalkan (Bold)"
-                >
-                  <Bold size={13} />
-                </button>
-                <button 
-                  onClick={() => editor.chain().focus().toggleItalic().run()}
-                  className={cn(
-                    "p-1.5 rounded-full transition-colors", 
-                    editor.isActive('italic') 
-                      ? "text-indigo-600 dark:text-indigo-400 bg-slate-100/90 dark:bg-slate-800/90 italic" 
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
-                  )}
-                  title="Miringkan (Italic)"
-                >
-                  <Italic size={13} />
-                </button>
-              </div>
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
 
-              {/* Behavior & Docking Controls */}
-              <div className="flex px-1 gap-0.5 shrink-0 border-l border-slate-200 dark:border-slate-800 pl-1 ml-0.5">
+                {/* AI Trigger */}
                 <button
                   type="button"
-                  onClick={() => setIsDocked(!isDocked)}
+                  onClick={() => setShowAiMenu(!showAiMenu)}
                   className={cn(
-                    "p-1.5 rounded-full transition-all",
-                    isDocked 
-                      ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
+                    "flex items-center gap-1.5 px-3 py-1.5 font-semibold text-xs rounded-full transition-all shrink-0",
+                    showAiMenu 
+                      ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
+                      : "bg-indigo-50 hover:bg-indigo-100/70 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
                   )}
-                  title={isDocked ? "Beralih ke Melayang (Float)" : "Sematkan di Bawah Layar agar Tidak Menghalangi (Dock to Bottom)"}
+                  title="Buka menu Asisten AI"
                 >
-                  {isDocked ? <PinOff size={13} /> : <Pin size={13} />}
+                  <Sparkles size={13} className={cn(showAiMenu ? "text-indigo-700 dark:text-indigo-300" : "animate-pulse")} />
+                  Tanya AI
+                  {hasLengthWarning && <Info size={12} className="text-indigo-400 dark:text-indigo-500 ml-0.5" />}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMini(true)}
-                  className="p-1.5 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all"
-                  title="Sembunyikan menu/Kecilkan (Minimize)"
-                >
-                  <Minimize2 size={13} />
-                </button>
-              </div>
-              
-              <div className={cn(
-                "w-px bg-slate-200 dark:bg-slate-800 mx-1 shrink-0",
-                isDocked ? "h-6 hidden md:block" : "h-4"
-              )} />
-              
-              {/* AI action pills */}
-              <div className={cn(
-                "flex items-center gap-0.5 px-1",
-                isDocked ? "flex-wrap justify-center w-full md:w-auto mt-1 md:mt-0" : "overflow-x-auto no-scrollbar max-w-[320px] md:max-w-[425px]"
-              )}>
-                {hasLengthWarning ? (
-                  /* Muted state warning to explain constraint clearly */
-                  <div className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0 select-none">
-                    <Info size={11} className="text-slate-400 dark:text-slate-600 shrink-0" />
-                    Pilih min. 5 karakter untuk opsi AI
-                  </div>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => onAiAction("Show don't tell", selectedProvider)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 rounded-full transition-colors flex items-center gap-1.5 shrink-0"
-                      title="Ubah kalimat deskriptif pasif agar langsung memperlihatkan aksinya"
-                    >
-                      <Sparkles size={11} className="text-indigo-500 animate-pulse shrink-0" />
-                      Show, don't tell
-                    </button>
-                    
-                    <button 
-                      type="button"
-                      onClick={() => onAiAction("Focus Senses", selectedProvider)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 rounded-full transition-colors flex items-center gap-1 shrink-0"
-                      title="Perkaya deskripsi suasana dengan melibatkan pancaindra"
-                    >
-                      <Eye size={11} className="text-slate-400 dark:text-indigo-400 shrink-0" />
-                      Senses
-                    </button>
-                    
-                    <button 
-                      type="button"
-                      onClick={() => onAiAction("Intensify", selectedProvider)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 rounded-full transition-colors flex items-center gap-1 shrink-0"
-                      title="Tingkatkan ketegangan dramatis atau emosional fragmen teks"
-                    >
-                      <Flame size={11} className="text-slate-400 dark:text-indigo-400 shrink-0" />
-                      Intensify
-                    </button>
 
-                    {customActions?.map((action) => (
-                      <button 
-                        key={action.id || action.prompt}
-                        onClick={() => onAiAction(action.prompt, selectedProvider)} 
-                        className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 rounded-full transition-colors shrink-0"
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                    
-                    <button 
-                      type="button"
-                      onClick={() => setIsCustomOpen(true)}
-                      className="px-3.5 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 hover:bg-indigo-100/60 dark:hover:bg-indigo-950/40 rounded-full transition-colors flex items-center gap-1 shrink-0"
-                      title="Gunakan perintah kustom buatan Anda"
-                    >
-                      <Wand2 size={11} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
-                      Lainnya...
-                    </button>
-                  </>
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
+
+                {/* Dock/Min Controls */}
+                <div className="flex gap-0.5 px-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsDocked(!isDocked)}
+                    className={cn(
+                      "p-1.5 rounded-full transition-all flex items-center justify-center",
+                      isDocked 
+                        ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
+                    )}
+                    title={isDocked ? "Beralih ke Melayang (Float)" : "Sematkan di Bawah Layar agar Tidak Menghalangi (Dock to Bottom)"}
+                  >
+                    {isDocked ? <PinOff size={14} /> : <Pin size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsMini(true)}
+                    className="p-1.5 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all"
+                    title="Sembunyikan menu/Kecilkan (Minimize)"
+                  >
+                    <Minimize2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* LAYER 2: AI Menu Overlay */}
+              <AnimatePresence>
+                {showAiMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: placement === 'top' ? 10 : -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: placement === 'top' ? 10 : -10 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className={cn(
+                      "bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xl flex flex-col w-[340px] max-w-[95vw] overflow-hidden",
+                      placement === 'bottom' ? "mt-2" : "mb-2"
+                    )}
+                  >
+                    {/* Header + Multi-provider indicator */}
+                    <div className="flex items-center justify-between p-2.5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50">
+                       <div className="flex items-center gap-2">
+                         <Wand2 size={14} className="text-indigo-500 shrink-0" />
+                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Asisten Editor AI</span>
+                       </div>
+                       
+                       {availableProviders.length > 1 && (
+                        <div className="flex gap-1 bg-slate-200/50 dark:bg-slate-800 min-w-min p-0.5 rounded-full">
+                          {availableProviders.map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setSelectedProvider(p)}
+                              title={`Gunakan provider ${p}`}
+                              className={cn(
+                                "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all uppercase",
+                                selectedProvider === p 
+                                  ? "bg-indigo-600 text-white shadow-sm" 
+                                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                              )}
+                            >
+                              {p[0]}
+                            </button>
+                          ))}
+                        </div>
+                       )}
+                    </div>
+
+                    {!hasLengthWarning ? (
+                      <div className="flex flex-col max-h-[300px]">
+                        {/* Custom Instruction Box */}
+                        <div className="p-2 border-b border-slate-100 dark:border-slate-800/80">
+                          <form onSubmit={handleCustomSubmit} className="relative flex items-center">
+                            <input
+                              autoFocus
+                              type="text"
+                              value={customPromptText}
+                              onChange={(e) => setCustomPromptText(e.target.value)}
+                              placeholder="Ketik instruksi khusus (misal: buat lebih puitis)..."
+                              className="w-full bg-slate-100 dark:bg-slate-800/80 border-0 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs px-3 py-2 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 pr-9 transition-all"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!customPromptText.trim()}
+                              className={cn(
+                                "absolute right-1 p-1.5 rounded-md shrink-0 transition-colors",
+                                customPromptText.trim() 
+                                  ? "text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-slate-700"
+                                  : "text-slate-300 dark:text-slate-600 pointer-events-none"
+                              )}
+                              title="Tenun Gaya Kustom"
+                            >
+                              <Send size={14} />
+                            </button>
+                          </form>
+
+                          {/* Action Search Bar */}
+                          <div className="relative mt-2">
+                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                             <input
+                               type="text"
+                               value={searchQuery}
+                               onChange={(e) => setSearchQuery(e.target.value)}
+                               placeholder="Cari aksi (cth: Senses, Intensify)..."
+                               className="w-full bg-transparent border border-slate-200 dark:border-slate-700 rounded text-[11px] px-7 py-1.5 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:focus:border-indigo-600 transition-colors"
+                             />
+                          </div>
+                        </div>
+
+                        {/* Action Categories */}
+                        <div className="overflow-y-auto w-full flex-1 p-2 no-scrollbar space-y-3">
+                           {filteredBuiltIn.length > 0 && (
+                             <div>
+                                <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
+                                   Built-in
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                   {filteredBuiltIn.map((action) => (
+                                     <button
+                                        key={action.id}
+                                        onClick={() => onAiAction(action.id, selectedProvider)}
+                                        className="w-full text-left flex items-center gap-2.5 px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/80 rounded-lg transition-colors group"
+                                     >
+                                        <div className="bg-indigo-50 dark:bg-indigo-500/10 p-1.5 rounded-md text-indigo-500 dark:text-indigo-400">
+                                           <action.icon size={13} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                           <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{action.label}</span>
+                                           <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{action.desc}</span>
+                                        </div>
+                                     </button>
+                                   ))}
+                                </div>
+                             </div>
+                           )}
+
+                           {filteredCustom.length > 0 && (
+                             <div>
+                                <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 py-1 mt-1 flex items-center gap-1.5">
+                                   Kustom (Personal)
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 px-2">
+                                  {filteredCustom.map((action) => (
+                                    <button 
+                                      key={action.id || action.prompt}
+                                      onClick={() => onAiAction(action.prompt, selectedProvider)} 
+                                      className="px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors shrink-0 max-w-full truncate"
+                                    >
+                                      {action.label}
+                                    </button>
+                                  ))}
+                                </div>
+                             </div>
+                           )}
+
+                           {filteredBuiltIn.length === 0 && filteredCustom.length === 0 && (
+                             <div className="py-6 text-center text-xs text-slate-400">
+                               Aksi tidak ditemukan.
+                             </div>
+                           )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-6 px-4 gap-2 text-center">
+                        <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center">
+                           <Info size={20} />
+                        </div>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Terlalu Singkat</span>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Pilih blok teks minimal 5 karakter untuk menggunakan asisten revisi dan gaya penulisan.
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
                 )}
-              </div>
-            </div>
+              </AnimatePresence>
+            </>
           )}
         </motion.div>
       )}
