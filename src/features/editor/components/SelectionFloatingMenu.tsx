@@ -31,7 +31,6 @@ interface SelectionFloatingMenuProps {
   customActions?: AIAction[];
   isAiProcessing?: boolean;
   rewritePreview?: { original: string; rewritten: string; from: number; to: number } | null;
-  setRewritePreview?: (preview: any | null) => void;
   onAcceptRewrite?: () => void;
   onInsertBelow?: () => void;
   onDiscardRewrite?: () => void;
@@ -43,7 +42,6 @@ export function SelectionFloatingMenu({
   customActions = [],
   isAiProcessing = false,
   rewritePreview = null,
-  setRewritePreview,
   onAcceptRewrite,
   onInsertBelow,
   onDiscardRewrite
@@ -102,17 +100,23 @@ export function SelectionFloatingMenu({
   }, [isCustomOpen]);
 
   const handleSelection = React.useCallback(() => {
+    if (rewritePreview) return; // Freeze menu state during preview
+
     const { selection } = editor.state;
     
-    // Check if empty selection
     if (selection.empty) {
-      // Keep showing menu if we are in active preview mode, or interacting with Ai menu
-      if (rewritePreview || showAiMenuRef.current || isCustomOpenRef.current) return;
+      // Check if user's focus is just inside the menu
+      if (showAiMenuRef.current || isCustomOpenRef.current) {
+        const activeEl = document.activeElement;
+        if (activeEl?.closest('#selection-floating-menu')) {
+          return;
+        }
+      }
       
       setShow(false);
       setSelectedText('');
       setIsCustomOpen(false);
-      setIsMini(false); // Reset mini on selection clear
+      setIsMini(false);
       return;
     }
 
@@ -121,35 +125,33 @@ export function SelectionFloatingMenu({
 
     if (selectionTimerRef.current) clearTimeout(selectionTimerRef.current);
 
-    // Small timeout to allow DOM to paint the selection rect
     selectionTimerRef.current = setTimeout(() => {
       const domSelection = window.getSelection();
-      if (domSelection && domSelection.rangeCount > 0) {
-        // If we are actively using the AI menu or custom input, don't auto-close or reposition based on DOM selection
-        // Because DOM selection might be inside the menu's input fields
-        if ((showAiMenuRef.current || isCustomOpenRef.current) && showRef.current) {
-          return;
-        }
+      if (!domSelection || domSelection.rangeCount === 0) return;
 
-        const range = domSelection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        
-        // Only show if the selection actually has dimensions
-        if (rect.width > 0 && rect.height > 0) {
-          const showAtBottom = rect.top < 140;
-          setPlacement(showAtBottom ? 'bottom' : 'top');
+      // Ignore selection changes originating inside our menu's inputs
+      const anchorNode = domSelection.anchorNode;
+      const isMenuSelection = anchorNode?.nodeType === Node.ELEMENT_NODE 
+          ? (anchorNode as Element).closest('#selection-floating-menu')
+          : anchorNode?.parentElement?.closest('#selection-floating-menu');
           
-          setPosition({
-            // Generous spacing (18px) prevents the menu from overlapping with selected lines
-            top: showAtBottom ? rect.bottom + 18 : rect.top - 18,
-            // Math.max/min guarantees the menu remains fully visible on screens
-            left: Math.max(220, Math.min(window.innerWidth - 220, rect.left + (rect.width / 2)))
-          });
-          setShow(true);
-        } else {
-          if (!rewritePreview && !showAiMenuRef.current && !isCustomOpenRef.current) {
-            setShow(false);
-          }
+      if (isMenuSelection) return;
+
+      const range = domSelection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      if (rect.width > 0 && rect.height > 0) {
+        const showAtBottom = rect.top < 140;
+        setPlacement(showAtBottom ? 'bottom' : 'top');
+        
+        setPosition({
+          top: showAtBottom ? rect.bottom + 18 : rect.top - 18,
+          left: Math.max(220, Math.min(window.innerWidth - 220, rect.left + (rect.width / 2)))
+        });
+        setShow(true);
+      } else {
+        if (!showAiMenuRef.current && !isCustomOpenRef.current) {
+          setShow(false);
         }
       }
     }, 0);
@@ -166,13 +168,16 @@ export function SelectionFloatingMenu({
     
     const handleScrollOrResize = (e: Event) => {
       if (e && e.type === 'scroll') {
-        const target = e.target as HTMLElement;
-        if (target && target.closest && target.closest('#selection-floating-menu')) {
-          // Ignore scroll events originating from inside the floating menu itself
+        const target = e.target as Node;
+        const targetElement = target.nodeType === Node.ELEMENT_NODE ? (target as Element) : null;
+        if (targetElement && targetElement.closest('#selection-floating-menu')) {
           return;
         }
       }
-      if (showRef.current) handleSelection();
+      // Re-evaluate placement if menu is shown, unless user is actively interacting with AI menu
+      if (showRef.current && !showAiMenuRef.current && !isCustomOpenRef.current) {
+        handleSelection();
+      }
     };
 
     window.addEventListener('scroll', handleScrollOrResize, true);
@@ -187,13 +192,39 @@ export function SelectionFloatingMenu({
 
   // Clean-up custom view when floating menu hides
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
     if (!show) {
-      setIsCustomOpen(false);
-      setShowAiMenu(false);
-      setSearchQuery('');
-      setCustomPromptText('');
+      timeoutId = setTimeout(() => {
+        setIsCustomOpen(false);
+        setShowAiMenu(false);
+        setSearchQuery('');
+        setCustomPromptText('');
+      }, 200); // delay to let exit animations play out
     }
+    return () => clearTimeout(timeoutId);
   }, [show]);
+
+  // Global click outside listener to collapse AI Menu safely without hiding editor UI immediately if handled elsewhere
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
+      if (!showRef.current) return;
+      const target = e.target as Element;
+      
+      if (target?.closest?.('#selection-floating-menu')) return;
+      
+      if (showAiMenuRef.current || isCustomOpenRef.current) {
+         setShowAiMenu(false);
+         setIsCustomOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleGlobalClick);
+    document.addEventListener('touchstart', handleGlobalClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClick);
+      document.removeEventListener('touchstart', handleGlobalClick);
+    };
+  }, []);
 
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,7 +234,7 @@ export function SelectionFloatingMenu({
   };
 
 
-  const hasLengthWarning = selectedText.trim().length < 5;
+  const hasLengthWarning = selectedText.replace(/\s/g, '').length < 5;
 
   const builtInActions = [
     { id: "Show don't tell", label: "Show, don't tell", icon: Sparkles, desc: "Ubah kalimat deskriptif pasif" },
@@ -435,13 +466,13 @@ export function SelectionFloatingMenu({
               <AnimatePresence>
                 {showAiMenu && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: placement === 'top' ? 10 : -10 }}
+                    initial={{ opacity: 0, scale: 0.95, y: placement === 'top' && !isDocked ? 10 : -10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: placement === 'top' ? 10 : -10 }}
+                    exit={{ opacity: 0, scale: 0.95, y: placement === 'top' && !isDocked ? 10 : -10 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
                     className={cn(
                       "bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xl flex flex-col w-[340px] max-w-[95vw] overflow-hidden",
-                      placement === 'bottom' ? "mt-2" : "mb-2"
+                      placement === 'bottom' || isDocked ? "mt-2" : "mb-2"
                     )}
                   >
                     {/* Header + Multi-provider indicator */}
