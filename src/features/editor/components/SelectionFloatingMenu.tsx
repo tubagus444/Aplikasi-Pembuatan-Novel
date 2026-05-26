@@ -183,12 +183,14 @@ export function SelectionFloatingMenu({
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.12, ease: "easeOut" }}
           className={cn(
-            "fixed z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl border transition-colors duration-200",
+            "fixed z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl border transition-colors duration-200 max-w-[95vw]",
             rewritePreview 
-              ? "rounded-2xl p-4 w-[480px] max-w-[90vw] border-slate-200 dark:border-slate-800"
+              ? "rounded-2xl p-4 w-[480px] border-slate-200 dark:border-slate-800"
               : isMini
                 ? "rounded-full p-1 border-indigo-200 dark:border-indigo-800/80 ring-2 ring-indigo-500/20"
-                : "rounded-full p-1 border-slate-200/50 dark:border-slate-700/50"
+                : isDocked
+                  ? "rounded-2xl p-2 border-slate-200/50 dark:border-slate-700/50 w-full md:w-auto md:max-w-[700px]"
+                  : "rounded-full p-1 border-slate-200/50 dark:border-slate-700/50"
           )}
           style={isDocked ? { 
             position: 'fixed',
@@ -343,7 +345,10 @@ export function SelectionFloatingMenu({
             </form>
           ) : (
             /* --- DEFAULT OPTION SELECTION PILLS --- */
-            <div className="flex flex-nowrap items-center gap-0.5" id="floating-menu-options">
+            <div className={cn(
+              "flex items-center gap-0.5",
+              isDocked ? "flex-wrap justify-center" : "flex-nowrap"
+            )} id="floating-menu-options">
               {/* Optional Multi-provider indicators */}
               {availableProviders.length > 1 && (
                 <div className="flex gap-1 px-1.5 border-r border-slate-200 dark:border-slate-800 mr-0.5">
@@ -418,10 +423,16 @@ export function SelectionFloatingMenu({
                 </button>
               </div>
               
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1 shrink-0" />
+              <div className={cn(
+                "w-px bg-slate-200 dark:bg-slate-800 mx-1 shrink-0",
+                isDocked ? "h-6 hidden md:block" : "h-4"
+              )} />
               
               {/* AI action pills */}
-              <div className="flex items-center gap-0.5 px-1 overflow-x-auto no-scrollbar max-w-[320px] md:max-w-[425px]">
+              <div className={cn(
+                "flex items-center gap-0.5 px-1",
+                isDocked ? "flex-wrap justify-center w-full md:w-auto mt-1 md:mt-0" : "overflow-x-auto no-scrollbar max-w-[320px] md:max-w-[425px]"
+              )}>
                 {hasLengthWarning ? (
                   /* Muted state warning to explain constraint clearly */
                   <div className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0 select-none">

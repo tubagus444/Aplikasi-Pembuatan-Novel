@@ -15,6 +15,8 @@ export interface AIRenderParams {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
+  stream?: boolean;
+  onChunk?: (chunk: string) => void;
 }
 
 export interface GenerateParams {
@@ -26,6 +28,8 @@ export interface GenerateParams {
   chapterId?: number;
   provider?: string;
   contextText?: string;
+  stream?: boolean;
+  onChunk?: (chunk: string) => void;
 }
 
 export interface ChatParams {
@@ -37,4 +41,6 @@ export interface ChatParams {
   chapterId?: number; // Added/verified for chapter-specific AI context
   provider?: string;
   sessionMode?: SessionMode;
+  stream?: boolean;
+  onChunk?: (chunk: string) => void;
 }

@@ -44,6 +44,10 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     ];
   }
 
+  if (params.stream) {
+    body.stream = true;
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
@@ -88,6 +92,59 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     err.provider = provider;
     err.rawMessage = rawMessage;
     throw err;
+  }
+
+  if (params.stream && params.onChunk) {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Streaming not supported.");
+    
+    let completeText = "";
+    let buffer = "";
+    const decoder = new TextDecoder("utf-8");
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ""; // last incomplete line
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+        
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === '[DONE]') continue;
+        
+        try {
+          const data = JSON.parse(dataStr);
+          let chunk = "";
+          
+          if (provider === 'claude') {
+             if (data.type === 'content_block_delta' && data.delta?.text) {
+               chunk = data.delta.text;
+             }
+          } else if (provider === 'google') {
+             if (data.candidates && data.candidates[0]?.content?.parts) {
+               chunk = data.candidates[0].content.parts[0].text || "";
+             }
+          } else {
+             if (data.choices && data.choices[0]?.delta?.content) {
+               chunk = data.choices[0].delta.content;
+             }
+          }
+          
+          if (chunk) {
+             completeText += chunk;
+             params.onChunk(chunk);
+          }
+        } catch (e) {
+          // Ignore partial parse or unexpected data
+        }
+      }
+    }
+    return completeText;
   }
 
   const data = await response.json();

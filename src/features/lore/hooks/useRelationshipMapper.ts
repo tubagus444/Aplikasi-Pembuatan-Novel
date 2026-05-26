@@ -16,6 +16,7 @@ export function useRelationshipMapper(projectId: number) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [type, setType] = useState('Friend');
+  const [description, setDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Auto-select first character if none is selected
@@ -63,6 +64,7 @@ export function useRelationshipMapper(projectId: number) {
     setEditingId(null);
     setTargetId(null);
     setType('Friend');
+    setDescription('');
   };
 
   const saveRelationship = async () => {
@@ -75,7 +77,8 @@ export function useRelationshipMapper(projectId: number) {
         await db.relationships.update(editingId, {
           sourceId: isSource ? selectedCharacterId : targetId,
           targetId: isSource ? targetId : selectedCharacterId,
-          type
+          type,
+          description: description.trim() || undefined
         });
       }
     } else {
@@ -83,7 +86,8 @@ export function useRelationshipMapper(projectId: number) {
         projectId,
         sourceId: selectedCharacterId,
         targetId,
-        type
+        type,
+        description: description.trim() || undefined
       });
     }
     
@@ -96,6 +100,7 @@ export function useRelationshipMapper(projectId: number) {
     const otherId = rel.sourceId === selectedCharacterId ? rel.targetId : rel.sourceId;
     setTargetId(otherId);
     setType(rel.type);
+    setDescription(rel.description || '');
     setIsAdding(true);
   };
 
@@ -117,6 +122,8 @@ export function useRelationshipMapper(projectId: number) {
     setTargetId,
     type,
     setType,
+    description,
+    setDescription,
     searchQuery,
     setSearchQuery,
     selectedCharacter,

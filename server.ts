@@ -13,6 +13,7 @@ async function startServer() {
   app.post("/api/ai/proxy", async (req, res) => {
     const { provider, body } = req.body;
     const clientApiKey = (req.headers['x-api-key'] as string) || '';
+    const isStream = !!body.stream;
     
     // Resolve API Key (prioritize client-provided API keys)
     let apiKey = '';
@@ -45,7 +46,13 @@ async function startServer() {
         // Ensure model name is correctly formatted for the URL
         const modelName = body.model || 'gemini-1.5-flash';
         const sanitizedModel = modelName.includes('/') ? modelName : `models/${modelName}`;
-        url = `https://generativelanguage.googleapis.com/v1beta/${sanitizedModel}:generateContent?key=${apiKey}`;
+        if (isStream) {
+          url = `https://generativelanguage.googleapis.com/v1beta/${sanitizedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+          // Gemini doesn't use a 'stream: true' property in the body, it uses the alt=sse url
+          delete body.stream;
+        } else {
+          url = `https://generativelanguage.googleapis.com/v1beta/${sanitizedModel}:generateContent?key=${apiKey}`;
+        }
         break;
       default:
         return res.status(400).json({ error: "Unsupported provider" });
@@ -60,6 +67,32 @@ async function startServer() {
         headers: headers,
         body: JSON.stringify(body)
       });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        return res.status(response.status).json({ error: errorData || `HTTP error ${response.status}` });
+      }
+
+      if (isStream) {
+        // SSE headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          return res.status(500).json({ error: "Streaming not supported by proxy response." });
+        }
+
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(decoder.decode(value, { stream: true }));
+        }
+        res.end();
+        return;
+      }
 
       const data = await response.json();
       res.status(response.status).json(data);

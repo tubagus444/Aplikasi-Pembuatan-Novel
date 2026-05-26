@@ -104,7 +104,7 @@ export function AssistantMessageList({ messages, isLoading, onSelectPrompt }: As
           </div>
         ))}
         
-        {isLoading && (
+        {isLoading && messages[messages.length - 1]?.role !== 'model' && (
           <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-2">
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-sm mt-1">
               <Sparkles size={18} />

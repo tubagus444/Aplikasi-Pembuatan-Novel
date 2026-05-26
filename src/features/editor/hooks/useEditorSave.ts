@@ -17,6 +17,7 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
   const chapterIdRef = useRef(chapterId);
   const isMountedRef = useRef(true);
   const skipNextUpdateRef = useRef(false);
+  const htmlRef = useRef(editor?.getHTML() || "");
 
   const performSave = useCallback((id: number, content: string) => {
     if (!id || id <= 0) return Promise.resolve();
@@ -46,13 +47,24 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
       // Final cleanup on unmount
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
-        const html = editor?.getHTML();
+        const html = htmlRef.current;
         if (html && chapterIdRef.current) {
           performSave(chapterIdRef.current, html);
         }
       }
     };
   }, [editor, performSave]);
+
+  useEffect(() => {
+    if (chapterIdRef.current !== chapterId) {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        performSave(chapterIdRef.current, htmlRef.current);
+        saveTimeoutRef.current = null;
+      }
+      chapterIdRef.current = chapterId;
+    }
+  }, [chapterId, performSave]);
 
   // Sync title when chapter loads
   useEffect(() => {
@@ -70,6 +82,7 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
     }
     
     const html = currentEditor.getHTML();
+    htmlRef.current = html;
     const idToSave = chapterIdRef.current;
     
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);

@@ -48,6 +48,14 @@ export function useEditorAI(
     try {
       const chapterContent = editor.getText();
 
+      let currentRewrite = "";
+      setRewritePreview({
+        original: selectedText,
+        rewritten: "",
+        from,
+        to
+      });
+
       const result = await processRewrite({
         action,
         selection: selectedText,
@@ -56,12 +64,17 @@ export function useEditorAI(
         prompt: customPrompt || '',
         chapterId,
         provider,
-        contextText: chapterContent
+        contextText: chapterContent,
+        stream: true,
+        onChunk: (chunk) => {
+           currentRewrite += chunk;
+           setRewritePreview(prev => prev ? { ...prev, rewritten: currentRewrite } : null);
+        }
       });
 
       setRewritePreview({
         original: selectedText,
-        rewritten: result,
+        rewritten: currentRewrite || result,
         from,
         to
       });

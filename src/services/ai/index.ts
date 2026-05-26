@@ -199,6 +199,8 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       userPrompt,
       provider: params.provider,
       temperature: 0.85,
+      stream: params.stream,
+      onChunk: params.onChunk,
       signal: controller.signal
     });
     abortControllers.delete('rewrite');
@@ -264,6 +266,8 @@ export async function processChat(params: ChatParams): Promise<string> {
       provider: params.provider,
       history: trimmedHistory,
       temperature: 0.7,
+      stream: params.stream,
+      onChunk: params.onChunk,
       signal: controller.signal
     });
     abortControllers.delete('chat');

@@ -84,6 +84,9 @@ export function useChatSession({
         }));
 
       // 2. Process chat (RAG logic handled inside processChat)
+      let currentReply = "";
+      const assistantMsgId = Date.now().toString() + "_assistant";
+      
       const reply = await processChat({
         message: resolvedText,
         history,
@@ -92,13 +95,26 @@ export function useChatSession({
         contextText: customContext || contextText,
         chapterId,
         provider,
-        sessionMode
+        sessionMode,
+        stream: true,
+        onChunk: (chunk) => {
+          currentReply += chunk;
+          const streamMsg: ChatMessage = {
+             id: assistantMsgId,
+             role: 'model',
+             content: currentReply,
+             timestamp: Date.now()
+          };
+          const streamMessages = [...newMessages, streamMsg];
+          setMessages(streamMessages);
+          messagesRef.current = streamMessages;
+        }
       });
 
       const assistantMsg: ChatMessage = { 
-        id: (Date.now() + 1).toString(),
+        id: assistantMsgId,
         role: 'model', 
-        content: reply, 
+        content: currentReply || reply, 
         timestamp: Date.now() 
       };
       
