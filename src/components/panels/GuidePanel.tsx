@@ -29,14 +29,31 @@ export function GuidePanel() {
       targetView: 'write' as ViewMode,
       icon: <FileText className="w-6 h-6 text-indigo-500" />,
       bg: "bg-indigo-50 dark:bg-indigo-500/10",
-      title: "1. Editor Utama & Mentions (@)",
-      description: "Kanvas utama untuk menulis. Fokus pada teks dengan bantuan asisten cerdas.",
-      howItWorks: "Asisten memantau teks Anda secara real-time. Jika Anda menyebutkan entri Codex, asisten akan menarik memori tentang entri tersebut.",
+      title: "1. Editor Utama & Magic Edit (✨)",
+      description: "Kanvas utama untuk menulis dengan fitur editor kaya teks (Rich Text) yang terintegrasi dengan asisten AI secara langsung.",
+      howItWorks: "AI berjalan di latar belakang (background) dan mengawasi setiap teks yang Anda tulis. Editor ini dirancang agar bersih, bebas distraksi, dan sangat responsif.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li><strong>Menulis Bebas:</strong> Gunakan Mode Fokus di kanan atas editor saat butuh ruang tenang tanpa distraksi.</li>
-          <li><strong>Mentions (@):</strong> Ketik <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono text-xs border border-slate-200 dark:border-slate-700">@NamaKarakter</code>. AI akan langsung mengenali siapa yang Anda bicarakan.</li>
-          <li><strong>Magic Edit (✨):</strong> Blok teks yang ingin diubah, klik ikon Sparkles, dan beri instruksi spesifik.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li><strong>Menulis Bebas:</strong> Klik tombol layar penuh di kanan atas untuk masuk ke mode fokus. Semua panel akan disembunyikan.</li>
+          <li><strong>Magic Edit (✨):</strong> Blok (highlight) sebagian paragraf yang ingin Anda perbaiki, lalu klik ikon panah panah (✨) kecil mengambang. Ketik perintah seperti "Ubah menjadi lebih dramatis" dan klik tombol untuk biarkan AI menyulap teks Anda secara ajaib!</li>
+          <li><strong>Auto-Format:</strong> Tulis dialog dengan biasa, editor mendukung fitur bold, italic, list, hingga heading (H1, H2, H3) melalui menu Selection Floating (yang muncul ketika Anda menyorot tulisan).</li>
+          <li><strong>Penggantian Otomatis:</strong> Gunakan kotak "Search & Replace" di pojok kanan bawah editor untuk merombak nama atau kata di satu chapter utuh.</li>
+        </ul>
+      )
+    },
+    {
+      id: 'feature-mentions',
+      targetView: 'write' as ViewMode,
+      icon: <Zap className="w-6 h-6 text-amber-500" />,
+      bg: "bg-amber-50 dark:bg-amber-500/10",
+      title: "2. Sistem Mentions (@) & Konteks",
+      description: "Cara tercepat mengarahkan perhatian AI pada karakter atau lore khusus langsung dari layar ketik tanpa membuka menu lain.",
+      howItWorks: "Sistem AI Studio ini menggunakan Context Chunking cerdas. AI tidak menelan seluruh teks Anda yang akan sangat boros memori; ia hanya membaca teks jika dipanggil secara spesifik via mention.",
+      howToUse: (
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li>Ketik <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-amber-600 dark:text-amber-400 font-mono text-xs border border-slate-200 dark:border-slate-700">@</code> di dalam editor. Menu Autocomplete otomatis akan menampilkan daftar karakter, entri Codex, maupun chapter.</li>
+          <li>Apabila Anda meng-klik salah satunya, itu akan ter-highlight dalam kotak kuning di editor.</li>
+          <li>AI kemudian otomatis secara 'ajaib' membaca seluruh deskripsi tentang karakter tersebut dari Codex, termasuk kepribadian dan gaya bahasanya saat Anda menyuruh AI mengubah dialog mereka!</li>
         </ul>
       )
     },
@@ -45,13 +62,15 @@ export function GuidePanel() {
       targetView: 'brainstorm' as ViewMode,
       icon: <BrainCircuit className="w-6 h-6 text-purple-500" />,
       bg: "bg-purple-50 dark:bg-purple-500/10",
-      title: "2. AI Assistant Studio",
-      description: "Ruang diskusi khusus untuk menyusun plot, lore, dan ide-ide liar.",
-      howItWorks: "Chat terpisah yang memiliki akses penuh ke Story Bible dan Codex Anda. Sempurna untuk sesi 'ngobrol' panjang dengan asisten.",
+      title: "3. AI Assistant Studio & Mode Sesi",
+      description: "Ruang percakapan dedicated (terpisah) selayaknya WhatsApp untuk sesi diskusi tingkat berat (brainstorming), penyusunan Plot, atau kritik ringan.",
+      howItWorks: "Di modul ini, Anda dapat merubah 'Persona' dari AI (contoh: Mode Bedah Perencanaan Plot atau Mode Bedah Prosa) untuk memberikan bobot gaya respon yang berbeda.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li><strong>Lampirkan Lore:</strong> Gunakan ikon (+) di area chat untuk melampirkan profil Karakter ke dalam percakapan.</li>
-          <li><strong>Eksplorasi Ide:</strong> Tanya seperti rekan kerja: <em>"Bagaimana @Tokoh Utama bereaksi terhadap tragedi ini?"</em></li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li><strong>Ubah Sesi (Persona):</strong> Klik tombol di kanan atas kolom obrolan untuk berpindah antara "Plot Brainstorm", "Prose Critic", atau "Worldbuilder". Model AI akan merubah gaya menjawabnya sesuai kebutuhan Anda!</li>
+          <li><strong>Lampirkan Konteks (+):</strong> Klik simbol (+) dari kotak chat untuk mengimpor entri Bible, atau Codex tertentu agar AI terfokus pada topik tersebut.</li>
+          <li><strong>Smart Auto-Context:</strong> Hidupkan toggle di pojok header asisten ini. Dengan begitu, AI akan selalu menyelundupkan 'Teks Bab yang sedang kamu edit' jadi setiap jawaban selalu relevan!</li>
+          <li>Gunakan mode chat ini ketika butuh "ide baru" saat tersangkut (writer's block), dibanding Magic Edit yang lebih cocok untuk merombak teks yang "sudah ada".</li>
         </ul>
       )
     },
@@ -60,14 +79,14 @@ export function GuidePanel() {
       targetView: 'codex' as ViewMode,
       icon: <Database className="w-6 h-6 text-emerald-500" />,
       bg: "bg-emerald-50 dark:bg-emerald-500/10",
-      title: "3. Codex (Ensiklopedia Dunia)",
-      description: "Database pusat untuk Karakter, Lokasi, Item, dan Lore.",
-      howItWorks: "Kumpulan pengetahuan global yang menjadi 'Long-term Memory' bagi asisten AI Anda.",
+      title: "4. Codex (Ensiklopedia Lore)",
+      description: "Sistem database modular (Karakter, Item, Sihir, Lokasi, Event) yang saling mengait. Otak memori jangka panjang untuk proyek buku Anda.",
+      howItWorks: "Codex bukan sekadar teks diam. Sistem Passive Highlighting dari AetherScribe akan membaca setiap kata di dokumen utama. Jika ada kata yang sama dengan nama entri di Codex, kata itu akan otomatis di-highlight dengan efek titik-titik pada bawah kata.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Isi deskripsi entri sespesifik mungkin. Gunakan poin-poin untuk ciri fisik dan motivasi.</li>
-          <li>Kategorikan entri (Karakter, Lokasi, dll) agar mudah dicari saat menulis.</li>
-          <li>Data Codex dipanggil otomatis oleh AI saat anda menggunakan fitur Mentions (@).</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li><strong>Klasifikasi Warna:</strong> Setiap kategori diwakili oleh warna ikon yang berbeda (Karakter = biru, Lokasi = Cyan). Gunakan label dengan bijak!</li>
+          <li><strong>Sistem Alias:</strong> Pada form entri Codex, tambahkan 'Alias' (Contoh: "Budi", "Bud", "Bos Budi"). AI dan Editor otomatis mendeteksi semua variasi nama ini di naskahmu.</li>
+          <li><strong>Hover Cepat:</strong> Di editor utama, arahkan mouse ke kata yang memiliki titik-titik garis bawah. Mini-popup dari entri Codex akan muncul, memudahkan Anda membaca biografi tanpa mesti buka menu!</li>
         </ul>
       )
     },
@@ -76,13 +95,14 @@ export function GuidePanel() {
       targetView: 'relationships' as ViewMode,
       icon: <Share2 className="w-6 h-6 text-rose-500" />,
       bg: "bg-rose-50 dark:bg-rose-500/10",
-      title: "4. Relationship Mapper",
-      description: "Peta visual untuk melihat keterkaitan antar karakter dan faksi.",
-      howItWorks: "Asisten menggunakan data hubungan ini untuk memastikan dialog dan perilaku AI sesuai konteks antar-karakter.",
+      title: "5. Relationship Mapper",
+      description: "Sebuah peta visual interaktif (Node Diagram) yang membedah jaringan konflik dan ikatan batin antar berbagai entitas (Codex).",
+      howItWorks: "Modul menggunakan algoritma fisika graf d3.js. Lingkaran (Node) mewakili karakter/lokasi, sedangkan garis (Edge) mewakili sentimen/hubungan.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Tambahkan link antar entri Codex (misalnya: Musuh, Sahabat, Guru).</li>
-          <li>Catatan ini sangat berguna dalam menjaga konsistensi intrik atau drama antar tokoh.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li>Tarik dan geser (drag) lingkaran bebas sesuka Anda untuk merapikan graf.</li>
+          <li>Klik simbol '+' untuk menciptakan ikatan (contohnya: Tautkan karakter 'A' ke karakter 'B', dan set label "Musuh Bebuyutan").</li>
+          <li>AI Assistant Studio secara pasif 'membaca' peta ini. Saat membuat percakapan antara A & B, AI akan otomatis tahu kalau mereka bermusuhan tanpa diperintah lagi!</li>
         </ul>
       )
     },
@@ -91,13 +111,14 @@ export function GuidePanel() {
       targetView: 'outline' as ViewMode,
       icon: <LayoutList className="w-6 h-6 text-fuchsia-500" />,
       bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10",
-      title: "5. Planning Board",
-      description: "Pusat kendali struktur bab dan manajemen proyek.",
-      howItWorks: "Papan visual yang mengelola status setiap bab (Draft, Review, Final).",
+      title: "6. Planning Board & Manajemen Bab",
+      description: "Papan tugas gaya Kanban-board lengkap dengan daftar urutan bab. Memudahkan rotasi nasib dan alur waktu naskah.",
+      howItWorks: "Tiap karya pasti punya fase 'Blueprint'. Di sini adalah wadah bagi 'Skeleton' dari proyek yang dikelompokan dalam kolom status mulai dari Outline, Draft, hingga Done.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Geser kartu bab (Drag & Drop) untuk merubah status pengerjaan.</li>
-          <li>Buat draf outline di setiap kartu bab sebelum mulai menulis teks aslinya.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li><strong>Ubah Status:</strong> Tekan dan seret (Drag & Drop) kartu ke kolom sebelah ('Outline' -{'>'} 'Draft') jika bab sudah pindah tahap pengerjaan. Visual ini mempercepat pengukuran rampungnya novel Anda.</li>
+          <li><strong>Manajemen Bab Bawah:</strong> Urutkan kembali Bab dengan menarik ikon "Grip" di sisi kiri pada daftar baris bab.</li>
+          <li>Bisa buat Ringkasan Singkat (Summary) pada setiap bab agar AI bisa mengetahui isi dari semua bab sekalipun bab tersebut belum selesai ditulis dengan penuh!</li>
         </ul>
       )
     },
@@ -106,13 +127,14 @@ export function GuidePanel() {
       targetView: 'bible' as ViewMode,
       icon: <Target className="w-6 h-6 text-sky-500" />,
       bg: "bg-sky-50 dark:bg-sky-500/10",
-      title: "6. Story Bible",
-      description: "Pilar utama gaya bahasa, tema, dan aturan dunia cerita.",
-      howItWorks: "Data di sini akan 'memaksa' AI mengikuti instruksi global Anda di setiap fitur.",
+      title: "7. Story Bible & Tone Enforcement",
+      description: "Pilar absolut bagi seluruh sistem aplikasi. Intruksi konstitusi utama, hukum cerita, bahasa baku, dan tema sentral.",
+      howItWorks: "Aturan (Rules) dalam Story Bible adalah Sistem Prompt yang menimpa keseluruhan tabiat dan respon dari asisten. Sangat kritis bagi kualitas ouput yang dihasilkan AI Magic Edit maupun Brainstorming.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Tentukan 'Voice & Tone'. Contoh: <em>"Gunakan bahasa puitis namun kelam."</em></li>
-          <li>Atur aturan dunia secara eksplisit agar AI tetap konsisten pada logika cerita.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li>Buatlah aturan seperti <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-xs">Tone</code> dengan nilai <em>"Gelap, gotik, suram, tanpa romansa."</em></li>
+          <li>Tambahkan <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-xs">Format</code> dengan nilai <em>"Gunakan sudut pandang orang pertama (Aku), jangan pakai POV orang ketiga."</em></li>
+          <li>Bisa dimatikan dan direkayasa (Toggle Active/Inactive) agar menyesuaikan perombakan alur ketika diperlukan.</li>
         </ul>
       )
     },
@@ -121,13 +143,14 @@ export function GuidePanel() {
       targetView: 'write' as ViewMode,
       icon: <BarChart3 className="w-6 h-6 text-cyan-500" />,
       bg: "bg-cyan-50 dark:bg-cyan-500/10",
-      title: "7. Prose Insights",
-      description: "Analisis statistik dan gaya tulisan secara otomatis.",
-      howItWorks: "Mengevaluasi skor keterbacaan, mendeteksi jumlah kalimat pasif dan adverbia pada bab yang aktif.",
+      title: "8. Modul Prose Insights & Statistik",
+      description: "Sebuah instrumen presisi yang membedah kelemahan kalimat, keterbacaan (readability), statistik jumlah kata bab, hingga melacak target harian (Goals).",
+      howItWorks: "Algoritma memproses array of words dari Bab aktif dan akan menampilkan diagram metriks seperti kalimat pasif atau terlalu banyak Adverbia (kata keterangan berlebihan).",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Buka di panel sebelah kanan pada mode Editor Utama.</li>
-          <li>Perbaiki kalimat yang terlalu panjang (Long Sentences) untuk memutar ritme tulisan.</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li><strong>Prose Insights:</strong> Buka sidebar kanan pada Editor (tombol 'Chart'), temukan kalimat panjang yang di-highlight warna abu untuk memperbaikinya, pangkas menjadi dua kalimat pendek agar buku punya tempo yang dinamis!</li>
+          <li><strong>Writing Stats:</strong> Terletak di header utama, klik angka jumlah kata untuk membuka popup khusus target mingguan!</li>
+          <li>Setel gol 'Daily Kata' agar aplikasi melacak produktivitas waktu senggang harian!</li>
         </ul>
       )
     },
@@ -136,13 +159,14 @@ export function GuidePanel() {
       targetView: 'actions' as ViewMode,
       icon: <Sparkles className="w-6 h-6 text-yellow-500" />,
       bg: "bg-yellow-50 dark:bg-yellow-500/10",
-      title: "8. Custom AI Snippets",
-      description: "Prompt khusus dan kustom yang siap dipanggil kapan saja.",
-      howItWorks: "Memungkinkan Anda membuat fungsi AI milik Anda sendiri (misal: 'Beri Kritik Tajam').",
+      title: "9. Custom AI Snippets (Actions Panel)",
+      description: "Tumpukan fungsi prompt yang dirakit khusus yang dapat diakses dengan cepat kapan saja di masa mendatang.",
+      howItWorks: "Mirip seperti 'Macro' di Excel, di mana Anda membuat fungsi AI milik Anda sendiri (misal prompt: 'Terjemahkan dialog ke gaya Victoria') sebagai tombol pintasan.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Buat Snippet baru di tab 'AI Snippets'.</li>
-          <li>Panggil saat memindai paragraf untuk hasil yang jauh lebih konsisten!</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li>Buat Snippet baru di tab 'AI Snippets / Actions Panel'.</li>
+          <li>Panggil snippet ini lewat popup Magic Edit. Tidak perlu mengetik ulang promps panjang setiap kali butuh translasi atau modifikasi berulang.</li>
+          <li>Sangat hemat waktu untuk revisi skala masif yang sering terjadi berulang-ulang di berbagai bab.</li>
         </ul>
       )
     },
@@ -151,13 +175,28 @@ export function GuidePanel() {
       targetView: 'write' as ViewMode,
       icon: <SettingsIcon className="w-6 h-6 text-teal-500" />,
       bg: "bg-teal-50 dark:bg-teal-500/10",
-      title: "9. Snapshots (Mesin Waktu)",
-      description: "Sistem Auto-Backup dan riwayat versi teks Anda.",
-      howItWorks: "Menyimpan secara presisi draf pada waktu tertentu. Jika AI merusak dokumen, kembalikan saja lewat Snapshot.",
+      title: "10. Snapshots (Mesin Waktu)",
+      description: "Sistem Version-Control atau Undo System jangka panjang tingkat dewa. Sangat penting ketika tulisan dirombak lalu Anda menyesal.",
+      howItWorks: "Men-database-kan secara presisi 'foto/salinan' draf pada waktu tertentu hanya untuk bab tersebut.",
       howToUse: (
-        <ul className="list-disc pl-5 space-y-2 mt-2 font-medium">
-          <li>Sistem melakukan back-up berkala.</li>
-          <li>Anda juga dapat membuat snapshot manual dengan memberi label (Misal: 'Sebelum Edit Besar').</li>
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li>Sistem melakukan back-up secara otomatis (namun versi ini ditimpa berkala).</li>
+          <li><strong>Simpan Manual:</strong> Pada Sidebar Editor fitur, buka Snapshots Panel, klik 'Take Manual Snapshot', dan beri label (Misal: 'Sebelum Edit Besar oleh Si Botot AI'). Snapshots berlabel ini aman tak akan hilang tertimpa, kapan pun Anda dapat merestorenya kembali sempurna!</li>
+        </ul>
+      )
+    },
+    {
+      id: 'feature-project-export',
+      targetView: 'settings' as ViewMode,
+      icon: <Book className="w-6 h-6 text-orange-500" />,
+      bg: "bg-orange-50 dark:bg-orange-500/10",
+      title: "11. Manajemen Proyek & Ekspor Multi-Format",
+      description: "Menghadirkan Workspace multi-proyek dan engine Ekspor utuh untuk membekukan karya jadi material mentah final.",
+      howItWorks: "Bisa buat berapapun jumlah proyek novel di satu aplikasi ini. Sistem ekspor merajut seluruh bab yang ditandai 'Aktif' menjadi 1 berkas berurutan.",
+      howToUse: (
+        <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
+          <li><strong>Pindah Proyek:</strong> Klik Nama Proyek Anda di pojok paling kiri Header (Sebelah ikon Sidebar). Ini akan membuka Project Modal (Pilih, Tambah, Hapus).</li>
+          <li><strong>Ekspor (Export):</strong> Klik Menu Settings (⚙️) panel, lalu klik tombol Hijau di atas berlabel "Export Project". Centang bab apa saja yang ingin Anda cetak, dan pilih output formatnya: (Markdown bersih padat, Dokumen Microsoft Word (docx), atau Epub standar e-book)!</li>
         </ul>
       )
     }

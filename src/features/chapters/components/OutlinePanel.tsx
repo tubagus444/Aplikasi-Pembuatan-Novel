@@ -130,65 +130,71 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
       {/* STATISTICS PANEL */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {/* Total & Progres Bab */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Bab Terencana</span>
-            <Bookmark size={16} className="text-indigo-500" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4.5 rounded-xl shadow-sm flex flex-col justify-between group hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Bab Terencana</span>
+            <div className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100/50 dark:border-indigo-500/20 group-hover:scale-105 transition-transform">
+              <Bookmark size={14} className="text-indigo-600 dark:text-indigo-400" />
+            </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-3xl font-bold font-mono text-slate-900 dark:text-slate-100">{stats.totalChapters}</span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">total bab</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-bold font-mono text-slate-900 dark:text-slate-100 tracking-tight">{stats.totalChapters}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">total bab</span>
           </div>
-          <div className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-2">
-            <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
-            <span><strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.doneCount}</strong> dari <strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.totalChapters}</strong> bab telah selesai (Done)</span>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 flex items-center gap-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-3">
+            <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+            <span><strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.doneCount}</strong> dari <strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.totalChapters}</strong> selesai (Done)</span>
           </div>
         </div>
 
         {/* Word Count Progress */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Statistik Kata Cerita</span>
-            <TrendingUp size={16} className="text-emerald-500" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4.5 rounded-xl shadow-sm flex flex-col justify-between group hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Statistik Kata</span>
+            <div className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100/50 dark:border-emerald-500/20 group-hover:scale-105 transition-transform">
+              <TrendingUp size={14} className="text-emerald-600 dark:text-emerald-400" />
+            </div>
           </div>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-3xl font-bold font-mono text-slate-900 dark:text-slate-100">{stats.totalWords.toLocaleString()}</span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">kata</span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-4xl font-bold font-mono text-slate-900 dark:text-slate-100 tracking-tight">{stats.totalWords.toLocaleString()}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">kata</span>
             {stats.totalGoal > 0 && (
-              <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">/ {stats.totalGoal.toLocaleString()} goal</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">/ {stats.totalGoal.toLocaleString()} goal</span>
             )}
           </div>
-          <div className="mt-2 border-t border-slate-100 dark:border-slate-800 pt-2">
+          <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3">
             {stats.totalGoal > 0 ? (
               <div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold mb-1 uppercase">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-500 font-bold mb-1.5 uppercase tracking-widest">
                   <span>Progres Target</span>
-                  <span>{stats.progressPercent}%</span>
+                  <span className="font-mono">{stats.progressPercent}%</span>
                 </div>
-                <div className="w-full bg-slate-105 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-slate-800/80 h-2 rounded-full overflow-hidden shadow-inner">
                   <div 
                     className={cn(
-                      "h-full transition-all duration-500 rounded-full",
-                      stats.progressPercent >= 100 ? "bg-emerald-500" : "bg-indigo-500"
+                      "h-full transition-all duration-700 rounded-full",
+                      stats.progressPercent >= 100 ? "bg-emerald-500" : "bg-gradient-to-r from-indigo-500 to-indigo-400"
                     )}
                     style={{ width: `${stats.progressPercent}%` }}
                   />
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-                <Activity size={12} className="text-amber-500" />
-                <span>Belum ada target kata kumulatif yang ditentukan</span>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Activity size={13} className="text-amber-500" />
+                <span>Belum ada target kata yang ditentukan.</span>
               </div>
             )}
           </div>
         </div>
 
         {/* POV Visual Tracker */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Sudut Pandang (POV)</span>
-            <UserCircle size={16} className="text-amber-500" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4.5 rounded-xl shadow-sm flex flex-col justify-between group hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Sudut Pandang (POV)</span>
+            <div className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-100/50 dark:border-amber-500/20 group-hover:scale-105 transition-transform">
+              <UserCircle size={14} className="text-amber-600 dark:text-amber-400" />
+            </div>
           </div>
           
           <div className="flex-1 overflow-y-auto max-h-[50px] no-scrollbar py-1">
@@ -232,35 +238,37 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
       </div>
 
       {/* FILTER & CONTROL TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/85 mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/85 mb-6 gap-4">
         {/* Search Input and active filter indicator */}
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Cari bab berdasarkan judul, rangkuman, POV..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-950 border border-slate-250 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all shadow-sm"
-            />
-            {searchQuery && (
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-1 max-w-md relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={14} className="text-slate-400 dark:text-slate-500" />
+          </div>
+          <input
+            type="text"
+            placeholder="Cari bab berdasarkan judul, rangkuman, POV..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-14 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/20 transition-all shadow-sm box-border"
+          />
+          {searchQuery && (
+            <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center">
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[10px] hover:text-slate-600 hover:underline font-bold"
+                className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded transition-colors"
               >
                 Clear
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Action Toggles to clean summaries & change layout view */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-slate-200 pt-3 sm:pt-0">
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-slate-200 dark:border-slate-800 pt-3 sm:pt-0">
           {/* Summary toggle button */}
           <button
             onClick={() => setGlobalExpandSummaries(!globalExpandSummaries)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-850 rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-800 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800/80 rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-sm hover:shadow cursor-pointer tracking-wide"
             title={globalExpandSummaries ? "Collapse all summaries" : "Expand all summaries"}
           >
             {globalExpandSummaries ? (
@@ -281,26 +289,26 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             <button
               onClick={() => { setViewLayout('timeline'); setSelectedPovFilter(null); }}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer tracking-wide",
                 viewLayout === 'timeline' 
-                  ? "bg-white dark:bg-slate-850 text-slate-900 dark:text-slate-100 shadow-sm" 
+                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" 
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               )}
             >
               <LayoutGrid size={13} />
-              <span>Timeline Gird</span>
+              <span>Grid</span>
             </button>
             <button
               onClick={() => { setViewLayout('kanban'); setSelectedPovFilter(null); }}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer tracking-wide",
                 viewLayout === 'kanban' 
-                  ? "bg-white dark:bg-slate-850 text-slate-900 dark:text-slate-100 shadow-sm" 
+                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" 
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               )}
             >
               <Columns size={13} />
-              <span>Kanban Board</span>
+              <span>Board</span>
             </button>
           </div>
         </div>
@@ -462,21 +470,21 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
 /* COMPONENT: EMPTY STATE SCREEN */
 function EmptyState({ view, onAdd }: { view: string, onAdd: () => void }) {
   return (
-    <div className="text-center py-16 bg-white dark:bg-slate-900 border border-slate-205 dark:border-slate-800 rounded-2xl max-w-lg mx-auto shadow-sm p-8">
-      <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 border border-slate-150 dark:border-slate-700 flex items-center justify-center text-slate-400 rounded-2xl mx-auto mb-4">
-        <BookOpen size={24} />
+    <div className="text-center py-16 bg-white/50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl max-w-lg mx-auto shadow-sm p-8 flex flex-col items-center backdrop-blur-sm">
+      <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100/50 dark:border-indigo-500/20 flex items-center justify-center text-indigo-500 rounded-full mb-5 shadow-inner">
+        <BookOpen size={28} />
       </div>
-      <h3 className="text-base font-bold text-slate-850 dark:text-slate-100 font-serif mb-1">Daftar Bab Kosong</h3>
-      <p className="text-xs text-slate-500 dark:text-slate-500 max-w-sm mx-auto mb-6">
+      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 font-serif mb-2">Daftar Bab Kosong</h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-8 font-medium leading-relaxed">
         {view === 'kanban' 
-          ? "Tidak ada bab yang cocok dengan kata kunci atau filter POV saat ini."
-          : "Belum ada bab yang dibuat untuk draf buku Anda. Mari rancang bab pertama Anda!"}
+          ? "Tidak ada bab yang cocok dengan pencarian atau filter POV saat ini."
+          : "Kanvas perencanaan cerita Anda masih kosong. Mari mulai dengan menyusun draf outline bab pertama Anda."}
       </p>
       <button
         onClick={onAdd}
-        className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 active:scale-95 transition-all shadow-sm cursor-pointer"
+        className="inline-flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer group"
       >
-        <Plus size={14} /> Beri Bab Pertama Anda
+        <Plus size={16} className="group-hover:rotate-90 transition-transform" /> Tambah Bab Pertama
       </button>
     </div>
   );
@@ -550,59 +558,64 @@ function ChapterCard({
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <div 
             title="Tarik untuk mengurutkan"
-            className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-700 hover:text-slate-500 hover:dark:text-slate-550 p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-900 shrink-0 select-none pb-1.5"
+            className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-700 hover:text-slate-500 hover:dark:text-slate-500 p-1 -ml-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-900 shrink-0 select-none"
           >
-            <GripVertical size={13} className="pointer-events-none" />
+            <GripVertical size={16} className="pointer-events-none" />
           </div>
           <input 
-            className="font-bold text-slate-950 dark:text-slate-100 focus:outline-none border-b border-transparent focus:border-indigo-400 bg-transparent px-1 pb-0.5 truncate w-full text-xs font-serif"
+            className="font-bold text-slate-950 dark:text-slate-100 focus:outline-none border border-transparent focus:border-indigo-400 focus:bg-indigo-50/50 dark:focus:bg-indigo-950/30 hover:border-slate-200 dark:hover:border-slate-800 bg-transparent px-2 py-1 rounded truncate w-full text-sm font-serif transition-colors"
             value={chapter.title}
             onChange={(e) => onUpdateField(chapter.id!, 'title', e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
+            placeholder="Judul Bab..."
           />
         </div>
         
         {/* Total Words Display */}
-        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wide bg-slate-50 dark:bg-slate-900/60 border border-slate-150 dark:border-slate-800 px-1.5 py-0.5 rounded select-none shrink-0 font-mono">
+        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md select-none shrink-0 font-mono shadow-inner">
           {wordCount.toLocaleString()} kt
         </span>
       </div>
 
       {/* METADATA CONTROLS ROW */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Status Dropdown */}
-        <select 
-          value={chapter.status || 'outline'}
-          onChange={(e) => onUpdateField(chapter.id!, 'status', e.target.value)}
-          className={cn(
-            "text-[9px] uppercase font-bold tracking-wider px-2 py-1 rounded-full outline-none border border-transparent focus:border-indigo-200 cursor-pointer select-none transition-colors",
-            STATUS_COLORS[chapter.status || 'outline']
-          )}
-        >
-          <option value="outline">Outline</option>
-          <option value="draft">Drafting</option>
-          <option value="edit">Editing</option>
-          <option value="polish">Polishing</option>
-          <option value="done">Completed</option>
-        </select>
+        <div className="relative">
+          <select 
+            value={chapter.status || 'outline'}
+            onChange={(e) => onUpdateField(chapter.id!, 'status', e.target.value)}
+            className={cn(
+              "text-[10px] uppercase font-bold tracking-wider pl-2.5 pr-6 py-1 rounded-md outline-none border hover:shadow-sm cursor-pointer select-none transition-all appearance-none",
+              STATUS_COLORS[chapter.status || 'outline'],
+              "border-slate-200 dark:border-slate-700/60 focus:border-indigo-400"
+            )}
+          >
+            <option value="outline">Outline</option>
+            <option value="draft">Drafting</option>
+            <option value="edit">Editing</option>
+            <option value="polish">Polishing</option>
+            <option value="done">Completed</option>
+          </select>
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-current opacity-50 pointer-events-none" />
+        </div>
         
         {/* POV Field */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 border border-slate-150 dark:border-slate-800/80 rounded-full px-2 py-0.5 flex-1 min-w-[70px]">
-          <UserCircle size={10} className="text-slate-450 dark:text-slate-500 shrink-0" />
+        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 flex-1 min-w-[80px] hover:border-slate-300 dark:hover:border-slate-700 transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100">
+          <UserCircle size={12} className="text-slate-400 dark:text-slate-500 shrink-0" />
           <input 
-            className="bg-transparent text-[9px] font-bold text-slate-600 dark:text-slate-450 focus:outline-none w-full placeholder:text-slate-350 dark:placeholder:text-slate-650 uppercase tracking-wider truncate"
-            placeholder="Karakter POV"
+            className="bg-transparent text-[10px] font-bold text-slate-700 dark:text-slate-400 focus:outline-none w-full placeholder:text-slate-400 dark:placeholder:text-slate-600 uppercase tracking-widest truncate"
+            placeholder="POV"
             value={chapter.pov || ''}
             onChange={(e) => onUpdateField(chapter.id!, 'pov', e.target.value)}
           />
         </div>
 
         {/* Word Goal Input */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 border border-slate-150 dark:border-slate-800/80 rounded-full px-2 py-0.5 w-[58px] shrink-0">
-          <Target size={9} className="text-slate-450 shrink-0" />
+        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 w-[68px] shrink-0 hover:border-slate-300 dark:hover:border-slate-700 transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100">
+          <Target size={12} className="text-slate-400 shrink-0" />
           <input 
-            className="bg-transparent text-[9px] font-bold text-slate-600 dark:text-slate-450 focus:outline-none w-full placeholder:text-slate-350 dark:placeholder:text-slate-650 font-mono"
+            className="bg-transparent text-[10px] font-bold text-slate-700 dark:text-slate-400 focus:outline-none w-full placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
             placeholder="GOAL"
             type="number"
             value={chapter.wordGoal || ''}
@@ -612,17 +625,17 @@ function ChapterCard({
       </div>
 
       {/* SUMMARY BOX - Collapsible */}
-      <div className="flex flex-col border-t border-slate-150 dark:border-slate-850 pt-2.5 flex-grow">
-        <div className="flex items-center justify-between text-[9px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-550 mb-1.5 select-none">
+      <div className="flex flex-col border-t border-slate-100 dark:border-slate-800/80 pt-3 flex-grow">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold text-slate-400 dark:text-slate-500 mb-2 select-none">
           <span>Rangkuman Bab</span>
           
           <button 
             type="button" 
             onClick={() => setLocalExpanded(showSummary ? false : true)} 
-            className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-md transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-350"
+            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-md transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
             title={showSummary ? "Sembunyikan detail" : "Tampilkan detail"}
           >
-            {showSummary ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            {showSummary ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
         </div>
 
@@ -636,8 +649,8 @@ function ChapterCard({
               className="overflow-hidden"
             >
               <textarea 
-                className="w-full text-xs text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/40 border border-slate-150/70 dark:border-slate-850/60 rounded-lg p-2 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all font-serif italic min-h-[92px] max-h-[140px] leading-relaxed"
-                placeholder="Rincian adegan peristiwa narasi di bab ini..."
+                className="w-full text-[13px] text-slate-700 dark:text-slate-300 bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800/80 rounded-lg p-2.5 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all font-serif italic min-h-[96px] max-h-[160px] leading-relaxed shadow-inner"
+                placeholder="Rincian peristiwa narasi di bab ini..."
                 value={chapter.summary || ''}
                 onChange={(e) => onUpdateField(chapter.id!, 'summary', e.target.value)}
               />
@@ -645,10 +658,10 @@ function ChapterCard({
           ) : (
             <div 
               onClick={() => setLocalExpanded(true)}
-              className="group/summary bg-slate-50/30 hover:bg-slate-50 dark:bg-slate-900/20 dark:hover:bg-slate-900/40 hover:border-slate-300 rounded-lg border border-transparent p-2 cursor-pointer transition-all line-clamp-2"
+              className="group/summary bg-slate-50/50 hover:bg-slate-100/50 dark:bg-slate-900/30 dark:hover:bg-slate-900/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded-lg p-2.5 cursor-pointer transition-all"
             >
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-serif italic line-clamp-1 group-hover/summary:text-slate-500 select-none">
-                {chapter.summary || "Klik untuk menambahkan ringkasan/catatan..."}
+              <span className="text-[12px] text-slate-500 dark:text-slate-400 font-serif italic line-clamp-2 group-hover/summary:text-slate-700 dark:group-hover/summary:text-slate-300 select-none">
+                {chapter.summary || "Klik untuk menambahkan ringkasan plot bab..."}
               </span>
             </div>
           )}
@@ -656,19 +669,19 @@ function ChapterCard({
       </div>
 
       {/* FOOTER: CARD ACTIONS (EDIT SHORTCUT & DELETE BUTTON) */}
-      <div className="flex items-center justify-between border-t border-slate-150 dark:border-slate-850 pt-2.5 mt-auto">
+      <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-3 mt-auto">
         {/* Word goal progress indicator tiny bar */}
         <div className="flex-1 min-w-0 pr-4">
           {chapter.wordGoal > 0 ? (
-            <div className="space-y-1">
-              <div className="flex justify-between items-center text-[8px] font-bold text-slate-450 dark:text-slate-550 select-none uppercase font-mono">
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 dark:text-slate-400 select-none uppercase tracking-widest font-mono">
                 <span>Target: {progressPercent}%</span>
-                <span>{wordCount}/{chapter.wordGoal}</span>
+                <span>{wordCount} / {chapter.wordGoal}</span>
               </div>
-              <div className="w-full bg-slate-100 dark:bg-slate-900 h-1 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full overflow-hidden shadow-inner">
                 <div 
                   className={cn(
-                    "h-full transition-all duration-300 rounded-full",
+                    "h-full transition-all duration-500 rounded-full",
                     progressPercent >= 100 ? "bg-emerald-500" : "bg-indigo-500"
                   )}
                   style={{ width: `${progressPercent}%` }}
@@ -676,18 +689,18 @@ function ChapterCard({
               </div>
             </div>
           ) : (
-            <span className="text-[9px] text-slate-400 dark:text-slate-600 italic select-none">Goal belum diatur</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500/70 italic select-none font-medium">Goal kata belum diatur</span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Direct write button */}
           <button
             onClick={onDirectEdit}
-            className="flex items-center gap-1 bg-slate-100 hover:bg-indigo-600 dark:bg-slate-900 text-slate-600 hover:text-white dark:text-slate-400 dark:hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all border border-slate-200/60 dark:border-slate-800 hover:border-indigo-600 dark:hover:border-indigo-600 font-sans tracking-wide cursor-pointer select-none"
+            className="flex items-center gap-1.5 bg-white hover:bg-indigo-600 dark:bg-slate-900 text-slate-700 hover:text-white dark:text-slate-400 dark:hover:text-white px-3 py-1.5 rounded-md text-[11px] font-bold transition-all border border-slate-200 dark:border-slate-800 hover:border-indigo-600 dark:hover:border-indigo-600 shadow-sm hover:shadow cursor-pointer select-none tracking-wide"
             title="Buka di Editor Utama"
           >
-            <BookOpen size={11} />
+            <BookOpen size={13} />
             <span>Tulis</span>
           </button>
 
