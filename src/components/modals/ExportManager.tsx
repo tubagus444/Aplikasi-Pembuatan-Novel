@@ -241,8 +241,8 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
       >
         <header className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Export Manuscript</h2>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Prepare your story for the world.</p>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Ekspor Naskah</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Siapkan cerita Anda untuk dunia.</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500">
             <X size={18} />
@@ -274,15 +274,15 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Export Summary</h3>
+            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Ringkasan Ekspor</h3>
             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex justify-between">
-                <span>Total Words:</span>
+                <span>Total Kata:</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200">{project?.wordGoal?.toLocaleString()} (est)</span>
               </div>
               <div className="flex justify-between">
-                <span>Layout:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">Standard A4</span>
+                <span>Tata Letak:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">A4 Standar</span>
               </div>
             </div>
           </div>
@@ -299,19 +299,19 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
             {status === 'idle' && (
               <>
                 <FileDown size={18} />
-                Generate {format.toUpperCase()}
+                Buat Ekspor {format.toUpperCase()}
               </>
             )}
             {status === 'processing' && (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Brewing your naskah...
+                Diseduh naskahnya...
               </>
             )}
             {status === 'success' && (
               <>
                 <CheckCircle2 size={18} />
-                Export Complete!
+                Ekspor Selesai!
               </>
             )}
           </button>

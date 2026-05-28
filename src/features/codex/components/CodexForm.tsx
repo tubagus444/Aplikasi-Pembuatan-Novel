@@ -77,7 +77,7 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
       <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           {editingId ? <Edit2 size={18} className="text-indigo-500" /> : <Plus size={18} className="text-indigo-500" />}
-          {editingId ? 'Edit Entry' : 'New Codex Entry'}
+          {editingId ? 'Ubah Entri' : 'Entri Codex Baru'}
         </h3>
         <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
           <X size={20} />
@@ -88,36 +88,36 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Entry Name *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Nama Entri *</label>
               <input 
                 autoFocus
                 className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100"
-                placeholder="e.g. The Grand City"
+                placeholder="misal: Kota Angin"
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
               />
             </div>
             
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Kategori</label>
               <select 
                 className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100"
                 value={formData.category}
                 onChange={e => setFormData({...formData, category: e.target.value as CodexCategory})}
               >
-                <option value="character">Character</option>
-                <option value="location">Location</option>
-                <option value="magic">Magic System</option>
-                <option value="item">Item/Artifact</option>
-                <option value="other">Other Lore</option>
+                <option value="character">Karakter</option>
+                <option value="location">Lokasi</option>
+                <option value="magic">Sistem Sihir</option>
+                <option value="item">Item/Artefak</option>
+                <option value="other">Lore Lainnya</option>
               </select>
             </div>
             
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Aliases</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Alias</label>
               <input 
                 className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100"
-                placeholder="Comma separated (e.g. City of Lights)"
+                placeholder="Pisahkan dengan koma (misal: Budi, Pak Budi)"
                 value={formData.aliases?.join(', ')}
                 onChange={e => setFormData({...formData, aliases: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})}
               />
@@ -126,7 +126,7 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
 
           <div className="md:col-span-2 flex flex-col h-full">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Description (Markdown Supported) *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Deskripsi (Mendukung Markdown) *</label>
               <button
                 onClick={handleExpand}
                 disabled={isExpanding || !formData.name}
@@ -136,15 +136,15 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
                     ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent animate-pulse" 
                     : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
-                title={!formData.name ? "Enter a name first to expand" : "Generate detailed lore using AI based on Name and Category"}
+                title={!formData.name ? "Masukkan nama terlebih dahulu" : "Buat lore detail menggunakan AI berdasarkan Nama dan Kategori"}
               >
                 <Wand2 size={12} className={isExpanding ? "animate-spin" : ""} />
-                {isExpanding ? "Expanding..." : "Expand with AI"}
+                {isExpanding ? "Mengembangkan..." : "Kembangkan dengan AI"}
               </button>
             </div>
             <textarea 
               className="w-full flex-1 min-h-[160px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100 resize-y font-serif leading-relaxed"
-              placeholder="Describe their appearance, history, or unique traits to provide context for the AI..."
+              placeholder="Deskripsikan sejarah atau sifat unik untuk memberi konteks pada AI..."
               value={formData.description}
               onChange={e => setFormData({...formData, description: e.target.value})}
             />
@@ -156,14 +156,14 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
             onClick={onCancel}
             className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
           >
-            Cancel
+            Batal
           </button>
           <button 
             onClick={() => onSave(formData)}
             disabled={!formData.name?.trim() || !formData.description?.trim()}
             className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >
-            <Check size={16} /> {editingId ? 'Save Changes' : 'Create Entry'}
+            <Check size={16} /> {editingId ? 'Simpan Perubahan' : 'Buat Entri'}
           </button>
         </div>
       </div>

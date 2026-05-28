@@ -61,7 +61,7 @@ export function CodexCard({
             <button 
               onClick={() => onToggleLinking(entry.id!)}
               className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
-              title="Add Bond"
+              title="Tambah Hubungan"
             >
               <Link2 size={16} />
             </button>
@@ -136,7 +136,7 @@ export function CodexCard({
             {entry.description ? (
               <LinkifiedDescription text={entry.description} allEntries={entries || []} />
             ) : (
-              <span className="italic opacity-60">No description provided.</span>
+              <span className="italic opacity-60">Deskripsi belum diisi.</span>
             )}
           </div>
           <AppearancesList entry={entry} projectId={projectId} />
@@ -145,7 +145,7 @@ export function CodexCard({
         {(entry.aliases?.length ?? 0) > 0 && (
           <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/60 flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500">
-              <Tag size={12} /> Aliases:
+              <Tag size={12} /> Alias:
             </span>
             {entry.aliases!.map(a => (
               <span key={a} className="text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
@@ -158,7 +158,7 @@ export function CodexCard({
         {relationships && relationships.filter(r => r.sourceId === entry.id || r.targetId === entry.id).length > 0 && (
           <div className="mt-3 pt-3 flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500">
-              <Link2 size={12} /> Bonds:
+              <Link2 size={12} /> Hubungan:
             </span>
             {relationships.filter(r => r.sourceId === entry.id || r.targetId === entry.id).map(r => {
               const isSource = r.sourceId === entry.id;
@@ -167,7 +167,7 @@ export function CodexCard({
               if (!otherEntry) return null;
               return (
                 <span key={r.id} className="group/bond text-[11px] font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1">
-                  {r.type} <span className="opacity-50">to</span> {otherEntry.name}
+                  {r.type} <span className="opacity-50">dengan</span> {otherEntry.name}
                   <button onClick={() => onDeleteRelationship(r.id!)} className="opacity-0 group-hover/bond:opacity-100 text-indigo-400 hover:text-red-500 transition ml-1 shrink-0">
                     <X size={10} />
                   </button>

@@ -72,7 +72,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-full transition-colors group text-left"
-        title="Manuscript Progress"
+        title="Progres Naskah"
       >
         <Target size={14} className="text-indigo-500 group-hover:scale-110 transition-transform" />
         <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mr-0.5">
@@ -95,7 +95,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
                   <Target size={12} />
-                  Manuscript Goal
+                  Target Naskah
                 </h3>
               </div>
               
@@ -128,7 +128,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
                     </button>
                   )}
                 </div>
-                <span className="text-xs flex-shrink-0 font-medium text-slate-500 dark:text-slate-400">words total</span>
+                <span className="text-xs flex-shrink-0 font-medium text-slate-500 dark:text-slate-400">total kata</span>
               </div>
             </div>
 
@@ -139,7 +139,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
                   <TrendingUp size={14} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1.5">Session Target</p>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1.5">Target Sesi</p>
                   {isEditingDaily ? (
                     <input 
                       autoFocus
@@ -161,7 +161,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
                       onClick={() => setIsEditingDaily(true)}
                       className="group flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 transition-colors"
                     >
-                      {dailyGoal.toLocaleString()} <span className="text-slate-400 font-normal text-xs">words</span>
+                      {dailyGoal.toLocaleString()} <span className="text-slate-400 font-normal text-xs">kata</span>
                       <Edit2 size={10} className="opacity-0 group-hover:opacity-100 text-slate-400" />
                     </button>
                   )}
@@ -172,8 +172,8 @@ export function WritingStats({ projectId }: WritingStatsProps) {
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800 flex flex-col gap-2">
                  <Clock size={14} className="text-slate-500" />
                  <div>
-                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1">Read Time</p>
-                   <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">~{readTimeMin} min</p>
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1">Waktu Baca</p>
+                   <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">~{readTimeMin} mnt</p>
                  </div>
               </div>
 
@@ -181,7 +181,7 @@ export function WritingStats({ projectId }: WritingStatsProps) {
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800 flex flex-col gap-2">
                  <BarChart2 size={14} className="text-slate-500" />
                  <div>
-                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1">Avg Chapter</p>
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1">Rata-rata Bab</p>
                    <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{avgChapterWords.toLocaleString()}</p>
                  </div>
               </div>

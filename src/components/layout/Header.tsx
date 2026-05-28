@@ -34,8 +34,8 @@ export function Header() {
         <button 
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
-          aria-label="Toggle Sidebar"
-          title="Toggle Sidebar"
+          aria-label="Tampilkan/Sembunyikan Sidebar"
+          title="Tampilkan/Sembunyikan Sidebar"
         >
           <ChevronRight size={18} className={cn("transition-transform", sidebarOpen && "rotate-180")} />
         </button>
@@ -45,11 +45,11 @@ export function Header() {
         <button 
           onClick={() => setIsProjectManagerOpen(true)}
           className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg group transition-all max-w-[150px] md:max-w-[250px]"
-          title="Switch Manuscript"
+          title="Ganti Proyek/Naskah"
         >
           <Zap size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest truncate">
-            {project?.name || 'Untitled'}
+            {project?.name || 'Tanpa Judul'}
           </span>
         </button>
 
@@ -58,7 +58,7 @@ export function Header() {
         <button 
           onClick={() => setIsSearchOpen(true)}
           className="p-1.5 flex items-center justify-center bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
-          title="Search (Ctrl+K)"
+          title="Pencarian Global (Ctrl+K)"
         >
           <Search size={16} />
         </button>
@@ -85,7 +85,7 @@ export function Header() {
             onClick={toggleTheme}
             aria-label="Toggle Theme"
             className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md"
-            title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
           >
             {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
@@ -93,7 +93,7 @@ export function Header() {
           <button 
             onClick={() => setIsExportOpen(true)} 
             className="flex items-center justify-center p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md"
-            title="Export Project"
+            title="Ekspor Proyek"
           >
             <Download size={16} />
           </button>

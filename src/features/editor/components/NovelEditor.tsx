@@ -192,7 +192,6 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
             customActions={aiActions} 
             isAiProcessing={isAiProcessing}
             rewritePreview={rewritePreview}
-            setRewritePreview={setRewritePreview}
             onAcceptRewrite={acceptRewrite}
             onInsertBelow={insertRewriteBelow}
             onDiscardRewrite={discardRewrite}

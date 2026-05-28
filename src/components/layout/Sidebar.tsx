@@ -51,43 +51,43 @@ export function Sidebar() {
                 active={viewMode === 'brainstorm'} 
                 onClick={() => handleViewChange('brainstorm')} 
                 icon={<BrainCircuit size={14} />} 
-                label="Assistant Studio" 
+                label="Studio Asisten" 
               />
               <NavItem 
                 active={viewMode === 'outline'} 
                 onClick={() => handleViewChange('outline')} 
                 icon={<LayoutList size={14} />} 
-                label="Planning Board" 
+                label="Papan Rencana" 
               />
               <NavItem 
                 active={viewMode === 'codex'} 
                 onClick={() => handleViewChange('codex')} 
                 icon={<Database size={14} />} 
-                label="Codex" 
+                label="Kamus Data" 
               />
               <NavItem 
                 active={viewMode === 'bible'} 
                 onClick={() => handleViewChange('bible')} 
                 icon={<Book size={14} />} 
-                label="Story Bible" 
+                label="Buku Cerita" 
               />
               <NavItem 
                 active={viewMode === 'relationships'} 
                 onClick={() => handleViewChange('relationships')} 
                 icon={<Share2 size={14} />} 
-                label="Relations" 
+                label="Relasi Karakter" 
               />
               <NavItem 
                 active={viewMode === 'actions'} 
                 onClick={() => handleViewChange('actions')} 
                 icon={<Sparkles size={14} />} 
-                label="AI Snippets" 
+                label="Snippet AI" 
               />
               <NavItem 
                 active={viewMode === 'guide'} 
                 onClick={() => handleViewChange('guide')} 
                 icon={<HelpCircle size={14} />} 
-                label="Panduan" 
+                label="Panduan Panduan" 
               />
               <NavItem 
                 active={viewMode === 'settings'} 
@@ -117,8 +117,8 @@ export function Sidebar() {
                 }} 
               />
             )}
-            {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Worldbuilding Data</p>}
-            {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Core Constraints</p>}
+            {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Data Dunia</p>}
+            {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Aturan Dasar</p>}
           </div>
     </aside>
   );

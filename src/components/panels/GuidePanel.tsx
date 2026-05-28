@@ -356,7 +356,7 @@ export function GuidePanel() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-full mb-8 text-xs font-bold tracking-widest uppercase border border-indigo-100 dark:border-indigo-500/20"
           >
-            <Sparkles size={14} /> Documentation & Manual
+            <Sparkles size={14} /> Dokumentasi & Panduan
           </motion.div>
           
           <motion.h1 

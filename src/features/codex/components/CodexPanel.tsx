@@ -52,7 +52,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     <div className="max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-6">
         <div>
-          <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 italic">World Codex</h2>
+          <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 italic">Kamus Data (Codex)</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium tracking-wide">Data pembangunan dunia untuk injeksi konteks AI.</p>
         </div>
         {!isAdding && (
@@ -71,7 +71,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text"
-              placeholder="Search codex by name, alias, or description..."
+              placeholder="Cari entri Codex berdasarkan nama, alias, atau deskripsi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-200 placeholder:text-slate-400"
@@ -82,12 +82,12 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
              onChange={(e) => setFilterCategory(e.target.value as any)}
              className="w-full sm:w-48 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
           >
-            <option value="all">All Categories</option>
-            <option value="character">Characters</option>
-            <option value="location">Locations</option>
-            <option value="magic">Magic Systems</option>
-            <option value="item">Items & Artifacts</option>
-            <option value="other">Other Lore</option>
+            <option value="all">Semua Kategori</option>
+            <option value="character">Karakter</option>
+            <option value="location">Lokasi</option>
+            <option value="magic">Sistem Sihir</option>
+            <option value="item">Item & Artefak</option>
+            <option value="other">Lore Lainnya</option>
           </select>
         </div>
       )}
@@ -132,9 +132,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/40 rounded-full flex items-center justify-center mx-auto mb-6">
               <Database className="text-indigo-500 dark:text-indigo-400" size={32} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Your World is Empty</h3>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Dunia Anda Masih Kosong</h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-8">
-              Start building your lore database to give the AI context about your characters, locations, and magical systems.
+              Mulailah membangun database lore Anda untuk memberi AI konteks tentang karakter, lokasi, dan sistem sihir Anda.
             </p>
             <button 
               onClick={startAdding}
@@ -148,12 +148,12 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
         {entries && entries.length > 0 && filteredEntries.length === 0 && !isAdding && (
           <div className="col-span-full py-16 text-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl">
             <Search size={32} className="mx-auto mb-4 opacity-50" />
-            <p>No entries found matching your search criteria.</p>
+            <p>Tidak ada entri yang cocok dengan kriteria pencarian Anda.</p>
             <button 
               onClick={() => { setSearchQuery(''); setFilterCategory('all'); }}
               className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-semibold"
             >
-              Clear Filters
+              Cari Ulang
             </button>
           </div>
         )}
@@ -168,7 +168,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => setIsAssistantOpen(true)}
             className="fixed bottom-6 right-6 z-[60] p-4 bg-indigo-600 text-white rounded-full shadow-2xl hover:bg-indigo-700 hover:scale-105 transition-all"
-            title="Open AI Assistant"
+            title="Buka Studio Asisten AI"
           >
             <MessageSquareText size={24} />
           </motion.button>

@@ -109,7 +109,7 @@ export function AIAssistantPanel() {
             <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 motion-safe:animate-pulse">
               <BrainCircuit size={40} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">AI Assistant Studio</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Studio Asisten AI</h1>
             <p className="max-w-md text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
               Ruang kerja khusus untuk menyusun plot, mendalami lore, atau sekadar bertukar pikiran dengan asisten cerdas Anda yang terintegrasi dengan Story Bible & Codex.
             </p>

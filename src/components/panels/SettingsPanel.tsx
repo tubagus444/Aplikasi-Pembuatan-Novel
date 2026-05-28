@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History, BrainCircuit } from 'lucide-react';
+import { Save, Check, Database, Upload, Download, AlertTriangle, RefreshCcw, XCircle, Loader2, FolderOpen, History, BrainCircuit, Key, HardDrive, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '@/src/db';
 import { testConnection, fetchGoogleModels } from '@/src/services/ai';
@@ -13,6 +13,13 @@ import { ContextDepth } from '@/src/types';
 import { OpenRouterModelSelect } from '@/src/components/common/OpenRouterModelSelect';
 
 export function SettingsPanel() {
+  const [activeTab, setActiveTab] = useState<'ai' | 'backup'>('ai');
+
+  const tabs = [
+    { id: 'ai', label: 'Konfigurasi AI', icon: BrainCircuit },
+    { id: 'backup', label: 'Data & Cadangan', icon: HardDrive },
+  ];
+
   const { checkStorageQuota } = useStorageQuota();
   const { 
     lastBackupTime, 
@@ -41,18 +48,18 @@ export function SettingsPanel() {
 
   const handleInternalRestore = async (backupId: number, timestamp: number) => {
     const confirmRestore = window.confirm(
-      `WARNING: This will replace ALL your current data with the backup from ${format(timestamp, 'PPP p')}. This action cannot be undone.\n\nAre you sure you want to proceed?`
+      `PERINGATAN: Ini akan menimpa SEMUA data Anda saat ini dengan cadangan dari ${format(timestamp, 'PPP p')}. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?`
     );
 
     if (!confirmRestore) return;
 
     try {
       await backupService.restoreFromBackup(backupId);
-      alert("Restore completed successfully! The page will now reload.");
+      alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
       window.location.reload();
     } catch (err) {
       console.error("Internal restore failed:", err);
-      alert("Failed to restore from internal backup.");
+      alert("Gagal memulihkan dari cadangan internal.");
     }
   };
 
@@ -260,7 +267,7 @@ export function SettingsPanel() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to create backup:', error);
-      alert('Failed to create backup. See console for details.');
+      alert('Gagal membuat cadangan. Lihat konsol untuk detailnya.');
     } finally {
       setIsBackingUp(false);
     }
@@ -282,11 +289,11 @@ export function SettingsPanel() {
         const backup = JSON.parse(content);
 
         if (!backup.data || !backup.data.projects) {
-          throw new Error("Invalid backup file format");
+          throw new Error("Format file cadangan tidak valid");
         }
 
         const confirmRestore = window.confirm(
-          "WARNING: This will replace ALL your current projects, chapters, codex entries, and settings with the data from the backup file. This action cannot be undone.\n\nAre you sure you want to proceed?"
+          "PERINGATAN: Ini akan menimpa SEMUA proyek, bab, entri kamus data, dan pengaturan Anda dengan data dari file cadangan. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?"
         );
 
         if (!confirmRestore) {
@@ -331,11 +338,11 @@ export function SettingsPanel() {
             if (backup.data.relationships?.length) await db.relationships.bulkAdd(backup.data.relationships);
         });
 
-        alert("Restore completed successfully! The page will now reload.");
+        alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
         window.location.reload();
       } catch (error) {
         console.error('Failed to restore backup:', error);
-        alert('Failed to restore from backup file. Make sure it is a valid AetherScribe backup JSON.');
+        alert('Gagal memulihkan dari file cadangan. Pastikan ini adalah file JSON cadangan yang valid.');
         setIsRestoring(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
@@ -344,377 +351,465 @@ export function SettingsPanel() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 pb-12 w-full">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Settings</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Pengaturan</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Manage your API keys, preferences, and data.
+          Kelola model AI, kredensial, dan data lokal Anda dengan mulus.
         </p>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
-        <div>
-          <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
-            Default AI Provider
-          </label>
-          <select 
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      <div className="flex border-b border-slate-200 dark:border-slate-800 mb-6 w-full custom-scrollbar overflow-x-auto">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as 'ai' | 'backup')}
+            className={cn(
+              "relative px-4 py-3 text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap",
+              activeTab === tab.id
+                ? "text-indigo-600 dark:text-indigo-400"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+            )}
           >
-            <option value="google">Google AI Studio (Gemini)</option>
-            <option value="groq">Groq Cloud</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="claude">Anthropic (Claude)</option>
-          </select>
-        </div>
+            <tab.icon size={16} />
+            {tab.label}
+            {activeTab === tab.id && (
+              <motion.div
+                layoutId="activeTabIndicatorSettings"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400"
+                transition={{ duration: 0.2 }}
+              />
+            )}
+          </button>
+        ))}
+      </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <BrainCircuit size={16} className="text-indigo-500" />
-              Context Depth (Token Saver)
-            </label>
-            <span className={cn(
-              "text-[10px] font-bold uppercase py-0.5 px-2 rounded-full",
-              contextDepth === 'minimal' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-              contextDepth === 'balanced' && "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-              contextDepth === 'deep' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-            )}>
-              {contextDepth === 'minimal' ? 'Eco mode' : contextDepth === 'balanced' ? 'Optimal' : 'Power mode'}
-            </span>
-          </div>
-          <select 
-            value={contextDepth}
-            onChange={(e) => setContextDepth(e.target.value as ContextDepth)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      <AnimatePresence mode="wait">
+        {activeTab === 'ai' ? (
+          <motion.div
+            key="ai-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-8"
           >
-            <option value="minimal">Minimal (Cheapest) - Core rules only, no lore.</option>
-            <option value="balanced">Balanced (Recommended) - Relevant rules + relevant lore.</option>
-            <option value="deep">Deep (Rich) - Maximum lore detail (Tokens heavy).</option>
-          </select>
-          <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed italic">
-            {contextDepth === 'minimal' && "Best for saving tokens. AI might forget specific character details or names but follows style."}
-            {contextDepth === 'balanced' && "Smart context switching. Uses vector search to find and send only what's needed."}
-            {contextDepth === 'deep' && "Maximum quality. Sends larger lore snippets. Increases token cost significantly."}
-          </p>
-        </div>
+            {/* Preferences */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield size={18} className="text-indigo-500" />
+                  <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Preferensi</h3>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+                  <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                    Penyedia AI Default
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    Pilih AI mana yang berjalan secara default.
+                  </p>
+                  <select 
+                    value={provider}
+                    onChange={(e) => setProvider(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                  >
+                    <option value="google">Google AI Studio (Gemini)</option>
+                    <option value="groq">Groq Cloud</option>
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="claude">Anthropic (Claude)</option>
+                  </select>
+                </div>
 
-        <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">API Keys</h3>
-          
-          {[
-            { id: 'google', name: 'Google AI Studio (Gemini)', placeholder: 'AIzaSy...' },
-            { id: 'groq', name: 'Groq Cloud', placeholder: 'gsk_...' },
-            { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-...' },
-            { id: 'claude', name: 'Claude (Anthropic)', placeholder: 'sk-ant-...' },
-          ].map((item) => (
-            <div key={item.id}>
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                {item.name}
-              </label>
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-2">
-                  <input 
-                    type="password" 
-                    value={keys[item.id as keyof typeof keys]}
-                    onChange={(e) => setKeys({...keys, [item.id]: e.target.value})}
-                    placeholder={`API Key: ${item.placeholder}`}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  {item.id === 'openrouter' ? (
-                    <OpenRouterModelSelect 
-                      value={models.openrouter}
-                      onChange={(val) => setModels({...models, openrouter: val})}
-                    />
-                  ) : (
-                    <div className="space-y-1.5 flex-1 select-none">
-                      <input 
-                        type="text" 
-                        value={models[item.id as keyof typeof models]}
-                        onChange={(e) => setModels({...models, [item.id]: e.target.value})}
-                        placeholder={item.id === 'google' ? "Model name (e.g. gemini-3.5-flash)" : "Model name (e.g. gpt-4o...)"}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                      {item.id === 'google' && (
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={handleInspectGoogleModels}
-                            className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center gap-1 mt-1 transition-all"
-                          >
-                            🔍 {isQueryingModels ? "Memeriksa model yang didukung..." : "Cek daftar model untuk API key ini"}
-                          </button>
-                          
-                          {showModelsDropdown && (
-                            <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-2 space-y-1">
-                              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5 mb-1.5">
-                                <span className="text-[10px] font-bold uppercase text-slate-400">Model yang Diizinkan:</span>
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Kedalaman Konteks
+                    </label>
+                    <span className={cn(
+                      "text-[9px] font-bold uppercase py-0.5 px-2 rounded-full",
+                      contextDepth === 'minimal' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                      contextDepth === 'balanced' && "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+                      contextDepth === 'deep' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    )}>
+                      {contextDepth === 'minimal' ? 'Eco Mode' : contextDepth === 'balanced' ? 'Optimal' : 'Power Mode'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+                    {contextDepth === 'minimal' && "Token rendah. Menjaga aturan, mengabaikan dunia."}
+                    {contextDepth === 'balanced' && "Pencocokan cerdas. Otomatis memilih dunia."}
+                    {contextDepth === 'deep' && "Token besar. Menggunakan kedetailan maksimum."}
+                  </p>
+                  <select 
+                    value={contextDepth}
+                    onChange={(e) => setContextDepth(e.target.value as ContextDepth)}
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                  >
+                    <option value="minimal">Minimal (Termurah)</option>
+                    <option value="balanced">Seimbang (Direkomendasikan)</option>
+                    <option value="deep">Mendalam (Detail Terkaya)</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            {/* API Credentials */}
+            <section className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Key size={18} className="text-indigo-500" />
+                  <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Kredensial API</h3>
+                </div>
+                <button 
+                  onClick={handleSave}
+                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-sm active:scale-95"
+                >
+                  {isSaved ? <Check size={16} /> : <Save size={16} />}
+                  {isSaved ? 'Tersimpan!' : 'Simpan Kredensial'}
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm divide-y divide-slate-100 dark:divide-slate-800/60">
+                {[
+                  { id: 'google', name: 'Google AI Studio', placeholder: 'AIzaSy...' },
+                  { id: 'groq', name: 'Groq Cloud', placeholder: 'gsk_...' },
+                  { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-...' },
+                  { id: 'claude', name: 'Claude (Anthropic)', placeholder: 'sk-ant-...' },
+                ].map((item) => (
+                  <div key={item.id} className="p-5 flex flex-col md:flex-row md:items-start gap-4">
+                    <div className="md:w-1/3">
+                      <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        {item.name}
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {item.id === 'google' ? 'Direkomendasikan demi performa Lore yang lebih baik.' : 'Pengaturan penyedia lain.'}
+                      </p>
+                    </div>
+                    
+                    <div className="md:w-2/3 flex flex-col gap-2">
+                      <div className="flex gap-2">
+                         <input 
+                           type="password" 
+                           value={keys[item.id as keyof typeof keys]}
+                           onChange={(e) => setKeys({...keys, [item.id]: e.target.value})}
+                           placeholder={`Kunci: ${item.placeholder}`}
+                           className="flex-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                         />
+                         <button
+                           type="button"
+                           onClick={() => handleTestStatus(item.id)}
+                           disabled={!keys[item.id as keyof typeof keys] || testStatuses[item.id] === 'loading'}
+                           title="Cek Koneksi"
+                           className={cn(
+                             "px-3 py-2 rounded-lg border transition-all flex items-center justify-center min-w-[85px]",
+                             testStatuses[item.id] === 'idle' && "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700",
+                             testStatuses[item.id] === 'loading' && "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700",
+                             testStatuses[item.id] === 'success' && "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border-emerald-200 dark:border-emerald-900/50",
+                             testStatuses[item.id] === 'error' && "bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-900/50"
+                           )}
+                         >
+                           {testStatuses[item.id] === 'loading' && <Loader2 size={16} className="animate-spin" />}
+                           {testStatuses[item.id] === 'success' && <Check size={16} />}
+                           {testStatuses[item.id] === 'error' && <XCircle size={16} />}
+                           {testStatuses[item.id] === 'idle' && <RefreshCcw size={14} className="mr-1.5" />}
+                           <span className="text-xs font-medium">
+                             {testStatuses[item.id] === 'idle' && 'Cek'}
+                             {testStatuses[item.id] === 'loading' && '...'}
+                             {testStatuses[item.id] === 'success' && 'Valid'}
+                             {testStatuses[item.id] === 'error' && 'Gagal'}
+                           </span>
+                         </button>
+                      </div>
+
+                      {item.id === 'openrouter' ? (
+                        <div className="w-full">
+                           <OpenRouterModelSelect 
+                             value={models.openrouter}
+                             onChange={(val) => setModels({...models, openrouter: val})}
+                           />
+                        </div>
+                      ) : (
+                        <div className="w-full relative">
+                          <input 
+                             type="text" 
+                             value={models[item.id as keyof typeof models]}
+                             onChange={(e) => setModels({...models, [item.id]: e.target.value})}
+                             placeholder={item.id === 'google' ? "Model (Cth: gemini-3.5-flash)" : "Nama model"}
+                             className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                          />
+                          {item.id === 'google' && (
+                             <div>
                                 <button
                                   type="button"
-                                  onClick={() => setShowModelsDropdown(false)}
-                                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                  onClick={handleInspectGoogleModels}
+                                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium flex items-center gap-1 mt-1.5 transition-all"
                                 >
-                                  Tutup
+                                  🔍 {isQueryingModels ? "Mengambil daftar model yang didukung..." : "Lihat model yang tersedia untuk key ini"}
                                 </button>
-                              </div>
-                              
-                              {isQueryingModels ? (
-                                <div className="text-[11px] text-slate-500 text-center py-4 flex items-center justify-center gap-2">
-                                  <Loader2 size={12} className="animate-spin" />
-                                  Memuat model...
-                                </div>
-                              ) : queryModelsError ? (
-                                <div className="text-[11px] text-red-500 p-1">
-                                  ⚠️ {queryModelsError}
-                                </div>
-                              ) : googleModels.length === 0 ? (
-                                <div className="text-[11px] text-slate-500 text-center py-2">
-                                  Tidak ada model yang ditemukan atau Key salah. Klik tombol di atas untuk memuat.
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-1 gap-1">
-                                  {googleModels.map((m) => (
-                                    <button
-                                      key={m.name}
-                                      type="button"
-                                      onClick={() => selectGoogleModel(m.name)}
-                                      className={cn(
-                                        "w-full text-left px-2 py-1 rounded text-[11px] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors flex flex-col gap-0.5",
-                                        models.google === m.name ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium" : "text-slate-700 dark:text-slate-300"
-                                      )}
-                                    >
-                                      <span className="font-semibold">{m.displayName}</span>
-                                      <span className="text-[9px] text-slate-400 line-clamp-1">{m.name}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                                
+                                {showModelsDropdown && (
+                                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-2 space-y-1">
+                                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5 mb-1.5">
+                                      <span className="text-[10px] font-bold uppercase text-slate-400">Model Tersedia:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowModelsDropdown(false)}
+                                        className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-1"
+                                      >
+                                        Tutup
+                                      </button>
+                                    </div>
+                                    
+                                    {isQueryingModels ? (
+                                      <div className="text-[11px] text-slate-500 text-center py-4 flex items-center justify-center gap-2">
+                                        <Loader2 size={12} className="animate-spin" />
+                                        Memuat model...
+                                      </div>
+                                    ) : queryModelsError ? (
+                                      <div className="text-[11px] text-red-500 p-1">
+                                        ⚠️ {queryModelsError}
+                                      </div>
+                                    ) : googleModels.length === 0 ? (
+                                      <div className="text-[11px] text-slate-500 text-center py-2">
+                                        Tidak ada model ditemukan, atau Kunci API tidak valid.
+                                      </div>
+                                    ) : (
+                                      <div className="grid grid-cols-1 gap-1">
+                                        {googleModels.map((m) => (
+                                          <button
+                                            key={m.name}
+                                            type="button"
+                                            onClick={() => selectGoogleModel(m.name)}
+                                            className={cn(
+                                              "w-full text-left px-2 py-1.5 rounded text-[11px] transition-colors flex flex-col gap-0.5",
+                                              models.google === m.name 
+                                                ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium" 
+                                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                            )}
+                                          >
+                                            <span className="font-semibold">{m.displayName}</span>
+                                            <span className="text-[9px] text-slate-400 line-clamp-1">{m.name}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                             </div>
                           )}
                         </div>
                       )}
+
+                      <AnimatePresence>
+                        {testErrors[item.id] && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-1 text-[11px] text-red-500 flex items-start gap-1.5 p-2.5 bg-red-50/50 dark:bg-red-950/15 rounded-lg border border-red-200/50 dark:border-red-900/30 font-mono select-text break-words">
+                              <AlertTriangle size={14} className="shrink-0 text-red-500 mt-0.5" />
+                              <span>{testErrors[item.id]}</span>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleTestStatus(item.id)}
-                  disabled={!keys[item.id as keyof typeof keys] || testStatuses[item.id] === 'loading'}
-                  title="Check Connection"
-                  className={cn(
-                    "px-3 py-2 rounded-md border transition-all flex items-center justify-center min-w-[80px]",
-                    testStatuses[item.id] === 'idle' && "bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700 hover:bg-slate-50",
-                    testStatuses[item.id] === 'loading' && "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700",
-                    testStatuses[item.id] === 'success' && "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border-emerald-200 dark:border-emerald-900/50",
-                    testStatuses[item.id] === 'error' && "bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-900/50"
-                  )}
-                >
-                  {testStatuses[item.id] === 'loading' && <Loader2 size={16} className="animate-spin" />}
-                  {testStatuses[item.id] === 'success' && <Check size={16} />}
-                  {testStatuses[item.id] === 'error' && <XCircle size={16} />}
-                  {testStatuses[item.id] === 'idle' && <RefreshCcw size={14} className="mr-1.5" />}
-                  <span className="text-xs font-medium">
-                    {testStatuses[item.id] === 'idle' && 'Check'}
-                    {testStatuses[item.id] === 'loading' && '...'}
-                    {testStatuses[item.id] === 'success' && 'Connected'}
-                    {testStatuses[item.id] === 'error' && 'Failed'}
-                  </span>
-                </button>
-              </div>
-              {testErrors[item.id] && (
-                <div className="mt-2 text-[11px] text-red-500 flex items-start gap-1 p-2 bg-red-50/50 dark:bg-red-950/15 rounded border border-red-200/50 dark:border-red-900/30 font-mono select-text break-words">
-                  <span className="shrink-0 mt-0.5">⚠️</span>
-                  <span>{testErrors[item.id]}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="pt-4 flex justify-end">
-          <button 
-            onClick={handleSave}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors"
-          >
-            {isSaved ? <Check size={16} /> : <Save size={16} />}
-            {isSaved ? 'Saved!' : 'Save Settings'}
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
-        <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-          <Database size={20} className="text-indigo-500" />
-          <h3 className="text-lg font-semibold tracking-tight">Data Backup & Restore</h3>
-        </div>
-        
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Export your entire workspace (including all projects, chapters, codex entries, story bible rules, and timelines) to a single JSON file. You can restore this file later.
-        </p>
-
-        <div className="flex gap-4">
-          <button
-            onClick={handleBackup}
-            disabled={isBackingUp}
-            className="flex-1 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 font-medium text-sm transition-colors disabled:opacity-50"
-          >
-            <Download size={16} />
-            {isBackingUp ? 'Exporting...' : 'Export Full Backup'}
-          </button>
-
-          <input 
-            type="file" 
-            accept=".json" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
-          />
-          
-          <button
-            onClick={handleRestoreClick}
-            disabled={isRestoring}
-            className="flex-1 flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 px-4 py-2.5 rounded-lg border border-red-200 dark:border-red-900/50 font-medium text-sm transition-colors disabled:opacity-50"
-          >
-            <Upload size={16} />
-            {isRestoring ? 'Restoring...' : 'Restore from Backup'}
-          </button>
-        </div>
-        
-        <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 rounded-lg text-xs leading-relaxed border border-amber-200 dark:border-amber-900/50">
-          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-500" />
-          <p>
-            <strong>Warning:</strong> Restoring from a backup will immediately <strong>overwrite</strong> all your current data on this browser. Please ensure you have backed up your current progress before restoring.
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-            <RefreshCcw size={20} className="text-indigo-500" />
-            <h3 className="text-lg font-semibold tracking-tight">Auto-Backup</h3>
-          </div>
-          <div className="flex items-center gap-2 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            Reliability Layer Active
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  <Database size={16} className="text-indigo-500" />
-                  Layer 1: Internal DB
-                </div>
-                {lastBackupTime && (
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    Last: {format(lastBackupTime, 'HH:mm')}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                Rolling backup stored in IndexedDB. Keeps the last 5 versions automatically.
-              </p>
-              <button
-                onClick={triggerManualBackup}
-                disabled={isAutoBackingUp}
-                className="w-full h-9 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-medium transition-colors disabled:opacity-50"
-              >
-                {isAutoBackingUp ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
-                Backup Now
-              </button>
-            </div>
-
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                <FolderOpen size={16} className="text-indigo-500" />
-                Layer 2: Local Folder
-              </div>
-              {!isFileSystemSupported ? (
-                <div className="p-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded text-[10px] border border-red-100 dark:border-red-900/50">
-                  File System Access API is not supported in this browser.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Saves a backup file to your computer automatically at every interval.
-                  </p>
-                  {folderName ? (
-                    <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700">
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        <FolderOpen size={12} className="text-slate-400" />
-                        <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{folderName}</span>
-                      </div>
-                      <button onClick={selectFolder} className="text-[10px] text-indigo-500 hover:underline shrink-0">Change</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={selectFolder}
-                      className="w-full h-9 flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-xs font-medium transition-colors"
-                    >
-                      <FolderOpen size={14} />
-                      Select Backup Folder
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
-                Backup Interval
-              </label>
-              <select 
-                value={backupInterval}
-                onChange={(e) => handleIntervalChange(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="15">Every 15 Minutes</option>
-                <option value="30">Every 30 Minutes</option>
-                <option value="60">Every 1 Hour</option>
-              </select>
-            </div>
-
-            <div className="pt-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
-                <History size={14} />
-                Internal History
-              </div>
-              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
-                {internalBackups && internalBackups.length > 0 ? (
-                  internalBackups.map((backup) => (
-                    <div key={backup.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded border border-slate-100 dark:border-slate-800 text-[11px]">
-                      <div className="flex flex-col">
-                        <span className="text-slate-900 dark:text-slate-100 font-medium">
-                          {format(backup.timestamp, 'MMM d, HH:mm')}
-                        </span>
-                        <span className="text-slate-500 dark:text-slate-500 text-[9px]">
-                          {(backup.size / 1024).toFixed(1)} KB
-                        </span>
-                      </div>
-                      <button 
-                        onClick={() => handleInternalRestore(backup.id!, backup.timestamp)}
-                        className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-medium transition-colors"
-                      >
-                        Restore
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-xs text-slate-400 italic">
-                    No internal backups yet.
                   </div>
-                )}
+                ))}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            </section>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="backup-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-8"
+          >
+            {/* Manual Backup */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Database size={18} className="text-indigo-500" />
+                <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Operasi Manual</h3>
+              </div>
+              
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Ekspor seluruh ruang kerja Anda atau pulihkan dari cadangan JSON yang ada. Memulihkan akan menimpa data yang ada.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={handleBackup}
+                    disabled={isBackingUp}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    <Download size={18} className="text-slate-500 dark:text-slate-400" />
+                    {isBackingUp ? 'Mengekspor...' : 'Ekspor Semua Cadangan'}
+                  </button>
+
+                  <input 
+                    type="file" 
+                    accept=".json" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    className="hidden" 
+                  />
+                  
+                  <button
+                    onClick={handleRestoreClick}
+                    disabled={isRestoring}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    <Upload size={18} className="text-slate-500 dark:text-slate-400" />
+                    {isRestoring ? 'Memulihkan...' : 'Kembalikan dari JSON'}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Auto-Backup */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <RefreshCcw size={18} className="text-indigo-500" />
+                  <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Mesin Pencadangan Otomatis</h3>
+                </div>
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider border border-indigo-100 dark:border-indigo-800/50">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                  Aktif
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        <Database size={16} className="text-indigo-500" />
+                        Lapisan 1: IndexedDB
+                      </div>
+                      {lastBackupTime && (
+                        <span className="text-[10px] text-slate-400 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                          Terakhir: {format(lastBackupTime, 'HH:mm')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                      Penyimpanan bergulir yang hening di dalam penyimpanan peramban Anda. Menyimpan hingga 5 versi riwayat secara otomatis.
+                    </p>
+                  </div>
+                  <button
+                    onClick={triggerManualBackup}
+                    disabled={isAutoBackingUp}
+                    className="w-full h-10 flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/10 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm font-medium transition-colors border border-indigo-100 dark:border-indigo-800/30 disabled:opacity-50"
+                  >
+                    {isAutoBackingUp ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                    Picu Pencadangan Lokal
+                  </button>
+                </div>
+
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        <FolderOpen size={16} className="text-indigo-500" />
+                        Lapisan 2: Folder Lokal
+                      </div>
+                    </div>
+                    {!isFileSystemSupported ? (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400 rounded-lg text-xs border border-amber-200 dark:border-amber-900/50 my-2">
+                        API Sistem File tidak didukung di peramban ini. Harap gunakan Chrome/Edge untuk sinkronisasi folder luring.
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                        Menulis file cadangan `.json` secara terus menerus ke dalam folder di dalam perangkat Anda.
+                      </p>
+                    )}
+                  </div>
+                  
+                  {isFileSystemSupported && (
+                    folderName ? (
+                      <div className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-2 truncate pr-2">
+                          <FolderOpen size={16} className="text-slate-400" />
+                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{folderName}</span>
+                        </div>
+                        <button onClick={selectFolder} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 font-medium px-2">Ubah</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={selectFolder}
+                        className="w-full h-10 flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <FolderOpen size={16} />
+                        Pilih Folder Cadangan
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm md:col-span-2 flex flex-col md:flex-row gap-6">
+                  {/* Interval */}
+                  <div className="w-full md:w-1/3 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      Interval
+                    </label>
+                    <select 
+                      value={backupInterval}
+                      onChange={(e) => handleIntervalChange(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                    >
+                      <option value="15">Setiap 15 Menit</option>
+                      <option value="30">Setiap 30 Menit</option>
+                      <option value="60">Setiap 1 Jam</option>
+                    </select>
+                  </div>
+
+                  {/* Internal History */}
+                  <div className="w-full md:w-2/3 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-4 md:pt-0 md:pl-6 flex flex-col">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
+                      <History size={14} />
+                      Titik Pulih
+                    </div>
+                    <div className="flex-1 space-y-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar">
+                      {internalBackups && internalBackups.length > 0 ? (
+                        internalBackups.map((backup) => (
+                          <div key={backup.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700/50 transition-colors group">
+                            <div className="flex flex-col">
+                              <span className="text-slate-900 dark:text-slate-200 text-xs font-semibold">
+                                {format(backup.timestamp, 'MMM d, yyyy • HH:mm:ss')}
+                              </span>
+                              <span className="text-slate-500 dark:text-slate-500 text-[10px]">
+                                Ukuran: {(backup.size / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                            <button 
+                              onClick={() => handleInternalRestore(backup.id!, backup.timestamp)}
+                              className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 rounded-md text-[11px] font-medium transition-all shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            >
+                              Pulihkan
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-xs text-slate-400 italic py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-lg">
+                          Belum ada titik pemulihan tersedia.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
