@@ -1,11 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark, .dark *));
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Libre Baskerville", serif;
+  --font-serif: "Lora", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
   --bg-secondary: var(--bg-secondary);
@@ -81,36 +81,36 @@
 
 /* Tiptap Styles */
 .tiptap, .ProseMirror {
-  @apply min-h-[500px] outline-none whitespace-pre-wrap break-words; /* Added w-full max-w-none prose here? Actually just apply explicitly below */
+  @apply min-h-[500px] outline-none whitespace-pre-wrap break-words font-serif text-lg leading-relaxed; /* Added w-full max-w-none prose here? Actually just apply explicitly below */
 }
 
 .tiptap p.is-editor-empty:first-child::before {
-  @apply text-slate-300 dark:text-slate-700 italic float-left h-0 pointer-events-none;
+  @apply text-slate-400 dark:text-slate-600 italic float-left h-0 pointer-events-none;
   content: attr(data-placeholder);
 }
 
 .tiptap p {
-  @apply mb-4 sm:mb-6 text-slate-800 dark:text-slate-300;
+  @apply mb-4 sm:mb-6 text-slate-700 dark:text-slate-300;
 }
 
 .tiptap h1 {
-  @apply text-4xl sm:text-5xl font-bold mt-8 mb-6 font-sans text-slate-900 dark:text-slate-100;
+  @apply text-4xl sm:text-5xl font-bold mt-8 mb-6 font-serif tracking-tight text-slate-800 dark:text-slate-200;
 }
 
 .tiptap h2 {
-  @apply text-3xl sm:text-4xl font-semibold mt-8 mb-4 font-sans text-slate-900 dark:text-slate-100;
+  @apply text-3xl sm:text-4xl font-semibold mt-8 mb-4 font-serif tracking-tight text-slate-800 dark:text-slate-200;
 }
 
 .tiptap h3 {
-  @apply text-2xl sm:text-3xl font-medium mt-6 mb-4 font-sans text-slate-900 dark:text-slate-100;
+  @apply text-2xl sm:text-3xl font-medium mt-6 mb-4 font-serif tracking-tight text-slate-800 dark:text-slate-200;
 }
 
 .tiptap ul {
-  @apply list-disc list-outside pl-6 mb-6 space-y-2;
+  @apply list-disc list-outside pl-6 mb-6 space-y-2 text-slate-700 dark:text-slate-300;
 }
 
 .tiptap ol {
-  @apply list-decimal list-outside pl-6 mb-6 space-y-2;
+  @apply list-decimal list-outside pl-6 mb-6 space-y-2 text-slate-700 dark:text-slate-300;
 }
 
 .tiptap li p {

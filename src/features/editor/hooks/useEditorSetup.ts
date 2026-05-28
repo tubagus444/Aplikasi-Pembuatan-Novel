@@ -55,15 +55,18 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
         HTMLAttributes: {
           class: 'mention',
         },
+        renderLabel({ options, node }) {
+          return `${node.attrs.label ?? node.attrs.id}`;
+        },
         suggestion: {
           items: ({ query }) => {
             const entries = codexEntriesRef.current;
             return entries
               .filter(item => 
-                item.name.toLowerCase().startsWith(query.toLowerCase()) ||
-                item.aliases?.some(a => a.toLowerCase().startsWith(query.toLowerCase()))
+                item.name.toLowerCase().includes(query.toLowerCase()) ||
+                item.aliases?.some(a => a.toLowerCase().includes(query.toLowerCase()))
               )
-              .slice(0, 5);
+              .slice(0, 50);
           },
           render: () => {
             let component: ReactRenderer;

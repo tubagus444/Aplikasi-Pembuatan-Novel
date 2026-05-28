@@ -76,7 +76,7 @@ export function useMentionAutocomplete(
         description: r.instruction
       }));
 
-    return [...ruleSuggestions, ...codexSuggestions].slice(0, 10);
+    return [...ruleSuggestions, ...codexSuggestions].slice(0, 50);
   }, [isOpen, query, codexEntries, bibleRules]);
 
   const selectMention = useCallback((item: SuggestionItem, fullValue: string) => {

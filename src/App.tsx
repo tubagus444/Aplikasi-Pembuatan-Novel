@@ -25,7 +25,8 @@ export default function App() {
   const { projectId, project, isLoading } = useProject();
   const { setActiveChapterId, setViewMode } = useNavigation();
   const { 
-    isFocusMode, 
+    isFocusMode,
+    setIsFocusMode,
     sidebarOpen, 
     setSidebarOpen,
     isSearchOpen, 
@@ -35,7 +36,10 @@ export default function App() {
   } = useUI();
 
   // Handle global keyboard shortcuts and errors
-  useGlobalEvents({ setIsSearchOpen });
+  useGlobalEvents({ 
+    setIsSearchOpen,
+    onToggleFocusMode: () => setIsFocusMode(!isFocusMode)
+  });
 
   // Initialize Auto-Backup system
   useAutoBackup();
@@ -91,7 +95,7 @@ export default function App() {
         </motion.div>
         
         <div className="flex-1 min-w-0 flex flex-col relative bg-background z-10 w-full overflow-hidden">
-          <Header />
+          {!isFocusMode && <Header />}
           <MainView />
         </div>
       </div>

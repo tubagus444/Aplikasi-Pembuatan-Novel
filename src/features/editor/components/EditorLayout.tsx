@@ -51,11 +51,11 @@ export function EditorLayout({
           </div>
         </div>
 
-        {footer}
+        {!isFocusMode && footer}
       </div>
 
       {/* Right Panels Column */}
-      {panels}
+      {!isFocusMode && panels}
     </div>
   );
 }
