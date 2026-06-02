@@ -35,6 +35,7 @@ export function useChatSession({
 }: UseChatSessionProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const messagesRef = useRef(messages);
   const isLoadingRef = useRef(false);
 
@@ -69,6 +70,7 @@ export function useChatSession({
     messagesRef.current = newMessages; // Immediate update for rapid fire messages
     onMessageAdded?.(newMessages);
     setIsLoading(true);
+    setRetryStatus(null);
     isLoadingRef.current = true;
 
     try {
@@ -97,6 +99,9 @@ export function useChatSession({
         provider,
         sessionMode,
         stream: true,
+        onRetry: (attempt, error, currentProvider) => {
+          setRetryStatus(`Koneksi melambat (${currentProvider}). Percobaan ulang ke-${attempt}...`);
+        },
         onChunk: (chunk) => {
           currentReply += chunk;
           const streamMsg: ChatMessage = {
@@ -132,6 +137,7 @@ export function useChatSession({
       throw err;
     } finally {
       setIsLoading(false);
+      setRetryStatus(null);
       isLoadingRef.current = false;
     }
   }, [
@@ -156,6 +162,7 @@ export function useChatSession({
     messages,
     setMessages,
     isLoading,
+    retryStatus,
     sendMessage,
     clearMessages
   };

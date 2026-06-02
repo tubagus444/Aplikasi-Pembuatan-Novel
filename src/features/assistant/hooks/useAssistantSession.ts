@@ -41,6 +41,7 @@ export function useAssistantSession({
     messages,
     setMessages,
     isLoading,
+    retryStatus,
     sendMessage
   } = useChatSession({
     projectId: projectId || 0,
@@ -148,6 +149,7 @@ export function useAssistantSession({
     executeCreateSession,
     handleSend,
     messages,
-    isLoading
+    isLoading,
+    retryStatus
   };
 }

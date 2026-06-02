@@ -47,22 +47,102 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
         key: PLUGIN_KEY,
         state: {
           init(_, { doc }) {
-            return DecorationSet.empty;
+            return {
+              decorations: DecorationSet.empty,
+              needsUpdate: true
+            };
           },
-          apply(tr, old, oldState, newState) {
+          apply(tr, value, oldState, newState) {
             const nextDecorations = tr.getMeta('updateCodexHighlights');
             if (nextDecorations) {
-              return nextDecorations;
+              return {
+                decorations: nextDecorations,
+                needsUpdate: false
+              };
             }
+            
+            const forceUpdate = tr.getMeta('forceUpdateCodex');
+            if (forceUpdate) {
+              return {
+                decorations: value.decorations.map(tr.mapping, tr.doc),
+                needsUpdate: true
+              };
+            }
+            
             if (tr.docChanged) {
-              return old.map(tr.mapping, tr.doc);
+              let newDecorations = value.decorations.map(tr.mapping, tr.doc);
+              const entries = options.getCodexEntries();
+              const ac = getLocalAcInstance(entries);
+              
+              if (ac && entries.length > 0) {
+                const changedRanges: {start: number, end: number}[] = [];
+                tr.mapping.maps.forEach((stepMap, i) => {
+                  stepMap.forEach((oldStart, oldEnd, newStart, newEnd) => {
+                    const start = tr.mapping.slice(i + 1).map(newStart, -1);
+                    const end = tr.mapping.slice(i + 1).map(newEnd, 1);
+                    changedRanges.push({ start, end });
+                  });
+                });
+
+                const blocksToScan = new Map<number, ProseMirrorNode>();
+                
+                changedRanges.forEach(range => {
+                  if (range.start < 0 || range.end > newState.doc.content.size) return;
+                  
+                  newState.doc.nodesBetween(
+                    Math.max(0, range.start), 
+                    Math.min(newState.doc.content.size, range.end), 
+                    (node, pos) => {
+                      if (node.isTextblock) {
+                        blocksToScan.set(pos, node);
+                        return false; 
+                      }
+                      return true;
+                    }
+                  );
+                });
+
+                blocksToScan.forEach((node, pos) => {
+                  const pStart = pos;
+                  const pEnd = pos + node.nodeSize;
+                  
+                  const decosToRemove = newDecorations.find(pStart, pEnd);
+                  newDecorations = newDecorations.remove(decosToRemove);
+                  
+                  const newDecos: Decoration[] = [];
+                  node.descendants((child, childPos) => {
+                    if (child.isText) {
+                      const text = child.text || '';
+                      const matches = ac.search(text);
+                      matches.forEach(match => {
+                        newDecos.push(
+                          Decoration.inline(pStart + 1 + childPos + match.start, pStart + 1 + childPos + match.end, {
+                            nodeName: 'span',
+                            class: 'codex-highlight group',
+                            'data-codex-id': match.data.id?.toString(),
+                          })
+                        );
+                      });
+                    }
+                  });
+                  if (newDecos.length > 0) {
+                    newDecorations = newDecorations.add(newState.doc, newDecos);
+                  }
+                });
+              }
+              
+              return {
+                decorations: newDecorations,
+                needsUpdate: false
+              };
             }
-            return old;
+            
+            return value;
           },
         },
         props: {
           decorations(state) {
-            return this.getState(state);
+            return this.getState(state).decorations;
           },
           handleDOMEvents: {
             click(view, event) {
@@ -74,6 +154,17 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
                   return true;
                 }
               }
+              if (target && target.classList.contains('mention')) {
+                const mentionId = target.getAttribute('data-id');
+                if (mentionId) {
+                  const entries = options.getCodexEntries();
+                  const foundEntry = entries.find(e => e.name.toLowerCase() === mentionId.toLowerCase());
+                  if (foundEntry && foundEntry.id && options.onCodexClick) {
+                    options.onCodexClick(Number(foundEntry.id), event);
+                    return true;
+                  }
+                }
+              }
               return false;
             }
           }
@@ -81,7 +172,8 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
         view(view) {
           return {
             update(view, prevState) {
-              if (view.state.doc.eq(prevState.doc) && !view.state.tr.getMeta('forceUpdateCodex')) {
+              const pluginState = PLUGIN_KEY.getState(view.state);
+              if (!pluginState || !pluginState.needsUpdate) {
                 return;
               }
 

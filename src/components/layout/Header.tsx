@@ -28,7 +28,7 @@ export function Header() {
   if (isFocusMode) return null;
 
   return (
-    <header className="h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 bg-background z-[var(--z-sticky)] shadow-sm transition-colors">
+    <header className="h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 bg-background z-[var(--z-sticky)] shadow-sm transition-colors overflow-x-auto no-scrollbar gap-4">
       {/* Left: Navigation Group */}
       <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
         <button 

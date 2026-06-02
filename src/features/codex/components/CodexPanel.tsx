@@ -5,6 +5,7 @@ import { ScribbleAssistantPanel } from '@/src/features/assistant/components/Scri
 
 import { CodexForm } from '@/src/features/codex/components/CodexForm';
 import { CodexCard } from '@/src/features/codex/components/CodexCard';
+import { CodexDetailModal } from '@/src/features/codex/components/CodexDetailModal';
 import { useCodexPanel } from '@/src/features/codex/hooks/useCodexPanel';
 
 interface CodexPanelProps {
@@ -20,6 +21,8 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     
     isAdding,
     editingId,
+    selectedEntry,
+    setSelectedEntry,
     searchQuery,
     setSearchQuery,
     filterCategory,
@@ -123,6 +126,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             onAddBond={addBond}
             onEdit={startEditing}
             onDelete={deleteEntry}
+            onSelect={setSelectedEntry}
             onDeleteRelationship={deleteRelationship}
           />
         ))}
@@ -223,6 +227,26 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                </div>
              </motion.div>
            </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedEntry && (
+          <CodexDetailModal
+            entry={selectedEntry}
+            entries={entries || []}
+            relationships={relationships || []}
+            projectId={projectId}
+            onClose={() => setSelectedEntry(null)}
+            onEdit={(entry) => {
+              setSelectedEntry(null);
+              startEditing(entry);
+            }}
+            onDelete={(id) => {
+              setSelectedEntry(null);
+              deleteEntry(id);
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

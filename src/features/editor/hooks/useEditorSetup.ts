@@ -21,6 +21,19 @@ interface UseEditorSetupProps {
   onUpdate: (props: { editor: Editor }) => void;
 }
 
+const CustomMention = Mention.extend({
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      'span',
+      HTMLAttributes,
+      `${node.attrs.label ?? node.attrs.id}`,
+    ];
+  },
+  renderLabel({ node }) {
+    return `${node.attrs.label ?? node.attrs.id}`;
+  },
+});
+
 export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   const onUpdateRef = useRef(onUpdate);
@@ -51,12 +64,9 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
       Placeholder.configure({
         placeholder: 'Mulai menulis cerita Anda...',
       }),
-      Mention.configure({
+      CustomMention.configure({
         HTMLAttributes: {
           class: 'mention',
-        },
-        renderLabel({ options, node }) {
-          return `${node.attrs.label ?? node.attrs.id}`;
         },
         suggestion: {
           items: ({ query }) => {
@@ -89,6 +99,8 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
                   interactive: true,
                   trigger: 'manual',
                   placement: 'bottom-start',
+                  theme: 'mention',
+                  arrow: false,
                 });
               },
               onUpdate(props: any) {

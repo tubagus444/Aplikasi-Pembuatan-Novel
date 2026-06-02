@@ -61,6 +61,7 @@ export function useNovelEditor({
   // AI
   const { 
     isAiProcessing, 
+    retryStatus,
     rewritePreview, 
     setRewritePreview, 
     runAiAction, 
@@ -81,6 +82,7 @@ export function useNovelEditor({
     title,
     handleTitleChange,
     isAiProcessing,
+    retryStatus,
     rewritePreview,
     setRewritePreview,
     runAiAction,

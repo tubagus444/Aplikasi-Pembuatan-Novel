@@ -77,7 +77,8 @@ export function AIAssistantPanel() {
     executeCreateSession,
     handleSend,
     messages,
-    isLoading
+    isLoading,
+    retryStatus
   } = useAssistantSession({
     projectId,
     activeChapterId,
@@ -132,6 +133,7 @@ export function AIAssistantPanel() {
             <AssistantMessageList
               messages={messages}
               isLoading={isLoading}
+              retryStatus={retryStatus}
               onSelectPrompt={(prompt) => setInput(prompt)}
             />
 

@@ -81,8 +81,6 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
       return;
     }
     
-    const html = currentEditor.getHTML();
-    htmlRef.current = html;
     const idToSave = chapterIdRef.current;
     
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -90,10 +88,12 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
     
     saveTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current) {
+        const html = currentEditor.getHTML();
+        htmlRef.current = html;
         performSave(idToSave, html);
         saveTimeoutRef.current = null;
       }
-    }, 1000);
+    }, 1500);
   }, [setSaveStatus, performSave]);
 
   const handleTitleChange = useCallback((newTitle: string) => {

@@ -8,10 +8,11 @@ import { parseMentionTags } from '@/src/lib/loreUtils';
 interface AssistantMessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  retryStatus?: string | null;
   onSelectPrompt?: (prompt: string) => void;
 }
 
-export function AssistantMessageList({ messages, isLoading, onSelectPrompt }: AssistantMessageListProps) {
+export function AssistantMessageList({ messages, isLoading, retryStatus, onSelectPrompt }: AssistantMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,11 +112,17 @@ export function AssistantMessageList({ messages, isLoading, onSelectPrompt }: As
             </div>
             <div className="flex flex-col max-w-[85%] items-start">
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5 opacity-50 px-1">A.I. Assistant</p>
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-5 md:px-6 py-4 rounded-3xl rounded-tl-sm shadow-sm">
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-5 md:px-6 py-4 rounded-3xl rounded-tl-sm shadow-sm flex flex-col gap-2">
                 <div className="flex items-center gap-3 text-indigo-500 dark:text-indigo-400 font-medium">
                   <Loader2 size={18} className="animate-spin" />
                   <span className="animate-pulse">Sedang menulis response...</span>
                 </div>
+                {retryStatus && (
+                  <div className="bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium border border-amber-200 dark:border-amber-800/50 mt-1">
+                    <div className="w-1.5 h-1.5 min-w-[6px] bg-amber-500 rounded-full animate-pulse" />
+                    {retryStatus}
+                  </div>
+                )}
               </div>
             </div>
           </div>

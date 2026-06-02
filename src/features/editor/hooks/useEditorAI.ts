@@ -32,6 +32,7 @@ export function useEditorAI(
   bibleRules: any[]
 ) {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [rewritePreview, setRewritePreview] = useState<RewritePreview | null>(null);
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
@@ -44,6 +45,7 @@ export function useEditorAI(
     if (selectedText.length < 5) return;
 
     setIsAiProcessing(true);
+    setRetryStatus(null);
     setRewritePreview(null);
     try {
       const chapterContent = editor.getText();
@@ -66,6 +68,9 @@ export function useEditorAI(
         provider,
         contextText: chapterContent,
         stream: true,
+        onRetry: (attempt, error, currentProvider) => {
+          setRetryStatus(`Koneksi melambat (${currentProvider}). Percobaan ulang ke-${attempt}...`);
+        },
         onChunk: (chunk) => {
            currentRewrite += chunk;
            setRewritePreview(prev => prev ? { ...prev, rewritten: currentRewrite } : null);
@@ -94,6 +99,7 @@ export function useEditorAI(
       }
     } finally {
       setIsAiProcessing(false);
+      setRetryStatus(null);
     }
   };
 
@@ -123,6 +129,7 @@ export function useEditorAI(
 
   return {
     isAiProcessing,
+    retryStatus,
     rewritePreview,
     setRewritePreview,
     runAiAction,

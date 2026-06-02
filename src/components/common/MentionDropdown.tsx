@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { cn } from '@/src/lib/utils';
 import { User, Book, Hash } from 'lucide-react';
 
@@ -23,6 +23,17 @@ interface MentionDropdownProps {
 }
 
 export function MentionDropdown({ suggestions, selectedIndex, onSelect, onClose }: MentionDropdownProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      const selectedElement = scrollRef.current.children[selectedIndex] as HTMLElement;
+      if (selectedElement && selectedElement.scrollIntoView) {
+        selectedElement.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [selectedIndex]);
+
   if (suggestions.length === 0) return null;
 
   return (
@@ -30,7 +41,7 @@ export function MentionDropdown({ suggestions, selectedIndex, onSelect, onClose 
       <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mention Lore or rule</p>
       </div>
-      <div className="max-h-60 overflow-y-auto p-1.5 custom-scrollbar">
+      <div ref={scrollRef} className="max-h-60 overflow-y-auto p-1.5 custom-scrollbar">
         {suggestions.map((item, index) => (
           <button
             key={item.id}

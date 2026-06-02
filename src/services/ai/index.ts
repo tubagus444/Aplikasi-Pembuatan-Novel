@@ -115,22 +115,129 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], depth: 
   return block;
 }
 
+const MAX_RETRIES = 3;
+const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq']; // Ordered preference for fallback
+
+// Basic circuit breaker implementation
+const circuitBreaker = new Map<string, { failures: number, resetTime: number }>();
+const CIRCUIT_OPEN_THRESHOLD = 3; // 3 consecutive failures to open circuit
+const CIRCUIT_RESET_TIME = 1000 * 30; // 30 seconds
+
+function checkCircuit(provider: string): boolean {
+  const state = circuitBreaker.get(provider);
+  if (!state) return true;
+  if (state.failures >= CIRCUIT_OPEN_THRESHOLD) {
+    if (Date.now() > state.resetTime) {
+      // Half-open: allow one trial
+      return true;
+    }
+    return false; // Circuit Open
+  }
+  return true;
+}
+
+function recordSuccess(provider: string) {
+  circuitBreaker.delete(provider);
+}
+
+function recordFailure(provider: string) {
+  const state = circuitBreaker.get(provider) || { failures: 0, resetTime: 0 };
+  state.failures += 1;
+  state.resetTime = Date.now() + CIRCUIT_RESET_TIME;
+  circuitBreaker.set(provider, state);
+}
+
+const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+async function callAIWithBackoff(
+  params: AIRenderParams,
+  provider: string,
+  settings: ReturnType<typeof getSettings>,
+  isFallback: boolean = false
+): Promise<string> {
+  let attempt = 1;
+
+  while (attempt <= MAX_RETRIES) {
+    if (!checkCircuit(provider)) {
+      if (attempt === 1 && !isFallback) {
+         // Force fallback if circuit is open on primary provider
+         break;
+      } else if (isFallback) {
+         throw new AIError(`Koneksi ${provider} terputus sementara (Circuit Open).`, 'CIRCUIT_OPEN', provider);
+      }
+    }
+
+    try {
+      if (!params.model) {
+        params.model = settings.models[provider as keyof typeof settings.models];
+      }
+
+      const apiKey = settings.keys[provider as keyof typeof settings.keys];
+      const result = await callProxy(provider, params, apiKey);
+      
+      recordSuccess(provider);
+      return result;
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') throw error;
+      
+      recordFailure(provider);
+      
+      // If unauthorized, don't retry, let it fail immediately so user knows API key is wrong
+      if (error.code === 'INVALID_KEY' || error.code === 'UNAUTHORIZED' || error.code === 'QUOTA_EXCEEDED') {
+        throw new AIError(error.message, error.code, provider);
+      }
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500; // Exponential backoff: 2s, 4s, 8s + jitter
+        if (params.onRetry) {
+          params.onRetry(attempt, error, provider);
+        }
+        await wait(delay);
+        attempt++;
+      } else {
+        if (isFallback) {
+          throw new AIError(`Gagal menghubungi ${provider} setelah beberapa percobaan.`, error.code || 'API_ERROR', provider);
+        } else {
+          break; // Move to fallback logic outside this function
+        }
+      }
+    }
+  }
+  
+  throw new AIError(`Gagal menghubungi ${provider} setelah percobaan maksimal.`, 'TIMEOUT', provider);
+}
+
 async function callAI(params: AIRenderParams): Promise<string> {
   const settings = getSettings();
   const provider = params.provider || settings.provider;
   
   try {
-    // Inject custom model if available for the provider
-    if (!params.model) {
-      params.model = settings.models[provider as keyof typeof settings.models];
-    }
-
-    // Prefer proxy for all providers to hide keys if possible and avoid CORS
-    return await callProxy(provider, params, settings.keys[provider as keyof typeof settings.keys]);
+    return await callAIWithBackoff(params, provider, settings, false);
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
     
-    // Check if error is already classified from proxy
+    // Only attempt fallback if we know it's a connection/server/rate limit issue
+    // NOT if there's no API key or Invalid API Key.
+    if (error.code !== 'INVALID_KEY' && error.code !== 'QUOTA_EXCEEDED' && error.code !== 'UNAUTHORIZED') {
+      for (const fallback of FALLBACK_ORDER) {
+        if (fallback === provider) continue; // Already tried
+        
+        // Ensure they have API key for fallback
+        if (!settings.keys[fallback as keyof typeof settings.keys]) continue;
+        
+        try {
+          if (params.onRetry) params.onRetry(1, error, `${fallback} (Cadangan)`);
+          const fallbackParams = { ...params, model: undefined, provider: fallback }; // let backup decide its own model
+          return await callAIWithBackoff(fallbackParams, fallback, settings, true);
+        } catch (fallbackError: any) {
+          if (fallbackError.name === 'AbortError') throw fallbackError;
+          continue; // Try next fallback
+        }
+      }
+    }
+    
+    // If we land here, either all fallbacks failed or we didn't try
     const aiError = new AIError(
       error.message || 'AI processing failed', 
       error.code || 'API_ERROR',

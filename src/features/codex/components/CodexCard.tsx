@@ -20,6 +20,7 @@ interface CodexCardProps {
   onAddBond: (sourceId: number) => void;
   onEdit: (entry: CodexEntry) => void;
   onDelete: (id: number) => void;
+  onSelect: (entry: CodexEntry) => void;
   onDeleteRelationship: (id: number) => void;
 }
 
@@ -37,12 +38,14 @@ export function CodexCard({
   onAddBond,
   onEdit,
   onDelete,
+  onSelect,
   onDeleteRelationship
 }: CodexCardProps) {
   return (
     <motion.div 
       layout
-      className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-800 transition-all relative flex flex-col col-span-1"
+      onClick={() => onSelect(entry)}
+      className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-800 transition-all relative flex flex-col col-span-1 cursor-pointer"
     >
       <div className="flex flex-col h-full">
         <div className="flex items-start justify-between mb-4">
@@ -59,21 +62,21 @@ export function CodexCard({
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button 
-              onClick={() => onToggleLinking(entry.id!)}
+              onClick={(e) => { e.stopPropagation(); onToggleLinking(entry.id!); }}
               className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
               title="Tambah Hubungan"
             >
               <Link2 size={16} />
             </button>
             <button 
-              onClick={() => onEdit(entry)}
+              onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
               className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-all"
               title="Ubah Entri"
             >
               <Edit2 size={16} />
             </button>
             <button 
-              onClick={() => onDelete(entry.id!)}
+              onClick={(e) => { e.stopPropagation(); onDelete(entry.id!); }}
               className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-all"
               title="Hapus Entri"
             >
@@ -89,6 +92,7 @@ export function CodexCard({
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-4 border border-slate-200 dark:border-slate-700 flex flex-col gap-3 shadow-inner">
                 <div className="flex gap-2">
@@ -166,9 +170,9 @@ export function CodexCard({
               const otherEntry = entries?.find(e => e.id === otherId);
               if (!otherEntry) return null;
               return (
-                <span key={r.id} className="group/bond text-[11px] font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1">
+                <span key={r.id} className="group/bond text-[11px] font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1" onClick={e => e.stopPropagation()}>
                   {r.type} <span className="opacity-50">dengan</span> {otherEntry.name}
-                  <button onClick={() => onDeleteRelationship(r.id!)} className="opacity-0 group-hover/bond:opacity-100 text-indigo-400 hover:text-red-500 transition ml-1 shrink-0">
+                  <button onClick={(e) => { e.stopPropagation(); onDeleteRelationship(r.id!); }} className="opacity-0 group-hover/bond:opacity-100 text-indigo-400 hover:text-red-500 transition ml-1 shrink-0">
                     <X size={10} />
                   </button>
                 </span>

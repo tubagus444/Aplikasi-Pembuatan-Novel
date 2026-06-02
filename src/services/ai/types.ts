@@ -17,6 +17,7 @@ export interface AIRenderParams {
   signal?: AbortSignal;
   stream?: boolean;
   onChunk?: (chunk: string) => void;
+  onRetry?: (attempt: number, error: any, provider: string) => void;
 }
 
 export interface GenerateParams {
@@ -30,6 +31,7 @@ export interface GenerateParams {
   contextText?: string;
   stream?: boolean;
   onChunk?: (chunk: string) => void;
+  onRetry?: (attempt: number, error: any, provider: string) => void;
 }
 
 export interface ChatParams {
@@ -43,4 +45,5 @@ export interface ChatParams {
   sessionMode?: SessionMode;
   stream?: boolean;
   onChunk?: (chunk: string) => void;
+  onRetry?: (attempt: number, error: any, provider: string) => void;
 }

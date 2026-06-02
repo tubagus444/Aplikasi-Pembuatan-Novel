@@ -19,6 +19,7 @@ export function useCodexPanel(projectId: number) {
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<CodexEntry | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<CodexCategory | 'all'>('all');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -149,6 +150,8 @@ export function useCodexPanel(projectId: number) {
     
     isAdding,
     editingId,
+    selectedEntry,
+    setSelectedEntry,
     searchQuery,
     setSearchQuery,
     filterCategory,
