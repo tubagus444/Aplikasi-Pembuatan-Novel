@@ -14,7 +14,7 @@ describe("loreUtils", () => {
 
     it("should resolve codex tags", () => {
       const codex: CodexEntry[] = [
-        { id: "1", name: "Kael", aliases: [], description: "A simple farmer.", category: "Character", createdAt: 0, updatedAt: 0 }
+        { id: 1, projectId: 1, name: "Kael", aliases: [], description: "A simple farmer.", category: "character", tags: [] }
       ];
       const result = resolveLoreTags("Here comes @codex:Kael today.", codex, []);
       expect(result).toBe("Here comes [Lore - Kael: A simple farmer.] today.");
@@ -22,7 +22,7 @@ describe("loreUtils", () => {
 
     it("should resolve codex tags with underscore substituting spaces", () => {
       const codex: CodexEntry[] = [
-        { id: "1", name: "Red Dragon", aliases: [], description: "A big beast.", category: "Character", createdAt: 0, updatedAt: 0 }
+        { id: 1, projectId: 1, name: "Red Dragon", aliases: [], description: "A big beast.", category: "character", tags: [] }
       ];
       const result = resolveLoreTags("Fight the @codex:Red_Dragon now.", codex, []);
       expect(result).toBe("Fight the [Lore - Red Dragon: A big beast.] now.");

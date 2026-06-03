@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '@/src/lib/constants';
 import { cn } from '@/src/lib/utils';
 import { Editor } from '@tiptap/core';
-import { CodexEntry, StoryBibleRule } from '@/src/types';
+import { CodexEntry, StoryBibleRule, Relationship } from '@/src/types';
 import { parseMentionTags } from '@/src/lib/loreUtils';
 import { MentionDropdown } from '@/src/components/common/MentionDropdown';
 import { useScribbleAssistantPanel } from '@/src/features/assistant/hooks/useScribbleAssistantPanel';
@@ -23,6 +23,7 @@ interface ScribbleAssistantPanelProps {
   viewMode?: string;
   codexEntries?: CodexEntry[];
   bibleRules?: StoryBibleRule[];
+  relationships?: Relationship[];
   editor?: Editor | null;
 }
 

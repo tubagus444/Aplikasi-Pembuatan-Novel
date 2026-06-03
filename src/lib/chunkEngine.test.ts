@@ -47,22 +47,22 @@ describe("chunkEngine", () => {
 
     const codex: CodexEntry[] = [
       {
-        id: "1",
+        id: 1,
+        projectId: 1,
         name: "Alice",
         aliases: ["Alicia"],
         description: "",
-        category: "Character",
-        createdAt: 0,
-        updatedAt: 0,
+        category: "character",
+        tags: [],
       },
       {
-        id: "2",
+        id: 2,
+        projectId: 1,
         name: "Bob",
         aliases: [],
         description: "",
-        category: "Character",
-        createdAt: 0,
-        updatedAt: 0,
+        category: "character",
+        tags: [],
       }
     ];
 

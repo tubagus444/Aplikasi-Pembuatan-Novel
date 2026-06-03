@@ -6,6 +6,57 @@
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
+import { pipeline, env } from '@xenova/transformers';
+
+// Configure transformers environment
+env.allowLocalModels = false;
+env.backends.onnx.wasm.numThreads = 1;
+
+let embedder: any = null;
+let embedderInitializing = false;
+let modelInitPromise: Promise<any> | null = null;
+
+// Cache for Codex embeddings in the worker: key is codex ID, value is { embedding, contentHash }
+const embeddingCache = new Map<string | number, { embedding: Float32Array, contentHash: string }>();
+
+async function getEmbedder() {
+  if (embedder) return embedder;
+  if (!modelInitPromise) {
+    modelInitPromise = pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+      progress_callback: (info: any) => {
+         // Could dispatch progress messages here if needed
+      }
+    });
+  }
+  embedder = await modelInitPromise;
+  return embedder;
+}
+
+function dotProduct(a: Float32Array, b: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    sum += a[i] * b[i];
+  }
+  return sum;
+}
+
+function cosineSimilarity(a: Float32Array, b: Float32Array): number {
+  // L2 Norm is already applied by 'normalize: true' in transformers.js
+  // So dot product is equivalent to cosine similarity here.
+  return dotProduct(a, b);
+}
+
+// Generate a string to uniquely identify the semantic content of an entry
+function getCodexHash(entry: CodexEntry) {
+  return `${entry.name}|${entry.aliases?.join(',')}|${entry.description}`;
+}
+
+async function getSemanticEmbedding(text: string): Promise<Float32Array> {
+  const model = await getEmbedder();
+  const result = await model(text, { pooling: 'mean', normalize: true });
+  // result.data is already a Float32Array
+  return result.data as Float32Array;
+}
 
 const ALWAYS_INCLUDE = [
   '__STORY_TITLE__',
@@ -47,10 +98,10 @@ function getBoundaryRegex(name: string): RegExp {
   return regex;
 }
 
-function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexEntry[] {
+async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise<CodexEntry[]> {
   if (!text || !allCodex || allCodex.length === 0) return [];
 
-  // Convert all main names and aliases into keywords for AhoCorasick
+  // 1. Exact Match Score (AhoCorasick)
   const keywords = allCodex.flatMap(entry => {
     const items = [];
     if (entry.name) {
@@ -66,25 +117,84 @@ function getRelevantContext(text: string, allCodex: CodexEntry[]): CodexEntry[] 
     return items;
   });
 
-  if (keywords.length === 0) return [];
+  const entryScores = new Map<string | number, { entry: CodexEntry; acScore: number; semanticScore: number; finalScore: number }>();
 
-  const ac = new AhoCorasick(keywords);
-  const matches = ac.search(text);
+  if (keywords.length > 0) {
+    const ac = new AhoCorasick(keywords);
+    const matches = ac.search(text);
 
-  const entryScores = new Map<string | number, { entry: CodexEntry; score: number }>();
+    matches.forEach(match => {
+      const { entry, isAlias } = match.data;
+      if (!entry) return;
+      const key = entry.id !== undefined ? entry.id : entry.name;
 
-  matches.forEach(match => {
-    const { entry, isAlias } = match.data;
-    if (!entry) return;
-    const key = entry.id !== undefined ? entry.id : entry.name;
+      const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
+      current.acScore += isAlias ? 5 : 10;
+      entryScores.set(key, current);
+    });
+  }
 
-    const current = entryScores.get(key) || { entry, score: 0 };
-    current.score += isAlias ? 5 : 10;
-    entryScores.set(key, current);
-  });
+  // 2. Semantic Score (Transformers.js)
+  try {
+    const textEmbedding = await getSemanticEmbedding(text);
+
+    // Compute or retrieve embeddings for all Codex entries
+    let newlyEmbeddedCount = 0;
+    for (const entry of allCodex) {
+      const key = entry.id !== undefined ? entry.id : entry.name;
+      const hash = getCodexHash(entry);
+      
+      let entryEmbeddingInfo = embeddingCache.get(key);
+      if (!entryEmbeddingInfo || entryEmbeddingInfo.contentHash !== hash) {
+        // Build concise semantic representation for the entry
+        // Combine name, aliases, description and category for embedding
+        const textToEmbed = `[${entry.category || 'General'}] ${entry.name}${entry.aliases?.length ? ` (aka ${entry.aliases.join(', ')})` : ''}: ${entry.description || ''}`;
+        
+        try {
+           const embedding = await getSemanticEmbedding(textToEmbed);
+           entryEmbeddingInfo = { embedding, contentHash: hash };
+           embeddingCache.set(key, entryEmbeddingInfo);
+           
+           newlyEmbeddedCount++;
+           // Yield to event loop every 50 embeddings if we have > 3000 vectors
+           // to prevent locking the worker completely.
+           if (newlyEmbeddedCount % 50 === 0) {
+             await new Promise(resolve => setTimeout(resolve, 0));
+           }
+        } catch (e) {
+           console.error("Failed to embed entry", entry.name, e);
+        }
+      }
+
+      if (entryEmbeddingInfo) {
+        const similarity = cosineSimilarity(textEmbedding, entryEmbeddingInfo.embedding);
+        const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
+        current.semanticScore = similarity;
+        entryScores.set(key, current);
+      }
+    }
+  } catch (error) {
+    console.error("Semantic search failed, falling back to pure AhoCorasick", error);
+  }
+
+  // 3. Hybrid Scoring
+  const ALPHA = 60; // Weight multiplier for semantic score (similarity is usually 0.0 - 1.0)
+  const BETA = 1.0; // Weight multiplier for AC score
 
   return Array.from(entryScores.values())
-    .sort((a, b) => b.score - a.score)
+    .map(item => {
+      // similarity is between -1 and 1, usually between 0 and 1. We scale semantic to ~0-60.
+      const scaledSemantic = Math.max(0, item.semanticScore) * ALPHA;
+      const scaledAc = item.acScore * BETA;
+      
+      // If there's an exact match, give it an extra boost to ensure it surfaces
+      const exactMatchBoost = item.acScore > 0 ? 10 : 0;
+      
+      item.finalScore = scaledSemantic + scaledAc + exactMatchBoost;
+      return item;
+    })
+    .filter(item => item.finalScore > 20) // Minimum threshold to filter out low-relevance
+    .sort((a, b) => b.finalScore - a.finalScore)
     .map(item => item.entry);
 }
 
@@ -180,20 +290,24 @@ function condenseCoreRules(rules: StoryBibleRule[]): StoryBibleRule[] {
 }
 
 // Worker message listener
-self.onmessage = (e: MessageEvent) => {
+self.onmessage = async (e: MessageEvent) => {
   const { type, id, payload } = e.data;
 
   try {
     let result;
     switch (type) {
       case 'GET_RELEVANT_CONTEXT':
-        result = getRelevantContext(payload.text, payload.allCodex);
+        result = await getRelevantContext(payload.text, payload.allCodex);
         break;
       case 'GET_RELEVANT_BIBLE_RULES':
         result = getRelevantBibleRules(payload.text, payload.allRules, payload.maxChars);
         break;
       case 'INVALIDATE_CACHE':
         regexCache.clear();
+        // Option to optionally clear embedding cache if needed
+        if (payload?.deep) {
+          embeddingCache.clear();
+        }
         result = { success: true };
         break;
       case 'SCAN_APPEARANCES':

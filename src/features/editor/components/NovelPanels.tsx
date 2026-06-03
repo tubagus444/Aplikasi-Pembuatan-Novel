@@ -22,9 +22,10 @@ interface NovelPanelsProps {
   editor: Editor | null;
   codexEntries: any[];
   bibleRules: any[];
+  relationships?: any[];
 }
 
-export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleRules }: NovelPanelsProps) {
+export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleRules, relationships }: NovelPanelsProps) {
   const { activePanel, setActivePanel } = useEditorPanel();
   
   return (
@@ -53,6 +54,7 @@ export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleR
                   }}
                   codexEntries={codexEntries}
                   bibleRules={bibleRules}
+                  relationships={relationships}
                   editor={editor}
                 />
               )}

@@ -29,7 +29,7 @@ const CustomMention = Mention.extend({
       `${node.attrs.label ?? node.attrs.id}`,
     ];
   },
-  renderLabel({ node }) {
+  renderText({ node }) {
     return `${node.attrs.label ?? node.attrs.id}`;
   },
 });
