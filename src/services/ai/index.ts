@@ -52,13 +52,15 @@ function getSettings() {
       google: loadKey('google'),
       groq: loadKey('groq'),
       openrouter: loadKey('openrouter'),
-      claude: loadKey('claude')
+      claude: loadKey('claude'),
+      ollama: '' // Ollama doesn't use API key
     },
     models: {
       google: localStorage.getItem('ai_model_google') || '',
       groq: localStorage.getItem('ai_model_groq') || '',
       openrouter: localStorage.getItem('ai_model_openrouter') || '',
-      claude: localStorage.getItem('ai_model_claude') || ''
+      claude: localStorage.getItem('ai_model_claude') || '',
+      ollama: localStorage.getItem('ai_model_ollama') || ''
     }
   };
 }

@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { useStorageQuota } from '@/src/hooks/useStorageQuota';
 import { ContextDepth } from '@/src/types';
 import { OpenRouterModelSelect } from '@/src/components/common/OpenRouterModelSelect';
+import { OllamaModelSelect } from '@/src/components/common/OllamaModelSelect';
 
 export function SettingsPanel() {
   const [activeTab, setActiveTab] = useState<'ai' | 'backup'>('ai');
@@ -76,8 +77,11 @@ export function SettingsPanel() {
     google: '',
     groq: '',
     openrouter: '',
-    claude: ''
+    claude: '',
+    ollama: ''
   });
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState('');
+  const [ollamaEnabled, setOllamaEnabled] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -85,13 +89,15 @@ export function SettingsPanel() {
     google: 'idle',
     groq: 'idle',
     openrouter: 'idle',
-    claude: 'idle'
+    claude: 'idle',
+    ollama: 'idle'
   });
   const [testErrors, setTestErrors] = useState<Record<string, string>>({
     google: '',
     groq: '',
     openrouter: '',
-    claude: ''
+    claude: '',
+    ollama: ''
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -171,13 +177,18 @@ export function SettingsPanel() {
       google: loadModel('google'),
       groq: loadModel('groq'),
       openrouter: loadModel('openrouter'),
-      claude: loadModel('claude')
+      claude: loadModel('claude'),
+      ollama: loadModel('ollama')
     });
+    setOllamaBaseUrl(localStorage.getItem('ollama_base_url') || 'http://localhost:11434');
+    setOllamaEnabled(localStorage.getItem('ollama_enabled') === 'true');
   }, []);
 
   const handleSave = () => {
     localStorage.setItem('ai_provider', provider);
     localStorage.setItem('ai_context_depth', contextDepth);
+    localStorage.setItem('ollama_base_url', ollamaBaseUrl);
+    localStorage.setItem('ollama_enabled', ollamaEnabled.toString());
     
     const saveKey = (name: string, value: string) => {
       const trimmedValue = value.trim();
@@ -207,20 +218,29 @@ export function SettingsPanel() {
     saveModel('groq', models.groq);
     saveModel('openrouter', models.openrouter);
     saveModel('claude', models.claude);
+    saveModel('ollama', models.ollama);
     
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
+    // Dispatch storage event so hooks can pick up ollama changes in same window
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleTestStatus = async (prov: string) => {
-    const key = keys[prov as keyof typeof keys]?.trim();
-    if (!key) return;
+    let key = '';
+    if (prov !== 'ollama') {
+       key = keys[prov as keyof typeof keys]?.trim();
+       if (!key) return;
+    }
 
     const model = models[prov as keyof typeof models]?.trim();
 
     setTestStatuses(prev => ({ ...prev, [prov]: 'loading' }));
     setTestErrors(prev => ({ ...prev, [prov]: '' }));
     try {
+      if (prov === 'ollama') {
+         localStorage.setItem('ollama_base_url', ollamaBaseUrl); // Make sure latest base URL is tested
+      }
       const ok = await testConnection(prov, key, model);
       setTestStatuses(prev => ({ ...prev, [prov]: ok ? 'success' : 'error' }));
       if (!ok) {
@@ -419,6 +439,7 @@ export function SettingsPanel() {
                     <option value="groq">Groq Cloud</option>
                     <option value="openrouter">OpenRouter</option>
                     <option value="claude">Anthropic (Claude)</option>
+                    <option value="ollama">Ollama (Lokal)</option>
                   </select>
                 </div>
 
@@ -619,6 +640,95 @@ export function SettingsPanel() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* OLLAMA CONFIGURATION */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <HardDrive size={18} className="text-indigo-500" />
+                <div>
+                  <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Penyedia AI Lokal</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Jalankan model secara lokal, 100% offline tanpa API Key.</p>
+                </div>
+              </div>
+
+              <div className="p-5 flex flex-col md:flex-row md:items-start gap-4 bg-indigo-50/30 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl shadow-sm">
+                <div className="md:w-1/3">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                    <input 
+                      type="checkbox"
+                      checked={ollamaEnabled}
+                      onChange={(e) => setOllamaEnabled(e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Ollama Aktif
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Membutuhkan aplikasi Ollama berjalan dengan properti CORS yang dikonfigurasi.
+                  </p>
+                </div>
+                
+                <div className="md:w-2/3 flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={ollamaBaseUrl}
+                      onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                      placeholder="Base URL: http://localhost:11434"
+                      disabled={!ollamaEnabled}
+                      className="flex-1 bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleTestStatus('ollama')}
+                      disabled={!ollamaEnabled || testStatuses['ollama'] === 'loading'}
+                      title="Cek Koneksi"
+                      className={cn(
+                        "px-3 py-2 rounded-lg border transition-all flex items-center justify-center min-w-[85px]",
+                        testStatuses['ollama'] === 'idle' && "bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700",
+                        testStatuses['ollama'] === 'loading' && "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700",
+                        testStatuses['ollama'] === 'success' && "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border-emerald-200 dark:border-emerald-900/50",
+                        testStatuses['ollama'] === 'error' && "bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-900/50"
+                      )}
+                    >
+                      {testStatuses['ollama'] === 'loading' && <Loader2 size={16} className="animate-spin" />}
+                      {testStatuses['ollama'] === 'success' && <Check size={16} />}
+                      {testStatuses['ollama'] === 'error' && <XCircle size={16} />}
+                      {testStatuses['ollama'] === 'idle' && <RefreshCcw size={14} className="mr-1.5" />}
+                      <span className="text-xs font-medium">
+                        {testStatuses['ollama'] === 'idle' && 'Cek'}
+                        {testStatuses['ollama'] === 'loading' && '...'}
+                        {testStatuses['ollama'] === 'success' && 'Valid'}
+                        {testStatuses['ollama'] === 'error' && 'Gagal'}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="w-full" style={{ opacity: ollamaEnabled ? 1 : 0.5, pointerEvents: ollamaEnabled ? 'auto' : 'none' }}>
+                     <OllamaModelSelect 
+                       value={models.ollama}
+                       onChange={(val) => setModels({...models, ollama: val})}
+                       baseUrl={ollamaBaseUrl}
+                     />
+                  </div>
+
+                  <AnimatePresence>
+                    {testErrors['ollama'] && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-1 text-[11px] text-red-500 flex items-start gap-1.5 p-2.5 bg-red-50/50 dark:bg-red-950/15 rounded-lg border border-red-200/50 dark:border-red-900/30 font-mono select-text break-words">
+                          <AlertTriangle size={14} className="shrink-0 text-red-500 mt-0.5" />
+                          <span>{testErrors['ollama']}</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </section>
           </motion.div>

@@ -11,6 +11,11 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     model: params.model || getModelForProvider(provider),
   };
 
+  let ollamaBaseUrl: string | undefined = undefined;
+  if (provider === 'ollama') {
+     ollamaBaseUrl = localStorage.getItem('ollama_base_url') || 'http://localhost:11434';
+  }
+
   if (provider === 'claude') {
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
@@ -35,6 +40,7 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
       maxOutputTokens: params.maxTokens || 4000,
     };
   } else {
+    // OpenAI Compatible (groq, openrouter, ollama)
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
     body.messages = [
@@ -61,7 +67,8 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     headers: headers,
     body: JSON.stringify({
       provider,
-      body
+      body,
+      ollamaBaseUrl
     }),
     signal: params.signal
   }).catch(networkError => {
@@ -165,6 +172,7 @@ function getModelForProvider(provider: string) {
     case 'openrouter': return 'meta-llama/llama-3.3-70b-instruct:free';
     case 'claude': return 'claude-3-5-sonnet-20241022';
     case 'google': return 'gemini-2.0-flash'; // Using the recommended stable model
+    case 'ollama': return 'llama3.2';
     default: return '';
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const PROVIDERS = ['google', 'claude', 'groq', 'openrouter'];
+const PROVIDERS = ['google', 'claude', 'groq', 'openrouter', 'ollama'];
 
 export function useAvailableProviders() {
   const [availableProviders, setAvailableProviders] = useState<string[]>(['google']);
@@ -14,6 +14,8 @@ export function useAvailableProviders() {
         // For Google, we check if there's a system-level key or a user-provided key
         if (p === 'google' && (process.env as any).HAS_GEMINI_KEY) return true;
         
+        if (p === 'ollama') return localStorage.getItem('ollama_enabled') === 'true';
+
         const key = localStorage.getItem(`ai_key_${p}`);
         return !!key;
       });

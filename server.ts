@@ -11,7 +11,7 @@ async function startServer() {
 
   // API Proxy Layer for AI Calls
   app.post("/api/ai/proxy", async (req, res) => {
-    const { provider, body } = req.body;
+    const { provider, body, ollamaBaseUrl } = req.body;
     const clientApiKey = (req.headers['x-api-key'] as string) || '';
     const isStream = !!body.stream;
     
@@ -53,6 +53,10 @@ async function startServer() {
         } else {
           url = `https://generativelanguage.googleapis.com/v1beta/${sanitizedModel}:generateContent?key=${apiKey}`;
         }
+        break;
+      case 'ollama':
+        url = `${(ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '')}/api/chat`; // Wait, ollama's OpenAI compatible endpoint is /v1/chat/completions
+        url = `${(ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '')}/v1/chat/completions`;
         break;
       default:
         return res.status(400).json({ error: "Unsupported provider" });
@@ -125,6 +129,31 @@ async function startServer() {
     } catch (error: any) {
       console.error(`Google models listing error:`, error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Query Ollama Models
+  app.post("/api/ai/ollama-models", async (req, res) => {
+    const { baseUrl } = req.body;
+    const url = `${(baseUrl || 'http://localhost:11434').replace(/\/$/, '')}/api/tags`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      res.status(200).json(data);
+    } catch (error: any) {
+      console.error(`Ollama models listing error:`, error);
+      res.status(500).json({ error: error.message || 'Failed to connect to Ollama. Make sure it is running globally.' });
     }
   });
 
