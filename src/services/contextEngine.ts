@@ -26,7 +26,11 @@ function getWorker(): Worker {
   if (!worker) {
     worker = new ContextWorker();
     worker.onmessage = (e: MessageEvent) => {
-      const { id, result, error } = e.data;
+      const { id, result, error, type, payload } = e.data;
+      if (type === 'PROGRESS') {
+        window.dispatchEvent(new CustomEvent('semantic-indexing-progress', { detail: payload }));
+        return;
+      }
       const deferred = pendingRequests.get(id);
       if (deferred) {
         pendingRequests.delete(id);
@@ -109,4 +113,17 @@ export async function getRelevantBibleRules(
     ].includes(r.key));
   }
   return sendToWorker('GET_RELEVANT_BIBLE_RULES', { text, allRules, maxChars });
+}
+
+export async function countTokens(text: string, model?: string): Promise<number> {
+  if (!text) return 0;
+  return sendToWorker('COUNT_TOKENS', { text, model });
+}
+
+export async function estimateContextTokens(text: string, codexText: string, rulesText: string, model?: string): Promise<{textTokens: number, codexTokens: number, rulesTokens: number}> {
+  return sendToWorker('ESTIMATE_CONTEXT_TOKENS', { text, codexText, rulesText, model });
+}
+
+export async function previewContextTokens(text: string, allCodex: CodexEntry[], allRules: StoryBibleRule[], model?: string): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
+  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, model });
 }

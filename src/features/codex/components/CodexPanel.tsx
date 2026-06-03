@@ -48,7 +48,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     cancelEdit,
     addBond,
     deleteRelationship,
-    handleToggleLinking
+    handleToggleLinking,
+    hasMore,
+    loadMore
   } = useCodexPanel(projectId);
 
   return (
@@ -130,6 +132,17 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             onDeleteRelationship={deleteRelationship}
           />
         ))}
+
+        {hasMore && !isAdding && (
+          <div className="col-span-full py-6 flex justify-center">
+            <button 
+              onClick={loadMore}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Muat Lebih Banyak Entri
+            </button>
+          </div>
+        )}
 
         {entries?.length === 0 && !isAdding && (
           <div className="col-span-full py-24 px-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/30">

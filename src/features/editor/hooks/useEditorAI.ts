@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Editor } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
@@ -37,6 +37,9 @@ export function useEditorAI(
   const [rewritePreview, setRewritePreview] = useState<RewritePreview | null>(null);
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
+  
+  const streamBufferRef = useRef<string>('');
+  const isStreamingRef = useRef<boolean>(false);
 
   const runAiAction = async (action: string, provider?: string, customPrompt?: string) => {
     if (!editor) return;
@@ -51,13 +54,21 @@ export function useEditorAI(
     try {
       const chapterContent = editor.getText();
 
-      let currentRewrite = "";
+      streamBufferRef.current = "";
+      isStreamingRef.current = true;
       setRewritePreview({
         original: selectedText,
         rewritten: "",
         from,
         to
       });
+
+      const flushBuffer = () => {
+        if (!isStreamingRef.current) return;
+        setRewritePreview(prev => prev ? { ...prev, rewritten: streamBufferRef.current } : null);
+      };
+
+      const flushInterval = setInterval(flushBuffer, 50);
 
       const result = await processRewrite({
         action,
@@ -74,14 +85,17 @@ export function useEditorAI(
           setRetryStatus(`Koneksi melambat (${currentProvider}). Percobaan ulang ke-${attempt}...`);
         },
         onChunk: (chunk) => {
-           currentRewrite += chunk;
-           setRewritePreview(prev => prev ? { ...prev, rewritten: currentRewrite } : null);
+           streamBufferRef.current += chunk;
         }
       });
 
+      isStreamingRef.current = false;
+      clearInterval(flushInterval);
+      
+      const finalRewritten = streamBufferRef.current || result;
       setRewritePreview({
         original: selectedText,
-        rewritten: currentRewrite || result,
+        rewritten: finalRewritten,
         from,
         to
       });

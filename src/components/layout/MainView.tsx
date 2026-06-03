@@ -22,6 +22,7 @@ const SettingsPanel = lazy(() => import('@/src/components/panels/SettingsPanel')
 const GuidePanel = lazy(() => import('@/src/components/panels/GuidePanel').then(m => ({ default: m.GuidePanel })));
 const ErrorLogPanel = lazy(() => import('@/src/components/panels/ErrorLogPanel').then(m => ({ default: m.ErrorLogPanel })));
 const AIAssistantPanel = lazy(() => import('@/src/features/assistant/components/AIAssistantPanel').then(m => ({ default: m.AIAssistantPanel })));
+const DashboardPanel = lazy(() => import('@/src/components/panels/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 
 function LoadingFallback() {
   return (
@@ -137,6 +138,14 @@ export function MainView() {
             <ViewContainer key="guide" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <GuidePanel />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'dashboard' && projectId && (
+            <ViewContainer key="dashboard" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <DashboardPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

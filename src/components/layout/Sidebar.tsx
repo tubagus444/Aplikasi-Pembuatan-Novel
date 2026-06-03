@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2 } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -41,6 +41,12 @@ export function Sidebar() {
             <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em] ml-10">Writer Pro v1.0</p>
             
             <nav role="navigation" className="mt-6 space-y-1">
+              <NavItem 
+                active={viewMode === 'dashboard'} 
+                onClick={() => handleViewChange('dashboard')} 
+                icon={<BarChart2 size={14} />} 
+                label="Dashboard" 
+              />
               <NavItem 
                 active={viewMode === 'write'} 
                 onClick={() => handleViewChange('write')} 

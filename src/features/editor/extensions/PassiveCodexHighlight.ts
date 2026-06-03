@@ -70,70 +70,10 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
             }
             
             if (tr.docChanged) {
-              let newDecorations = value.decorations.map(tr.mapping, tr.doc);
-              const entries = options.getCodexEntries();
-              const ac = getLocalAcInstance(entries);
-              
-              if (ac && entries.length > 0) {
-                const changedRanges: {start: number, end: number}[] = [];
-                tr.mapping.maps.forEach((stepMap, i) => {
-                  stepMap.forEach((oldStart, oldEnd, newStart, newEnd) => {
-                    const start = tr.mapping.slice(i + 1).map(newStart, -1);
-                    const end = tr.mapping.slice(i + 1).map(newEnd, 1);
-                    changedRanges.push({ start, end });
-                  });
-                });
-
-                const blocksToScan = new Map<number, ProseMirrorNode>();
-                
-                changedRanges.forEach(range => {
-                  if (range.start < 0 || range.end > newState.doc.content.size) return;
-                  
-                  newState.doc.nodesBetween(
-                    Math.max(0, range.start), 
-                    Math.min(newState.doc.content.size, range.end), 
-                    (node, pos) => {
-                      if (node.isTextblock) {
-                        blocksToScan.set(pos, node);
-                        return false; 
-                      }
-                      return true;
-                    }
-                  );
-                });
-
-                blocksToScan.forEach((node, pos) => {
-                  const pStart = pos;
-                  const pEnd = pos + node.nodeSize;
-                  
-                  const decosToRemove = newDecorations.find(pStart, pEnd);
-                  newDecorations = newDecorations.remove(decosToRemove);
-                  
-                  const newDecos: Decoration[] = [];
-                  node.descendants((child, childPos) => {
-                    if (child.isText) {
-                      const text = child.text || '';
-                      const matches = ac.search(text);
-                      matches.forEach(match => {
-                        newDecos.push(
-                          Decoration.inline(pStart + 1 + childPos + match.start, pStart + 1 + childPos + match.end, {
-                            nodeName: 'span',
-                            class: 'codex-highlight group',
-                            'data-codex-id': match.data.id?.toString(),
-                          })
-                        );
-                      });
-                    }
-                  });
-                  if (newDecos.length > 0) {
-                    newDecorations = newDecorations.add(newState.doc, newDecos);
-                  }
-                });
-              }
-              
+              const newDecorations = value.decorations.map(tr.mapping, tr.doc);
               return {
                 decorations: newDecorations,
-                needsUpdate: false
+                needsUpdate: true // Jadwalkan update melalui debounce 800ms
               };
             }
             
@@ -195,7 +135,7 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
                 if (!view.isDestroyed) {
                   view.dispatch(view.state.tr.setMeta('updateCodexHighlights', decorations));
                 }
-              }, 500);
+              }, 800);
             },
             destroy() {
               if (debounceTimer) clearTimeout(debounceTimer);

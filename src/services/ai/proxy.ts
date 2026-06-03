@@ -1,6 +1,7 @@
 import { AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
 import { classifyError, getErrorMessage } from '@/src/services/ai/errors';
+import { db } from '@/src/db';
 
 const MAX_PROXY_HISTORY = 8;
 
@@ -48,6 +49,9 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
       ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
       { role: "user", content: params.userPrompt }
     ];
+    if (params.stream) {
+      body.stream_options = { include_usage: true };
+    }
   }
 
   if (params.stream) {
@@ -101,6 +105,8 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     throw err;
   }
 
+  let usageData: any = null;
+
   if (params.stream && params.onChunk) {
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Streaming not supported.");
@@ -128,7 +134,17 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
           const data = JSON.parse(dataStr);
           let chunk = "";
           
+          if (data.usage) usageData = data.usage;
+          if (data.usageMetadata) usageData = data.usageMetadata;
+          if (data.amazon_bedrock_invocation_metrics) usageData = data.amazon_bedrock_invocation_metrics; // Claude bedrock style sometimes
+
           if (provider === 'claude') {
+             if (data.type === 'message_stop' && data.amazon_bedrock_invocation_metrics) {
+                usageData = data.amazon_bedrock_invocation_metrics;
+             }
+             if (data.type === 'message' && data.message?.usage) {
+                usageData = data.message.usage;
+             }
              if (data.type === 'content_block_delta' && data.delta?.text) {
                chunk = data.delta.text;
              }
@@ -151,19 +167,56 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
         }
       }
     }
+    
+    logUsageToDB(params, provider, usageData, completeText);
     return completeText;
   }
 
   const data = await response.json();
+  if (data.usage) usageData = data.usage;
+  if (data.usageMetadata) usageData = data.usageMetadata;
   
-  if (provider === 'claude') return data.content[0].text;
-  if (provider === 'google') {
+  let completeText = "";
+  if (provider === 'claude') completeText = data.content[0].text;
+  else if (provider === 'google') {
     if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-      return data.candidates[0].content.parts[0].text;
+      completeText = data.candidates[0].content.parts[0].text;
+    } else {
+      throw new Error('Invalid response from Google Proxy');
     }
-    throw new Error('Invalid response from Google Proxy');
+  } else {
+    completeText = data.choices[0].message.content;
   }
-  return data.choices[0].message.content;
+
+  logUsageToDB(params, provider, usageData, completeText);
+  return completeText;
+}
+
+function logUsageToDB(params: AIRenderParams, provider: string, usage: any, completeText: string) {
+  // Estimate tokens if usage missing
+  let promptTokens = Math.ceil(params.userPrompt.length / 4) + Math.ceil(params.systemInstruction.length / 4);
+  let completionTokens = Math.ceil(completeText.length / 4);
+
+  if (usage) {
+    if (usage.promptTokens) promptTokens = usage.promptTokens;
+    else if (usage.prompt_tokens) promptTokens = usage.prompt_tokens;
+    else if (usage.inputTokenCount) promptTokens = usage.inputTokenCount; // Claude style
+
+    if (usage.completionTokens) completionTokens = usage.completionTokens;
+    else if (usage.completion_tokens) completionTokens = usage.completion_tokens;
+    else if (usage.outputTokenCount) completionTokens = usage.outputTokenCount; // Claude style
+    else if (usage.candidatesTokenCount) completionTokens = usage.candidatesTokenCount; // Google style
+  }
+
+  db.aiUsageLogs.add({
+    timestamp: Date.now(),
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    provider,
+    model: params.model || getModelForProvider(provider),
+    actionType: params.actionType || 'other'
+  }).catch(console.error);
 }
 
 function getModelForProvider(provider: string) {

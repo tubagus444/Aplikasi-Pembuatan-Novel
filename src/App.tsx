@@ -20,7 +20,11 @@ import { MainView } from '@/src/components/layout/MainView';
 import { ProjectManagerModal } from '@/src/components/modals/ProjectManagerModal';
 import { GlobalSearch } from '@/src/components/common/GlobalSearch';
 import { ExportManager } from '@/src/components/modals/ExportManager';
+import { IndexingIndicator } from '@/src/components/common/IndexingIndicator';
 import { Suspense, useEffect } from 'react';
+
+import { db, cleanupAILogs } from '@/src/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 export default function App() {
   const { projectId, project, isLoading } = useProject();
@@ -35,6 +39,10 @@ export default function App() {
     isExportOpen, 
     setIsExportOpen 
   } = useUI();
+
+  useEffect(() => {
+    cleanupAILogs();
+  }, []);
 
   // Handle global keyboard shortcuts and errors
   useGlobalEvents({ 
@@ -104,6 +112,7 @@ export default function App() {
       </div>
 
       <ToastContainer />
+      <IndexingIndicator />
       <ProjectManagerModal />
       
       <Suspense fallback={null}>

@@ -19,11 +19,34 @@ interface ChapterListProps {
 }
 
 export function ChapterList({ projectId, activeChapterId, onSelect }: ChapterListProps) {
-  const chapters = useLiveQuery(() => 
-    db.chapters.where('projectId').equals(projectId).sortBy('order')
+  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const chapters = useLiveQuery(async () => {
+    const all = await db.chapters.where('projectId').equals(projectId).toArray();
+    
+    // Urutkan dan potong berdasarkan pagination
+    const sorted = all.sort((a, b) => a.order - b.order);
+    const paginated = sorted.slice(0, visibleCount);
+    
+    // Hapus konten teks dari state untuk mencegah penumpukan RAM (Lazy Loading)
+    // dan hitung wordCount sejak awal
+    return paginated.map(ch => ({
+      ...ch,
+      content: '', // Kosongkan content, kita hanya butuh judul dan metadata untuk list
+      _computedWordCount: countWords(ch.content)
+    }));
+  }, [projectId, visibleCount]);
+
+  const totalChapters = useLiveQuery(() => 
+    db.chapters.where('projectId').equals(projectId).count()
   , [projectId]);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  const handleLoadMore = () => {
+    setVisibleCount(prev => prev + PAGE_SIZE);
+  };
 
   const addChapter = async () => {
     const nextOrder = chapters ? chapters.length : 0;
@@ -116,6 +139,17 @@ export function ChapterList({ projectId, activeChapterId, onSelect }: ChapterLis
             />
           ))}
         </AnimatePresence>
+        
+        {totalChapters !== undefined && visibleCount < totalChapters && (
+          <div className="pt-2 pb-1 px-1">
+            <button
+              onClick={handleLoadMore}
+              className="w-full py-1.5 text-[10px] uppercase tracking-widest font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700"
+            >
+              Load More ({totalChapters - visibleCount} left)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -132,7 +166,7 @@ interface ChapterListItemProps {
 }
 
 function ChapterListItem({ chapter, isActive, deleteConfirmId, onSelect, onDelete, onDuplicate, onMove }: ChapterListItemProps) {
-  const wordCount = useMemo(() => countWords(chapter.content), [chapter.content]);
+  const wordCount = chapter._computedWordCount || 0;
 
   return (
     <motion.div

@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { db } from '@/src/db';
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
 import { pipeline, env } from '@xenova/transformers';
+import { getEncoding, encodingForModel } from 'js-tiktoken';
 
 // Configure transformers environment
 env.allowLocalModels = false;
@@ -15,6 +17,38 @@ env.backends.onnx.wasm.numThreads = 1;
 let embedder: any = null;
 let embedderInitializing = false;
 let modelInitPromise: Promise<any> | null = null;
+let encoders = new Map<string, any>();
+
+function getEncoderForModelOrStandard(model?: string): any {
+  if (!model) return getEncoding('cl100k_base');
+  
+  if (encoders.has(model)) return encoders.get(model);
+  
+  try {
+    // Try by model name
+    const enc = encodingForModel(model as any);
+    encoders.set(model, enc);
+    return enc;
+  } catch (e) {
+    try {
+      // Fallback
+      const enc = getEncoding('cl100k_base');
+      encoders.set(model, enc);
+      return enc;
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
+function countTokens(text: string, model?: string): number {
+  if (!text) return 0;
+  const encoder = getEncoderForModelOrStandard(model);
+  if (!encoder) {
+    return Math.ceil(text.length / 4); // Fallback approximation
+  }
+  return encoder.encode(text).length;
+}
 
 // Cache for Codex embeddings in the worker: key is codex ID, value is { embedding, contentHash }
 const embeddingCache = new Map<string | number, { embedding: Float32Array, contentHash: string }>();
@@ -24,7 +58,7 @@ async function getEmbedder() {
   if (!modelInitPromise) {
     modelInitPromise = pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
       progress_callback: (info: any) => {
-         // Could dispatch progress messages here if needed
+         self.postMessage({ type: 'PROGRESS', payload: { type: 'model_download', info } });
       }
     });
   }
@@ -140,6 +174,46 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
 
     // Compute or retrieve embeddings for all Codex entries
     let newlyEmbeddedCount = 0;
+
+    // First classify what needs to be embedded to notify UI
+    let missingEmbeddingsCount = 0;
+    const missingKeys = [];
+    for (const entry of allCodex) {
+      const key = entry.id !== undefined ? entry.id : entry.name;
+      const hash = getCodexHash(entry);
+      let entryEmbeddingInfo = embeddingCache.get(key);
+      if (!entryEmbeddingInfo || entryEmbeddingInfo.contentHash !== hash) {
+        missingKeys.push({ entry, key, hash, compositeId: `${entry.projectId}_${key}` });
+      }
+    }
+    
+    if (missingKeys.length > 0) {
+      try {
+        const compositeIds = missingKeys.map(m => m.compositeId);
+        const storedEmbeddings = await db.embeddings.bulkGet(compositeIds);
+        
+        for (let i = 0; i < missingKeys.length; i++) {
+          const stored = storedEmbeddings[i];
+          const m = missingKeys[i];
+          if (stored && stored.contentHash === m.hash) {
+             embeddingCache.set(m.key, { embedding: stored.embedding, contentHash: stored.contentHash });
+          } else {
+             missingEmbeddingsCount++; // Found out it truly implies work
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load embeddings from IndexedDB", err);
+        missingEmbeddingsCount = missingKeys.length;
+      }
+    }
+    
+    // Notify UI we are starting to embed
+    if (missingEmbeddingsCount > 0) {
+       self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_start', total: missingEmbeddingsCount, completed: 0 } });
+    }
+
+    const toSaveToDb = [];
+
     for (const entry of allCodex) {
       const key = entry.id !== undefined ? entry.id : entry.name;
       const hash = getCodexHash(entry);
@@ -155,10 +229,23 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
            entryEmbeddingInfo = { embedding, contentHash: hash };
            embeddingCache.set(key, entryEmbeddingInfo);
            
+           toSaveToDb.push({
+             id: `${entry.projectId}_${key}`,
+             projectId: entry.projectId,
+             codexId: key,
+             contentHash: hash,
+             embedding: embedding,
+             lastUpdated: Date.now()
+           });
+           
            newlyEmbeddedCount++;
-           // Yield to event loop every 50 embeddings if we have > 3000 vectors
-           // to prevent locking the worker completely.
-           if (newlyEmbeddedCount % 50 === 0) {
+           
+           if (newlyEmbeddedCount % 5 === 0 || newlyEmbeddedCount === missingEmbeddingsCount) {
+              self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_progress', total: missingEmbeddingsCount, completed: newlyEmbeddedCount } });
+           }
+           
+           // Yield to event loop every 10 embeddings
+           if (newlyEmbeddedCount % 10 === 0) {
              await new Promise(resolve => setTimeout(resolve, 0));
            }
         } catch (e) {
@@ -172,6 +259,14 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
         current.semanticScore = similarity;
         entryScores.set(key, current);
       }
+    }
+
+    if (toSaveToDb.length > 0) {
+      db.embeddings.bulkPut(toSaveToDb).catch(e => console.warn("Failed to save embeddings to db", e));
+    }
+    
+    if (missingEmbeddingsCount > 0) {
+       self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_done' } });
     }
   } catch (error) {
     console.error("Semantic search failed, falling back to pure AhoCorasick", error);
@@ -328,6 +423,32 @@ self.onmessage = async (e: MessageEvent) => {
           })
           .map((ch: any) => ch.id);
         break;
+      case 'COUNT_TOKENS':
+        result = countTokens(payload.text, payload.model);
+        break;
+      case 'ESTIMATE_CONTEXT_TOKENS':
+        result = {
+           textTokens: countTokens(payload.text, payload.model),
+           codexTokens: countTokens(payload.codexText, payload.model),
+           rulesTokens: countTokens(payload.rulesText, payload.model),
+        };
+        break;
+      case 'PREVIEW_CONTEXT_TOKENS': {
+        const { text, allCodex, allRules, model } = payload;
+        const relevantCodex = await getRelevantContext(text, allCodex);
+        const relevantRules = getRelevantBibleRules(text, allRules, 2500); // Example depth
+        
+        const codexText = relevantCodex.map(e => `[${e.name}]: ${e.description}`).join(' ');
+        const rulesText = relevantRules.map(r => `${r.key}: ${r.instruction}`).join(' ');
+        
+        result = {
+           textTokens: countTokens(text, model),
+           codexTokens: countTokens(codexText, model),
+           rulesTokens: countTokens(rulesText, model),
+           totalTokens: countTokens(text, model) + countTokens(codexText, model) + countTokens(rulesText, model)
+        };
+        break;
+      }
       default:
         throw new Error(`Unknown message type: ${type}`);
     }

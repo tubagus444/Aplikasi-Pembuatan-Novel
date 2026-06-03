@@ -30,8 +30,11 @@ export function useCodexPanel(projectId: number) {
 
   const [initialData, setInitialData] = useState<Partial<CodexEntry>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  
+  const CODEX_PAGE_SIZE = 15;
+  const [visibleCount, setVisibleCount] = useState(CODEX_PAGE_SIZE);
 
-  const filteredEntries = useMemo(() => {
+  const allFilteredEntries = useMemo(() => {
     if (!entries) return [];
     return entries.filter(entry => {
       const matchesSearch = 
@@ -44,6 +47,18 @@ export function useCodexPanel(projectId: number) {
       return matchesSearch && matchesCategory;
     });
   }, [entries, searchQuery, filterCategory]);
+
+  const filteredEntries = useMemo(() => {
+    return allFilteredEntries.slice(0, visibleCount);
+  }, [allFilteredEntries, visibleCount]);
+  
+  const hasMore = allFilteredEntries.length > visibleCount;
+  const loadMore = () => setVisibleCount(prev => prev + CODEX_PAGE_SIZE);
+
+  // Reset pagination when filter changes
+  useMemo(() => {
+    setVisibleCount(CODEX_PAGE_SIZE);
+  }, [searchQuery, filterCategory]);
 
   const startAdding = () => {
     setInitialData({ name: '', category: 'character', description: '', aliases: [], tags: [] });
@@ -177,6 +192,8 @@ export function useCodexPanel(projectId: number) {
     cancelEdit,
     addBond,
     deleteRelationship,
-    handleToggleLinking
+    handleToggleLinking,
+    hasMore,
+    loadMore
   };
 }

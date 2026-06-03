@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/src/db';
 import { ErrorService } from '@/src/services/errorService';
-import { Trash2, AlertCircle, AlertTriangle, Info, Clock, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
-import { format } from 'date-fns';
+import { Trash2, AlertCircle, AlertTriangle, Info, Clock, ChevronDown, Calendar } from 'lucide-react';
+import { format, subHours, subDays } from 'date-fns';
 import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function ErrorLogPanel() {
   const errors = useLiveQuery(() => db.errors.orderBy('timestamp').reverse().toArray());
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showClearMenu, setShowClearMenu] = useState(false);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -17,6 +18,26 @@ export function ErrorLogPanel() {
       case 'warning': return <AlertTriangle className="text-amber-500" size={16} />;
       case 'info': return <Info className="text-blue-500" size={16} />;
       default: return <AlertCircle className="text-slate-500" size={16} />;
+    }
+  };
+
+  const handleClearLogs = async (type: 'all' | '1h' | '1d' | '7d') => {
+    try {
+      if (type === 'all') {
+        await ErrorService.clearAll();
+      } else {
+        const now = new Date();
+        let thresholdTime: Date;
+        
+        if (type === '1h') thresholdTime = subHours(now, 1);
+        else if (type === '1d') thresholdTime = subDays(now, 1);
+        else thresholdTime = subDays(now, 7);
+
+        await db.errors.where('timestamp').below(thresholdTime.getTime()).delete();
+      }
+      setShowClearMenu(false);
+    } catch (error) {
+      console.error('Failed to clear logs:', error);
     }
   };
 
@@ -33,18 +54,52 @@ export function ErrorLogPanel() {
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Log Sistem</h2>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Riwayat aktivitas dan error untuk memantau performa aplikasi.
+            Riwayat aktivitas dan error untuk memantau performa aplikasi. Auto-cleanup bekerja di belakang layar selama 30 hari.
           </p>
         </div>
         
         {errors.length > 0 && (
-          <button 
-            onClick={() => ErrorService.clearAll()}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
-          >
-            <Trash2 size={14} />
-            Hapus Semua Log
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowClearMenu(!showClearMenu)}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all border border-transparent focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            >
+              <Trash2 size={14} />
+              Hapus Log Manual
+              <ChevronDown size={14} className={cn("transition-transform duration-200", showClearMenu && "rotate-180")} />
+            </button>
+            
+            <AnimatePresence>
+              {showClearMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowClearMenu(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-50 origin-top-right"
+                  >
+                    <div className="p-1">
+                      <button onClick={() => handleClearLogs('1h')} className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg flex items-center gap-2">
+                         <Clock size={14} /> &gt; 1 Jam lalu
+                      </button>
+                      <button onClick={() => handleClearLogs('1d')} className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg flex items-center gap-2">
+                         <Calendar size={14} /> &gt; 1 Hari lalu
+                      </button>
+                      <button onClick={() => handleClearLogs('7d')} className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg flex items-center gap-2">
+                         <Calendar size={14} /> &gt; 7 Hari lalu
+                      </button>
+                      <div className="my-1 border-t border-slate-200 dark:border-slate-700"></div>
+                      <button onClick={() => handleClearLogs('all')} className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2 font-medium">
+                         <Trash2 size={14} /> Hapus Semua
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         )}
       </div>
 

@@ -98,6 +98,8 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     setIsCaseSensitive,
     isRegex,
     setIsRegex,
+    isSemanticMode,
+    setIsSemanticMode,
     searchStats,
     closeSearch
   } = useNovelEditor({
@@ -178,6 +180,8 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
               setIsCaseSensitive={setIsCaseSensitive}
               isRegex={isRegex}
               setIsRegex={setIsRegex}
+              isSemanticMode={isSemanticMode}
+              setIsSemanticMode={setIsSemanticMode}
               searchStats={searchStats}
               onClose={closeSearch}
               onReplace={handleReplace}

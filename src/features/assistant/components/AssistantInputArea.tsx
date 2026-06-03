@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, X, ChevronDown, BookOpen, Check } from 'lucide-react';
+import { Send, Plus, X, ChevronDown, BookOpen, Check, Activity } from 'lucide-react';
 import { db } from '@/src/db';
 import { Chapter, CodexEntry, StoryBibleRule } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { MentionDropdown } from '@/src/components/common/MentionDropdown';
+import { previewContextTokens } from '@/src/services/contextEngine';
 
 interface AssistantInputAreaProps {
   activeSessionId: number;
@@ -63,6 +64,9 @@ export function AssistantInputArea({
   const [showChapterMenu, setShowChapterMenu] = useState(false);
   const chapterMenuRef = useRef<HTMLDivElement>(null);
 
+  const [tokenStats, setTokenStats] = useState({ total: 0, text: 0, codex: 0, rules: 0 });
+  const [isCalculatingTokens, setIsCalculatingTokens] = useState(false);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (loreMenuRef.current && !loreMenuRef.current.contains(event.target as Node)) {
@@ -75,6 +79,43 @@ export function AssistantInputArea({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    // Debounce token counting
+    const timer = setTimeout(() => {
+      let combinedText = input;
+      if (chapterContext) combinedText += '\n\n' + chapterContext;
+      
+      if (!combinedText.trim()) {
+        setTokenStats({ total: 0, text: 0, codex: 0, rules: 0 });
+        return;
+      }
+
+      setIsCalculatingTokens(true);
+      previewContextTokens(combinedText, codexEntries || [], bibleRules || []).then(stats => {
+        setTokenStats({
+          total: stats.totalTokens,
+          text: stats.textTokens,
+          codex: stats.codexTokens,
+          rules: stats.rulesTokens
+        });
+        setIsCalculatingTokens(false);
+      }).catch(err => {
+        console.error('Failed to preview context tokens', err);
+        setIsCalculatingTokens(false);
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [input, chapterContext, codexEntries, bibleRules]);
+
+  const MAX_TOKENS = 8192; // Typical standard context window limit warning indicator
+  const tokenPercentage = Math.min((tokenStats.total / MAX_TOKENS) * 100, 100);
+  const getProgressColor = () => {
+    if (tokenPercentage < 50) return 'text-emerald-500';
+    if (tokenPercentage < 80) return 'text-amber-500';
+    return 'text-red-500';
+  };
 
   const filteredRules = bibleRules?.filter(rule => 
     rule.key.toLowerCase().includes(loreSearchQuery.toLowerCase()) || 
@@ -315,6 +356,65 @@ export function AssistantInputArea({
                   >
                     <Plus size={20} />
                   </button>
+                </div>
+                
+                {/* Context Meter */}
+                <div className="flex items-center gap-2 group/meter relative cursor-help">
+                  <div className="relative w-6 h-6 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-slate-200 dark:text-slate-700"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className={cn("transition-all duration-500", getProgressColor())}
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeDasharray={`${tokenPercentage}, 100`}
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    {isCalculatingTokens ? (
+                      <Activity size={10} className="absolute text-slate-400 animate-pulse" />
+                    ) : (
+                      <span className="absolute text-[8px] font-bold text-slate-500 dark:text-slate-400">
+                        {Math.round(tokenPercentage)}%
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Context</span>
+                    <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500 leading-none">
+                      {tokenStats.total.toLocaleString()} tk
+                    </span>
+                  </div>
+
+                  {/* Tooltip for Token Breakdown */}
+                  <div className="absolute bottom-full left-0 mb-3 w-48 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl opacity-0 group-hover/meter:opacity-100 transition-opacity pointer-events-none z-50">
+                    <div className="font-bold text-white text-xs mb-2 border-b border-slate-700 pb-1">Token Usage Breakdown</div>
+                    <div className="flex justify-between text-xs text-slate-300 mb-1">
+                      <span>Prompt/Text:</span>
+                      <span className="tabular-nums font-medium">{tokenStats.text.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-300 mb-1">
+                      <span>Memori Lore:</span>
+                      <span className="tabular-nums font-medium">{tokenStats.codex.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-300 mb-2">
+                      <span>Bible Rules:</span>
+                      <span className="tabular-nums font-medium">{tokenStats.rules.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-indigo-300 border-t border-slate-700 pt-1 font-bold">
+                      <span>Total:</span>
+                      <span className="tabular-nums">{tokenStats.total.toLocaleString()}</span>
+                    </div>
+                    <div className="absolute bottom-[-5px] left-4 w-2 h-2 bg-slate-900 border-b border-r border-slate-700 transform rotate-45"></div>
+                  </div>
                 </div>
             </div>
             <button

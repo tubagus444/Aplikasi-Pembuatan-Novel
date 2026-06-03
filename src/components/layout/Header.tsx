@@ -9,6 +9,7 @@ import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
 import { WritingStats } from '@/src/components/common/WritingStats';
+import { ContextMeter } from '@/src/components/common/ContextMeter';
 import { cn } from '@/src/lib/utils';
 
 export function Header() {
@@ -73,7 +74,8 @@ export function Header() {
       {/* Right: Actions Group */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         {projectId && (
-          <div className="flex-shrink-0 flex items-center">
+          <div className="flex-shrink-0 flex items-center gap-2">
+            <ContextMeter />
             <WritingStats projectId={projectId} />
           </div>
         )}

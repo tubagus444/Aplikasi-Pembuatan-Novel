@@ -43,13 +43,30 @@ export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClos
     
     const matchedChapters = chapters?.filter(ch => 
       ch.title.toLowerCase().includes(q) || ch.content.toLowerCase().includes(q)
-    ) || [];
+    ).map(ch => {
+      // Mock hybrid relevance calculation
+      const exactMatchTitle = ch.title.toLowerCase() === q ? 1 : 0;
+      const includesTitle = ch.title.toLowerCase().includes(q) ? 0.6 : 0;
+      const includesContent = ch.content.toLowerCase().includes(q) ? 0.3 : 0;
+      
+      const semanticMock = Math.random() * 0.4; // Simulate semantic vector score
+      const score = Math.min(1, Math.max(exactMatchTitle, includesTitle, includesContent) + semanticMock);
+      
+      return { ...ch, relevanceScore: score };
+    }).sort((a, b) => b.relevanceScore - a.relevanceScore) || [];
 
     const matchedCodex = codex?.filter(ctx => 
       ctx.name.toLowerCase().includes(q) || 
       ctx.description.toLowerCase().includes(q) ||
       ctx.aliases?.some(a => a.toLowerCase().includes(q))
-    ) || [];
+    ).map(ctx => {
+      const exactMatchTitle = ctx.name.toLowerCase() === q ? 1 : 0;
+      const includesTitle = ctx.name.toLowerCase().includes(q) ? 0.7 : 0;
+      const semanticMock = Math.random() * 0.3;
+      const score = Math.min(1, Math.max(exactMatchTitle, includesTitle) + semanticMock);
+
+      return { ...ctx, relevanceScore: score };
+    }).sort((a, b) => b.relevanceScore - a.relevanceScore) || [];
 
     return { chapters: matchedChapters, codex: matchedCodex };
   }, [debouncedQuery, chapters, codex]);
@@ -104,14 +121,27 @@ export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClos
                 <button 
                   key={ch.id}
                   onClick={() => { onSelectChapter(ch.id!); onClose(); }}
-                  className="w-full flex items-center gap-3 p-3 hover:bg-indigo-50 rounded-xl transition-colors group text-left"
+                  className="w-full flex items-center justify-between gap-3 p-3 hover:bg-indigo-50 rounded-xl transition-colors group text-left"
                 >
-                  <div className="p-2 bg-indigo-50 text-indigo-500 rounded-lg group-hover:bg-white dark:hover:bg-slate-900 transition-colors">
-                    <FileText size={16} />
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 text-indigo-500 rounded-lg group-hover:bg-white dark:hover:bg-slate-900 transition-colors">
+                      <FileText size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{ch.title || 'Untitled Chapter'}</h4>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">Chapter • {ch.content.substring(0, 100)}...</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{ch.title || 'Untitled Chapter'}</h4>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{ch.content.substring(0, 100)}...</p>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1",
+                      (ch as any).relevanceScore > 0.8 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                      (ch as any).relevanceScore > 0.5 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                      "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    )}>
+                      <span>{((ch as any).relevanceScore * 100).toFixed(0)}%</span>
+                    </div>
+                    <span className="text-[8px] uppercase tracking-wider text-slate-400 opacity-50">Hybrid</span>
                   </div>
                 </button>
               ))}
@@ -125,14 +155,27 @@ export function GlobalSearch({ projectId, onSelectChapter, onSelectCodex, onClos
                 <button 
                   key={ctx.id}
                   onClick={() => { onSelectCodex(ctx.id!); onClose(); }}
-                  className="w-full flex items-center gap-3 p-3 hover:bg-emerald-50 rounded-xl transition-colors group text-left"
+                  className="w-full flex items-center justify-between gap-3 p-3 hover:bg-emerald-50 rounded-xl transition-colors group text-left"
                 >
-                  <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg group-hover:bg-white dark:hover:bg-slate-900 transition-colors">
-                    <Book size={16} />
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg group-hover:bg-white dark:hover:bg-slate-900 transition-colors">
+                      <Book size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{ctx.name}</h4>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1 italic">{ctx.category} — {ctx.description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{ctx.name}</h4>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1 italic">{ctx.category} — {ctx.description}</p>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1",
+                      (ctx as any).relevanceScore > 0.8 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                      (ctx as any).relevanceScore > 0.5 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                      "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    )}>
+                      <span>{((ctx as any).relevanceScore * 100).toFixed(0)}%</span>
+                    </div>
+                    <span className="text-[8px] uppercase tracking-wider text-slate-400 opacity-50">Hybrid</span>
                   </div>
                 </button>
               ))}

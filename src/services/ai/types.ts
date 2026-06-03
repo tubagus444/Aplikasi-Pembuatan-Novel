@@ -9,6 +9,7 @@ export interface AIProviderConfig {
 export interface AIRenderParams {
   systemInstruction: string;
   userPrompt: string;
+  actionType?: 'chat' | 'summarize' | 'rewrite' | 'extract' | 'expand' | 'other';
   provider?: string;
   model?: string;
   history?: { role: 'user' | 'model', parts: { text: string }[] }[];

@@ -50,7 +50,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard';
 
 export type SessionMode = 'prose-review' | 'plot-check' | 'brainstorm';
 
@@ -128,6 +128,17 @@ export interface AISettings {
   contextDepth: ContextDepth;
 }
 
+export interface AIUsageLog {
+  id?: number;
+  timestamp: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  provider: string;
+  model: string;
+  actionType: string;
+}
+
 export interface AppError {
   id?: number;
   message: string;
@@ -143,4 +154,13 @@ export interface BackupRecord {
   timestamp: number;
   data: string; // JSON
   size: number; // bytes
+}
+
+export interface VectorEmbedding {
+  id: string;
+  projectId: number;
+  codexId: number | string;
+  contentHash: string;
+  embedding: Float32Array;
+  lastUpdated: number;
 }

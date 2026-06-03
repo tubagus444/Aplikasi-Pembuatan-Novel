@@ -360,7 +360,8 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       temperature: 0.85,
       stream: params.stream,
       onChunk: params.onChunk,
-      signal: controller.signal
+      signal: controller.signal,
+      actionType: 'rewrite'
     });
     abortControllers.delete('rewrite');
     return res;
@@ -453,7 +454,8 @@ export async function processChat(params: ChatParams): Promise<string> {
       temperature: 0.7,
       stream: params.stream,
       onChunk: params.onChunk,
-      signal: controller.signal
+      signal: controller.signal,
+      actionType: 'chat'
     });
     abortControllers.delete('chat');
     return res;
@@ -474,7 +476,7 @@ export async function extractToCodex(
   const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
 
   try {
-    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3 });
+    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, actionType: 'extract' });
     let textData = res.replace(/^```json/m, '').replace(/^```/m, '').trim();
     const startIdx = textData.indexOf('[');
     const endIdx = textData.lastIndexOf(']');
@@ -510,7 +512,8 @@ export async function expandCodexEntry(
     systemInstruction, 
     userPrompt, 
     temperature: 0.9,
-    maxTokens: 1000 // Limit output length for codex expansion
+    maxTokens: 1000,
+    actionType: 'expand'
   });
 }
 

@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship, AppError, BackupRecord, ChatSession } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog } from '@/src/types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -18,6 +18,8 @@ export class AetherScribeDB extends Dexie {
   errors!: Table<AppError>;
   backups!: Table<BackupRecord>;
   chatSessions!: Table<ChatSession>;
+  embeddings!: Table<VectorEmbedding>;
+  aiUsageLogs!: Table<AIUsageLog>;
 
   constructor() {
     super('AetherScribeDB');
@@ -112,6 +114,37 @@ export class AetherScribeDB extends Dexie {
       backups: '++id, timestamp',
       chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt'
     });
+
+    this.version(16).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId'
+    });
+
+    this.version(17).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType'
+    });
   }
 }
 
@@ -147,3 +180,16 @@ export async function ensureDefaultProject() {
   const latest = await db.projects.orderBy('lastOpened').reverse().first();
   return latest?.id;
 }
+
+export async function cleanupAILogs() {
+  try {
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const deleteCount = await db.aiUsageLogs.where('timestamp').below(thirtyDaysAgo).delete();
+    if (deleteCount > 0) {
+      console.log(`Cleaned up ${deleteCount} old AI usage logs.`);
+    }
+  } catch (err) {
+    console.error('Failed to cleanup AI usage logs:', err);
+  }
+}
+

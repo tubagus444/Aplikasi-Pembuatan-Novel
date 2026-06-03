@@ -41,6 +41,9 @@ export function useChatSession({
   const messagesRef = useRef(messages);
   const isLoadingRef = useRef(false);
 
+  const streamBufferRef = useRef<string>('');
+  const isStreamingRef = useRef<boolean>(false);
+
   // Keep refs in sync for sendMessage accessibility
   useEffect(() => {
     messagesRef.current = messages;
@@ -88,9 +91,25 @@ export function useChatSession({
         }));
 
       // 2. Process chat (RAG logic handled inside processChat)
-      let currentReply = "";
+      streamBufferRef.current = "";
+      isStreamingRef.current = true;
       const assistantMsgId = Date.now().toString() + "_assistant";
       
+      const flushBuffer = () => {
+        if (!isStreamingRef.current) return;
+        const streamMsg: ChatMessage = {
+           id: assistantMsgId,
+           role: 'model',
+           content: streamBufferRef.current,
+           timestamp: Date.now()
+        };
+        const streamMessages = [...newMessages, streamMsg];
+        setMessages(streamMessages);
+        messagesRef.current = streamMessages;
+      };
+      
+      const flushInterval = setInterval(flushBuffer, 50);
+
       const reply = await processChat({
         message: resolvedText,
         history,
@@ -106,23 +125,19 @@ export function useChatSession({
           setRetryStatus(`Koneksi melambat (${currentProvider}). Percobaan ulang ke-${attempt}...`);
         },
         onChunk: (chunk) => {
-          currentReply += chunk;
-          const streamMsg: ChatMessage = {
-             id: assistantMsgId,
-             role: 'model',
-             content: currentReply,
-             timestamp: Date.now()
-          };
-          const streamMessages = [...newMessages, streamMsg];
-          setMessages(streamMessages);
-          messagesRef.current = streamMessages;
+          streamBufferRef.current += chunk;
         }
       });
 
+      isStreamingRef.current = false;
+      clearInterval(flushInterval);
+      
+      // Final flush to ensure no text is truncated at the end
+      const finalReply = streamBufferRef.current || reply;
       const assistantMsg: ChatMessage = { 
         id: assistantMsgId,
         role: 'model', 
-        content: currentReply || reply, 
+        content: finalReply, 
         timestamp: Date.now() 
       };
       

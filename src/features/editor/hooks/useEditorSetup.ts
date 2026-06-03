@@ -6,6 +6,7 @@ import TextAlign from '@tiptap/extension-text-align';
 
 import { SearchAndReplace } from '@/src/features/editor/extensions/SearchAndReplace';
 import { PassiveCodexHighlight } from '@/src/features/editor/extensions/PassiveCodexHighlight';
+import { SemanticHighlight } from '@/src/features/editor/extensions/SemanticHighlight';
 import { MentionList } from '@/src/features/editor/components/MentionList';
 import { CustomAIKeymap } from '@/src/features/editor/hooks/useEditorAI';
 import tippy from 'tippy.js';
@@ -57,6 +58,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
         disableRegex: false,
         caseSensitive: false,
       }),
+      SemanticHighlight,
       PassiveCodexHighlight.configure({
         getCodexEntries: () => codexEntriesRef.current,
         onCodexClick: (entryId, event) => onCodexClick(entryId, event)
