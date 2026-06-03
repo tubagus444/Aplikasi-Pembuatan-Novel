@@ -11,6 +11,7 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
 import { useGlobalEvents } from '@/src/hooks/useGlobalEvents';
 import { useAutoBackup } from '@/src/hooks/useAutoBackup';
+import { useAutoSummarizer } from '@/src/hooks/useAutoSummarizer';
 import { useStorageQuota } from '@/src/hooks/useStorageQuota';
 import { motion } from 'motion/react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
@@ -43,6 +44,8 @@ export default function App() {
 
   // Initialize Auto-Backup system
   useAutoBackup();
+  // Initialize Auto-Summarizer daemon
+  useAutoSummarizer();
 
   // Check storage quota on init
   const { checkStorageQuota } = useStorageQuota();

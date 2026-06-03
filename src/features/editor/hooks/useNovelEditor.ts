@@ -17,6 +17,7 @@ interface UseNovelEditorProps {
   chapter: any;
   codexEntries: CodexEntry[];
   bibleRules: any[];
+  relationships?: import('@/src/types').Relationship[];
   aiActions: any[];
   isTypewriterMode: boolean;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -27,6 +28,7 @@ export function useNovelEditor({
   chapter,
   codexEntries,
   bibleRules,
+  relationships = [],
   aiActions,
   isTypewriterMode,
   containerRef
@@ -68,7 +70,7 @@ export function useNovelEditor({
     acceptRewrite, 
     insertRewriteBelow, 
     discardRewrite 
-  } = useEditorAI(editor, chapterId, codexEntries, bibleRules);
+  } = useEditorAI(editor, chapterId, codexEntries, bibleRules, relationships);
 
   // Search
   const searchProps = useEditorSearch(editor);

@@ -16,6 +16,7 @@ interface UseScribbleAssistantPanelProps {
   viewMode?: string;
   codexEntries?: CodexEntry[];
   bibleRules?: StoryBibleRule[];
+  relationships?: import('@/src/types').Relationship[];
   editor?: Editor | null;
 }
 
@@ -29,6 +30,7 @@ export function useScribbleAssistantPanel({
   viewMode = 'write',
   codexEntries = [],
   bibleRules = [],
+  relationships = [],
   editor
 }: UseScribbleAssistantPanelProps) {
   const { 
@@ -55,6 +57,7 @@ export function useScribbleAssistantPanel({
     chapterId,
     codexEntries,
     bibleRules,
+    relationships,
     provider: selectedProvider,
     onMessageAdded: async (newMessages) => {
       const activeId = sessionIdRef.current;

@@ -81,6 +81,7 @@ export interface Chapter {
   projectId: number;
   title: string;
   summary?: string;
+  summaryUpdatedAt?: number;
   content: string;
   order: number;
   lastModified: number;

@@ -29,7 +29,8 @@ export function useEditorAI(
   editor: Editor | null,
   chapterId: number,
   codexEntries: CodexEntry[],
-  bibleRules: any[]
+  bibleRules: any[],
+  relationships: import('@/src/types').Relationship[] = []
 ) {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export function useEditorAI(
         selection: selectedText,
         bibleRules: bibleRules,
         codexEntries: codexEntries,
+        relationships: relationships,
         prompt: customPrompt || '',
         chapterId,
         provider,

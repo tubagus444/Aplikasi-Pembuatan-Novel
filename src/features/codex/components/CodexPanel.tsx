@@ -190,6 +190,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               currentText="" 
               onClose={() => setIsAssistantOpen(false)}
               viewMode="codex"
+              codexEntries={entries}
+              bibleRules={bibleRules}
+              relationships={relationships}
             />
           </motion.div>
         )}

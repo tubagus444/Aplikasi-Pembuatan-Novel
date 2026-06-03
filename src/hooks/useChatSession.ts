@@ -11,6 +11,7 @@ interface UseChatSessionProps {
   chapterId?: number;
   codexEntries: CodexEntry[];
   bibleRules: StoryBibleRule[];
+  relationships?: import('@/src/types').Relationship[];
   contextText?: string;
   sessionMode?: SessionMode;
   provider?: string;
@@ -25,6 +26,7 @@ export function useChatSession({
   chapterId,
   codexEntries,
   bibleRules,
+  relationships = [],
   contextText = '',
   sessionMode,
   provider = 'google',
@@ -94,6 +96,7 @@ export function useChatSession({
         history,
         bibleRules: bibleRules,
         codexEntries: codexEntries,
+        relationships: relationships,
         contextText: customContext || contextText,
         chapterId,
         provider,

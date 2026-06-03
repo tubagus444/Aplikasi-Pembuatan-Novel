@@ -67,7 +67,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     return () => { isMounted = false; };
   }, [chapterId]);
 
-  const { codexEntries, aiActions, bibleRules, isLoading } = useProjectData(projectId);
+  const { codexEntries, aiActions, bibleRules, relationships, isLoading } = useProjectData(projectId);
 
   const {
     editor,
@@ -105,6 +105,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     chapter,
     codexEntries: codexEntries || [],
     bibleRules: bibleRules || [],
+    relationships: relationships || [],
     aiActions: aiActions || [],
     isTypewriterMode,
     containerRef
@@ -160,6 +161,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
           editor={editor} 
           codexEntries={codexEntries || []} 
           bibleRules={bibleRules || []} 
+          relationships={relationships || []}
         />
       }
     >

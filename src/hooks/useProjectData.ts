@@ -15,10 +15,15 @@ export function useProjectData(projectId: number) {
     db.bible.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
+  const relationships = useLiveQuery(() =>
+    db.relationships.where('projectId').equals(projectId).toArray()
+  , [projectId]);
+
   return {
     codexEntries: codexEntries || [],
     aiActions: aiActions || [],
     bibleRules: bibleRules || [],
-    isLoading: codexEntries === undefined || aiActions === undefined || bibleRules === undefined
+    relationships: relationships || [],
+    isLoading: codexEntries === undefined || aiActions === undefined || bibleRules === undefined || relationships === undefined
   };
 }

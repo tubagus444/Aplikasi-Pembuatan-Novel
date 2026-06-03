@@ -31,6 +31,10 @@ export function AIAssistantPanel() {
     projectId ? db.bible.where('projectId').equals(projectId).toArray() : []
   , [projectId]);
 
+  const relationships = useLiveQuery(() => 
+    projectId ? db.relationships.where('projectId').equals(projectId).toArray() : []
+  , [projectId]);
+
   const chapters = useLiveQuery(() => 
     projectId ? db.chapters.where('projectId').equals(projectId).sortBy('order') : []
   , [projectId]);
@@ -87,6 +91,7 @@ export function AIAssistantPanel() {
     activeSession,
     codexEntries: codexEntries || [],
     bibleRules: bibleRules || [],
+    relationships: relationships || [],
     input,
     setInput,
     chapterContext

@@ -1,4 +1,4 @@
-import { StoryBibleRule, CodexEntry, ContextDepth } from '@/src/types';
+import { StoryBibleRule, CodexEntry, ContextDepth, Relationship } from '@/src/types';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
 import { callProxy } from '@/src/services/ai/proxy';
 import { GenerateParams, ChatParams, AIRenderParams } from '@/src/services/ai/types';
@@ -63,7 +63,7 @@ function getSettings() {
   };
 }
 
-function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], depth: ContextDepth = 'balanced'): string {
+function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relationships: Relationship[] = [], depth: ContextDepth = 'balanced'): string {
   // If depth is minimal, we only include the most core rules and no lore
   if (depth === 'minimal') {
     const coreKeys = ['__STORY_TITLE__', '__GENRES__', '__POV__'];
@@ -80,6 +80,8 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], depth: 
     : 'No specific rules set.';
 
   let lore = 'No specific lore relevant to this passage.';
+  let graph = '';
+  
   if (codex.length > 0) {
     // Limits based on depth
     const MAX_LORE_CHARS = depth === 'deep' ? 4000 : 2500;
@@ -88,9 +90,11 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], depth: 
 
     let currentChars = 0;
     const loreParts: string[] = [];
+    const includedCodexIds = new Set<number>();
 
     codex.forEach((e, index) => {
       if (currentChars >= MAX_LORE_CHARS) return;
+      if (e.id) includedCodexIds.add(e.id);
 
       const limit = index < 3 ? itemLimit : subLimit;
       let desc = e.description.trim();
@@ -109,9 +113,28 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], depth: 
     if (loreParts.length > 0) {
       lore = loreParts.join('\n');
     }
+    
+    // Build Relationship Graph (Graph-RAG format)
+    if (relationships && relationships.length > 0) {
+      const activeRelations = relationships.filter(r => 
+        includedCodexIds.has(r.sourceId) || includedCodexIds.has(r.targetId)
+      );
+      
+      if (activeRelations.length > 0) {
+        const idToName = Object.fromEntries(codex.map(c => [c.id, c.name]));
+        const graphParts = activeRelations.map(r => {
+           const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
+           const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
+           let relStr = `${srcName} (${r.type}) -> ${tgtName}`;
+           if (r.description) relStr += `: ${r.description}`;
+           return relStr;
+        });
+        graph = `\n\nRELATIONSHIP GRAPH:\n${graphParts.join('\n')}`;
+      }
+    }
   }
   
-  let block = `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}`;
+  let block = `STORY BIBLE:\n${bible}\n\nCODEX LORE:\n${lore}${graph}`;
   return block;
 }
 
@@ -269,6 +292,8 @@ function extractCandidateSentences(text: string): string {
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
   const settings = getSettings();
+  const provider = params.provider || settings.provider;
+  const isCacheSupported = ['google', 'claude', 'openrouter'].includes(provider.toLowerCase());
   
   // RAG for Rewrite
   let textForRAG = params.selection;
@@ -286,16 +311,41 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
      textForRAG += '\n' + params.contextText;
   }
 
-  const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
-  const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
-  
-  let contextBlock = buildContextBlock(relevantRules, relevantCodex, settings.contextDepth);
-  if (relevantScenesText) {
-    contextBlock = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${contextBlock}`;
+  let contextBlock = '';
+  if (isCacheSupported && settings.contextDepth !== 'minimal') {
+    // CACHING MODE: Provide full static knowledge base to maximize cache hits
+    const sortedRules = [...params.bibleRules].sort((a, b) => a.key.localeCompare(b.key));
+    const sortedCodex = [...params.codexEntries].sort((a, b) => a.name.localeCompare(b.name));
+    
+    const bibleString = sortedRules.map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`).join('\n') || 'No specific rules set.';
+    const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, 50000) || 'No specific lore.';
+    
+    let graphString = '';
+    if (params.relationships && params.relationships.length > 0) {
+      const idToName = Object.fromEntries(params.codexEntries.map(c => [c.id, c.name]));
+      const graphParts = params.relationships.map(r => {
+         const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
+         const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
+         return `${srcName} (${r.type}) -> ${tgtName}${r.description ? `: ${r.description}` : ''}`;
+      });
+      graphString = `\n\nRELATIONSHIP GRAPH:\n${graphParts.join('\n')}`;
+    }
+    
+    contextBlock = `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
+  } else {
+    // LEGACY RAG MODE: Filter dynamically
+    const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
+    const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
+    contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
   }
   
   const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
-  const userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
+  
+  // User Prompt must contain the dynamic scene context to keep the System instruction perfectly static for caching
+  let userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
+  if (relevantScenesText) {
+    userPrompt = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${userPrompt}`;
+  }
 
   try {
     const controller = new AbortController();
@@ -304,7 +354,7 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
     const res = await callAI({
       systemInstruction,
       userPrompt,
-      provider: params.provider,
+      provider: provider,
       temperature: 0.85,
       stream: params.stream,
       onChunk: params.onChunk,
@@ -321,6 +371,8 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
 
 export async function processChat(params: ChatParams): Promise<string> {
   const settings = getSettings();
+  const provider = params.provider || settings.provider;
+  const isCacheSupported = ['google', 'claude', 'openrouter'].includes(provider.toLowerCase());
   
   // RAG for Chat
   let textForRAG = params.message;
@@ -348,10 +400,34 @@ export async function processChat(params: ChatParams): Promise<string> {
      textForRAG += ' ' + (params.contextText || '');
   }
 
-  const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
-  const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
-  
-  const contextBlock = buildContextBlock(relevantRules, relevantCodex, settings.contextDepth);
+  let contextBlock = '';
+  if (isCacheSupported && settings.contextDepth !== 'minimal') {
+    // CACHING MODE: Provide full static knowledge base to maximize cache hits
+    const sortedRules = [...params.bibleRules].sort((a, b) => a.key.localeCompare(b.key));
+    const sortedCodex = [...params.codexEntries].sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Hard cap at 50,000 chars to avoid overwhelming local memory before sending to massive context models
+    const bibleString = sortedRules.map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`).join('\n') || 'No specific rules set.';
+    const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, 50000) || 'No specific lore.';
+    
+    let graphString = '';
+    if (params.relationships && params.relationships.length > 0) {
+      const idToName = Object.fromEntries(params.codexEntries.map(c => [c.id, c.name]));
+      const graphParts = params.relationships.map(r => {
+         const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
+         const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
+         return `${srcName} (${r.type}) -> ${tgtName}${r.description ? `: ${r.description}` : ''}`;
+      });
+      graphString = `\n\nRELATIONSHIP GRAPH:\n${graphParts.join('\n')}`;
+    }
+    
+    contextBlock = `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
+  } else {
+    // LEGACY RAG MODE: Filter dynamically
+    const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
+    const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
+    contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
+  }
 
   const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
   const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, draftSnippet);
@@ -370,7 +446,7 @@ export async function processChat(params: ChatParams): Promise<string> {
     const res = await callAI({
       systemInstruction,
       userPrompt: userPromptWithContext,
-      provider: params.provider,
+      provider: provider,
       history: trimmedHistory,
       temperature: 0.7,
       stream: params.stream,
@@ -391,7 +467,7 @@ export async function extractToCodex(
   bibleRules: StoryBibleRule[]
   ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
   const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], settings.contextDepth);
+  const contextBlock = buildContextBlock(bibleRules, [], [], settings.contextDepth);
   const systemInstruction = AI_PROMPTS.EXTRACT_CODEX.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
 
@@ -424,7 +500,7 @@ export async function expandCodexEntry(
   bibleRules: StoryBibleRule[]
   ): Promise<string> {
   const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], settings.contextDepth);
+  const contextBlock = buildContextBlock(bibleRules, [], [], settings.contextDepth);
   const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
   

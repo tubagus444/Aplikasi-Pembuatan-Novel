@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { db } from '@/src/db';
 import { splitIntoScenes, getRelevantScenes, getLastScene, buildExcerptContext, Scene } from '@/src/lib/chunkEngine';
 
 interface UseAssistantChunkEngineProps {
@@ -71,7 +72,29 @@ export function useAssistantChunkEngine({
     }
 
     if (isSmartAuto && sessionChapter?.id && scenesRef.current.length > 0) {
-      const runEngine = setTimeout(() => {
+      const runEngine = setTimeout(async () => {
+        // Fetch past chapter summaries
+        let pastSummariesText = '';
+        if (sessionChapter.projectId) {
+          try {
+            const pastChapters = await db.chapters
+              .where('projectId')
+              .equals(sessionChapter.projectId)
+              .filter(ch => ch.order < sessionChapter.order)
+              .sortBy('order');
+            
+            const summariesList = pastChapters
+              .filter(ch => ch.summary && ch.summary.trim() !== '')
+              .map(ch => `${ch.title}: ${ch.summary}`);
+              
+            if (summariesList.length > 0) {
+              pastSummariesText = `\n[RINGKASAN BAB MASA LALU]\n${summariesList.join('\n\n')}\n[AKHIR RINGKASAN MASA LALU]\n\n`;
+            }
+          } catch (error) {
+            console.error("Gagal mengambil ringkasan bab masa lalu:", error);
+          }
+        }
+
         const relevant = getRelevantScenes(input, scenesRef.current, codexRef.current || []);
         let chosenData: Scene[] = [];
         let name = '';
@@ -87,10 +110,11 @@ export function useAssistantChunkEngine({
           }
         }
         
-        if (chosenData.length > 0) {
-          setChapterContext(buildExcerptContext(chosenData));
+        if (chosenData.length > 0 || pastSummariesText) {
+          const currentScenesText = chosenData.length > 0 ? buildExcerptContext(chosenData) : '';
+          setChapterContext(`${pastSummariesText}${currentScenesText}`);
           setSceneMetadata({
-            name,
+            name: `${pastSummariesText ? 'Past Summaries + ' : ''}${name}`,
             wordCount: chosenData.reduce((acc, s) => acc + s.wordCount, 0),
             isManual: false
           });

@@ -12,6 +12,7 @@ export function useAssistantSession({
   activeSession,
   codexEntries,
   bibleRules,
+  relationships,
   input,
   setInput,
   chapterContext,
@@ -23,6 +24,7 @@ export function useAssistantSession({
   activeSession: any;
   codexEntries: CodexEntry[];
   bibleRules: StoryBibleRule[];
+  relationships?: import('@/src/types').Relationship[];
   input: string;
   setInput: (val: string) => void;
   chapterContext: string;
@@ -48,6 +50,7 @@ export function useAssistantSession({
     chapterId: activeChapterId || undefined,
     codexEntries: codexEntries || [],
     bibleRules: bibleRules || [],
+    relationships: relationships || [],
     sessionMode: activeSession?.mode,
     provider: localStorage.getItem('ai_provider') || 'google',
     initialMessages: activeSession?.messages || [],
