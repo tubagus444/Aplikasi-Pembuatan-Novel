@@ -298,7 +298,7 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   const isCacheSupported = ['google', 'claude', 'openrouter'].includes(provider.toLowerCase());
   
   // RAG for Rewrite
-  let textForRAG = params.selection;
+  let textForRAG = params.ragContextText ? params.ragContextText + '\n' + params.selection : params.selection;
   let relevantScenesText = '';
   
   if (params.contextText && params.contextText.length > 500) {

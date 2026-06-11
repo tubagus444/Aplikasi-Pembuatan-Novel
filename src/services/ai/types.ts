@@ -31,6 +31,7 @@ export interface GenerateParams {
   chapterId?: number;
   provider?: string;
   contextText?: string;
+  ragContextText?: string;
   stream?: boolean;
   onChunk?: (chunk: string) => void;
   onRetry?: (attempt: number, error: any, provider: string) => void;

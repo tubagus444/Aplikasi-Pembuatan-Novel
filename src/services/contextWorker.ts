@@ -53,6 +53,35 @@ function countTokens(text: string, model?: string): number {
 // Cache for Codex embeddings in the worker: key is codex ID, value is { embedding, contentHash }
 const embeddingCache = new Map<string | number, { embedding: Float32Array, contentHash: string }>();
 
+// Cache for AhoCorasick instance
+let cachedAc: AhoCorasick | null = null;
+let cachedAcHash = '';
+
+function getAcInstance(allCodex: CodexEntry[]): AhoCorasick {
+  if (!allCodex || allCodex.length === 0) return new AhoCorasick([]);
+  const hash = JSON.stringify(allCodex.map(e => ({ n: e.name, a: e.aliases })));
+  if (cachedAcHash === hash && cachedAc) return cachedAc;
+  
+  const keywords = allCodex.flatMap(entry => {
+    const items = [];
+    if (entry.name) {
+      items.push({ word: entry.name, data: { entry, isAlias: false } });
+    }
+    if (entry.aliases && Array.isArray(entry.aliases)) {
+      entry.aliases.forEach(alias => {
+        if (alias) {
+          items.push({ word: alias, data: { entry, isAlias: true } });
+        }
+      });
+    }
+    return items;
+  });
+  
+  cachedAc = new AhoCorasick(keywords);
+  cachedAcHash = hash;
+  return cachedAc;
+}
+
 async function getEmbedder() {
   if (embedder) return embedder;
   if (!modelInitPromise) {
@@ -136,25 +165,10 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
   if (!text || !allCodex || allCodex.length === 0) return [];
 
   // 1. Exact Match Score (AhoCorasick)
-  const keywords = allCodex.flatMap(entry => {
-    const items = [];
-    if (entry.name) {
-      items.push({ word: entry.name, data: { entry, isAlias: false } });
-    }
-    if (entry.aliases && Array.isArray(entry.aliases)) {
-      entry.aliases.forEach(alias => {
-        if (alias) {
-          items.push({ word: alias, data: { entry, isAlias: true } });
-        }
-      });
-    }
-    return items;
-  });
-
+  const ac = getAcInstance(allCodex);
   const entryScores = new Map<string | number, { entry: CodexEntry; acScore: number; semanticScore: number; finalScore: number }>();
 
-  if (keywords.length > 0) {
-    const ac = new AhoCorasick(keywords);
+  if (allCodex.length > 0) {
     const matches = ac.search(text);
 
     matches.forEach(match => {
@@ -394,11 +408,32 @@ self.onmessage = async (e: MessageEvent) => {
       case 'GET_RELEVANT_CONTEXT':
         result = await getRelevantContext(payload.text, payload.allCodex);
         break;
+      case 'GET_CODEX_MATCHES': {
+        const { chunks, allCodex } = payload;
+        const ac = getAcInstance(allCodex);
+        const matches: Array<{start: number, end: number, codexId: number}> = [];
+        chunks.forEach((chunk: any) => {
+          const acMatches = ac.search(chunk.text);
+          acMatches.forEach(m => {
+            if (m.data && m.data.entry) {
+              matches.push({
+                start: chunk.pos + m.start,
+                end: chunk.pos + m.end,
+                codexId: m.data.entry.id
+              });
+            }
+          });
+        });
+        result = matches;
+        break;
+      }
       case 'GET_RELEVANT_BIBLE_RULES':
         result = getRelevantBibleRules(payload.text, payload.allRules, payload.maxChars);
         break;
       case 'INVALIDATE_CACHE':
         regexCache.clear();
+        cachedAc = null;
+        cachedAcHash = '';
         // Option to optionally clear embedding cache if needed
         if (payload?.deep) {
           embeddingCache.clear();

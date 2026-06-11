@@ -53,6 +53,7 @@ export function useEditorAI(
     setRewritePreview(null);
     try {
       const chapterContent = editor.getText();
+      const textBeforeCursor = editor.state.doc.textBetween(Math.max(0, from - 2000), from, ' ');
 
       streamBufferRef.current = "";
       isStreamingRef.current = true;
@@ -80,6 +81,7 @@ export function useEditorAI(
         chapterId,
         provider,
         contextText: chapterContent,
+        ragContextText: textBeforeCursor,
         stream: true,
         onRetry: (attempt, error, currentProvider) => {
           setRetryStatus(`Koneksi melambat (${currentProvider}). Percobaan ulang ke-${attempt}...`);

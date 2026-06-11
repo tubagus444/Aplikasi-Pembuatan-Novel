@@ -96,7 +96,7 @@ export function useCodexPanel(projectId: number) {
         tags: data.tags || []
       });
     } else {
-      await db.codex.add({
+      const newId = await db.codex.add({
         projectId,
         name: data.name,
         category: data.category || 'character',

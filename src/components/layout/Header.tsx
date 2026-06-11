@@ -29,9 +29,9 @@ export function Header() {
   if (isFocusMode) return null;
 
   return (
-    <header className="h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 bg-background z-[var(--z-sticky)] shadow-sm transition-colors overflow-x-auto no-scrollbar gap-4">
+    <header className="relative h-14 flex-none border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 md:px-5 bg-background z-[var(--z-sticky)] shadow-sm transition-colors gap-4">
       {/* Left: Navigation Group */}
-      <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
+      <div className="flex flex-1 items-center gap-1.5 md:gap-3 min-w-0">
         <button 
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
@@ -45,10 +45,10 @@ export function Header() {
         
         <button 
           onClick={() => setIsProjectManagerOpen(true)}
-          className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg group transition-all max-w-[150px] md:max-w-[250px]"
+          className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg group transition-all max-w-[150px] md:max-w-[250px] flex-shrink min-w-0"
           title="Ganti Proyek/Naskah"
         >
-          <Zap size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
+          <Zap size={14} className="flex-shrink-0 text-amber-500 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest truncate">
             {project?.name || 'Tanpa Judul'}
           </span>
@@ -66,7 +66,7 @@ export function Header() {
 
         <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0 mx-1 hidden sm:block" />
         
-        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px] md:max-w-[120px] flex-shrink-0 ml-1">
+        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate max-w-[80px] md:max-w-[120px] flex-shrink ml-1 min-w-0">
           {viewMode === 'write' && activeChapter ? `${activeChapter.title}` : viewMode.toUpperCase()}
         </span>
       </div>

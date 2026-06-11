@@ -3,43 +3,65 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
-import { Target, Cpu, Loader2, Info } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Cpu, Loader2 } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useContextMeter } from '@/src/hooks/useContextMeter';
-import * as Tooltip from '@radix-ui/react-tooltip';
 import { useAvailableProviders } from '@/src/hooks/useAvailableProviders';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function ContextMeter() {
   const { projectId } = useProject();
   const { activeChapter } = useNavigation();
   const chapterText = activeChapter?.content || '';
   const { selectedProvider } = useAvailableProviders();
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { model, modelContextLimit } = useMemo(() => {
-    let limit = 128000;
-    let m = 'gpt-4o'; // Default standard
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    if (selectedProvider === 'google') {
-      m = localStorage.getItem('ai_model_google') || 'gemini-1.5-flash';
-      limit = m.includes('pro') ? 2000000 : Math.max(1000000, 100000); // 1M+ limit usually
-    } else if (selectedProvider === 'claude') {
-      m = localStorage.getItem('ai_model_claude') || 'claude-3.5-sonnet';
-      limit = 200000;
-    } else if (selectedProvider === 'groq') {
-      m = localStorage.getItem('ai_model_groq') || 'llama3-8b-8192';
-      limit = m.includes('8192') ? 8192 : 32000;
-    } else if (selectedProvider === 'ollama') {
-      m = localStorage.getItem('ollama_model') || 'llama3';
-      limit = 8192; // usually 8k context locally
-    } else if (selectedProvider === 'openrouter') {
-      m = localStorage.getItem('ai_model_openrouter') || 'openrouter/auto';
-      limit = 128000; // rough generic limit
-    }
-    
-    return { model: m, modelContextLimit: limit };
+  const [modelConfig, setModelConfig] = useState({ model: 'gpt-4o', modelContextLimit: 128000 });
+
+  useEffect(() => {
+    const updateModel = () => {
+      let limit = 128000;
+      let m = 'gpt-4o'; // Default standard
+
+      if (selectedProvider === 'google') {
+        m = localStorage.getItem('ai_model_google') || 'gemini-1.5-flash';
+        limit = m.includes('pro') ? 2000000 : Math.max(1000000, 100000); // 1M+ limit usually
+      } else if (selectedProvider === 'claude') {
+        m = localStorage.getItem('ai_model_claude') || 'claude-3.5-sonnet';
+        limit = 200000;
+      } else if (selectedProvider === 'groq') {
+        m = localStorage.getItem('ai_model_groq') || 'llama3-8b-8192';
+        limit = m.includes('8192') ? 8192 : 32000;
+      } else if (selectedProvider === 'ollama') {
+        m = localStorage.getItem('ai_model_ollama') || 'llama3';
+        limit = 8192; // usually 8k context locally
+      } else if (selectedProvider === 'openrouter') {
+        m = localStorage.getItem('ai_model_openrouter') || 'openrouter/auto';
+        limit = 128000; // rough generic limit
+      }
+      
+      setModelConfig({ model: m, modelContextLimit: limit });
+    };
+
+    updateModel();
+    window.addEventListener('storage', updateModel);
+    return () => window.removeEventListener('storage', updateModel);
   }, [selectedProvider]);
+
+  const { model, modelContextLimit } = modelConfig;
 
   const { tokens, isCalculating } = useContextMeter(projectId, activeChapter?.id || null, chapterText, model);
 
@@ -62,52 +84,63 @@ export function ContextMeter() {
   }
 
   return (
-    <Tooltip.Provider>
-      <Tooltip.Root>
-        <Tooltip.Trigger asChild>
-          <button
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 ${bgClass} hover:bg-opacity-80 border ${borderClass} rounded-full transition-colors group text-left relative`}
-            aria-label="Context Meter"
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 ${bgClass} hover:bg-opacity-80 border ${borderClass} rounded-full transition-colors group text-left relative`}
+        aria-label="Context Meter"
+        title="Context Meter AI"
+      >
+        {isCalculating ? (
+          <Loader2 size={12} className={`animate-spin ${colorClass}`} />
+        ) : (
+          <Cpu size={14} className={`${colorClass} group-hover:scale-110 transition-transform`} />
+        )}
+        <span className={`text-[11px] font-bold ${colorClass} mr-0.5`}>
+          {usagePercent}%
+        </span>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs rounded-xl shadow-xl z-50 overflow-hidden border border-slate-200 dark:border-slate-800"
+            style={{ originY: 0, originX: 1 }}
           >
-            {isCalculating ? (
-              <Loader2 size={12} className={`animate-spin ${colorClass}`} />
-            ) : (
-              <Cpu size={14} className={`${colorClass} group-hover:scale-110 transition-transform`} />
-            )}
-            <span className={`text-[11px] font-bold ${colorClass} mr-0.5`}>
-              {usagePercent}%
-            </span>
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content
-            className="z-50 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs rounded-lg shadow-xl px-3 py-2 border border-slate-200 dark:border-slate-800 flex flex-col gap-1 w-64"
-            sideOffset={5}
-          >
-            <div className="font-bold flex justify-between items-center pb-1 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Context Meter</span>
-              <span className="text-xs text-indigo-500">{tokens.totalTokens.toLocaleString()} / {modelContextLimit.toLocaleString()}</span>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
+              <div className="font-bold flex justify-between items-center">
+                <span className="text-[10px] flex items-center gap-1.5 font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
+                  <Cpu size={12} />
+                  Context Meter
+                </span>
+                <span className="text-[11px] font-bold text-indigo-500">{tokens.totalTokens.toLocaleString()} / {modelContextLimit.toLocaleString()}</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Model:</span>
-              <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[10px]">{model}</span>
+            <div className="p-3 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Model:</span>
+                <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-slate-600 dark:text-slate-300">{model}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] mt-1">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Teks Bab</span>
+                <span className="font-bold text-slate-700 dark:text-slate-200">{tokens.textTokens.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Lore / Codex</span>
+                <span className="font-bold text-slate-700 dark:text-slate-200">{tokens.codexTokens.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Story Bible</span>
+                <span className="font-bold text-slate-700 dark:text-slate-200">{tokens.rulesTokens.toLocaleString()}</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center text-[11px] mt-1">
-              <span className="text-slate-400">Chapter Text</span>
-              <span className="font-medium">{tokens.textTokens.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-400">Lore/Codex</span>
-              <span className="font-medium">{tokens.codexTokens.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-400">Story Bible</span>
-              <span className="font-medium">{tokens.rulesTokens.toLocaleString()}</span>
-            </div>
-            <Tooltip.Arrow className="fill-white dark:fill-slate-900" />
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    </Tooltip.Provider>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

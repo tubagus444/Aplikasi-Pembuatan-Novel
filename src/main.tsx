@@ -9,6 +9,10 @@ import { BackupProvider } from '@/src/hooks/useAutoBackup';
 import { ToastProvider } from '@/src/hooks/useToast';
 import { ErrorBoundary } from '@/src/components/common/ErrorBoundary';
 import { ErrorService } from '@/src/services/errorService';
+import { oramaSync } from '@/src/services/rag/oramaSync';
+
+// Initialize the sync hooks for RAG DB
+oramaSync.setupHooks();
 
 // Global error handlers
 window.addEventListener('error', (event) => {

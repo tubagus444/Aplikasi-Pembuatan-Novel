@@ -6,6 +6,7 @@
 import { db } from '@/src/db';
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import ContextWorker from '@/src/services/contextWorker?worker';
+import { oramaSync } from '@/src/services/rag/oramaSync';
 
 // Worker instance and communication state
 let worker: Worker | null = null;
@@ -80,10 +81,40 @@ function sendToWorker(type: string, payload: any): Promise<any> {
 
 /**
  * Scans text for names or aliases found in the codex via Web Worker.
+ * Augments the exact-match results with semantic matches from Orama local RAG.
  */
 export async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise<CodexEntry[]> {
   if (!text) return [];
-  return sendToWorker('GET_RELEVANT_CONTEXT', { text, allCodex });
+  
+  // 1. Exact string matching (Aho-Corasick in worker)
+  const exactMatches = await sendToWorker('GET_RELEVANT_CONTEXT', { text, allCodex });
+  
+  // 2. Semantic matching with Orama
+  // Use a smaller text slice to prevent Orama from choking on huge paragraphs. 
+  // We prefer the most recent lines of interaction.
+  const searchSlice = text.length > 500 ? text.substring(text.length - 500) : text;
+  
+  let semanticMatches: CodexEntry[] = [];
+  try {
+    semanticMatches = await oramaSync.search(searchSlice, 5);
+  } catch (err) {
+    console.warn("[RAG] Orama semantic search failed", err);
+  }
+
+  // Deduplicate
+  const mergedMap = new Map<number, CodexEntry>();
+  exactMatches.forEach((e: CodexEntry) => { if (e.id) mergedMap.set(e.id, e); });
+  semanticMatches.forEach((e: CodexEntry) => { if (e.id) mergedMap.set(e.id, e); });
+  
+  return Array.from(mergedMap.values());
+}
+
+/**
+ * Searches the given text chunks for codex entries utilizing the context worker
+ */
+export async function getCodexMatches(chunks: {pos: number; text: string}[], allCodex: CodexEntry[]): Promise<{start: number; end: number; codexId: number}[]> {
+  if (!chunks || chunks.length === 0 || !allCodex || allCodex.length === 0) return [];
+  return sendToWorker('GET_CODEX_MATCHES', { chunks, allCodex });
 }
 
 export async function invalidateContextCache() {

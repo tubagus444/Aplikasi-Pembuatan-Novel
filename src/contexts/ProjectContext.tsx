@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, ensureDefaultProject } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ErrorService } from '@/src/services/errorService';
+import { oramaSync } from '@/src/services/rag/oramaSync';
 
 interface ProjectContextType {
   projectId: number | null;
@@ -27,6 +28,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     ensureDefaultProject().then(id => {
       if (id) {
         setProjectId(id);
+        oramaSync.init(id);
       }
       setIsLoading(false);
     });
@@ -40,6 +42,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     try {
       await db.projects.update(id, { lastOpened: Date.now() });
       setProjectId(id);
+      oramaSync.init(id);
     } catch (error) {
       ErrorService.log({
         message: 'Failed to switch project',

@@ -2,7 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
-import { AhoCorasick } from '@/src/lib/ahoCorasick';
+import { getCodexMatches } from '@/src/services/contextEngine';
 
 interface PassiveCodexHighlightOptions {
   getCodexEntries: () => { id?: number; name: string; aliases?: string[]; description?: string; category?: string }[];
@@ -24,23 +24,6 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
   addProseMirrorPlugins() {
     const options = this.options;
     let debounceTimer: any = null;
-    let acInstance: AhoCorasick | null = null;
-    let lastEntriesHash = '';
-
-    function getLocalAcInstance(entries: any[]): AhoCorasick | null {
-      if (!entries || entries.length === 0) return null;
-      
-      const currentHash = JSON.stringify(entries.map(e => ({ n: e.name, a: e.aliases })));
-      if (currentHash !== lastEntriesHash || !acInstance) {
-        const keywords = entries.flatMap(entry => {
-          const names = [entry.name, ...(entry.aliases || [])].filter(Boolean);
-          return names.map(name => ({ word: name, data: entry }));
-        });
-        acInstance = new AhoCorasick(keywords);
-        lastEntriesHash = currentHash;
-      }
-      return acInstance;
-    }
 
     return [
       new Plugin({
@@ -73,7 +56,7 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
               const newDecorations = value.decorations.map(tr.mapping, tr.doc);
               return {
                 decorations: newDecorations,
-                needsUpdate: true // Jadwalkan update melalui debounce 800ms
+                needsUpdate: true // Jadwalkan update melalui debounce 500ms
               };
             }
             
@@ -119,23 +102,47 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
 
               if (debounceTimer) clearTimeout(debounceTimer);
               
-              debounceTimer = setTimeout(() => {
+              debounceTimer = setTimeout(async () => {
                 const entries = options.getCodexEntries();
-                const ac = getLocalAcInstance(entries);
-                if (!ac) {
+                if (!entries || entries.length === 0) {
                   if (!view.isDestroyed) {
                     view.dispatch(view.state.tr.setMeta('updateCodexHighlights', DecorationSet.empty));
                   }
                   return;
                 }
 
-                const decorations = getDecorationsInternal(view.state.doc, ac);
-                
-                // Only update if the view hasn't been destroyed
-                if (!view.isDestroyed) {
-                  view.dispatch(view.state.tr.setMeta('updateCodexHighlights', decorations));
+                const chunks: { pos: number; text: string }[] = [];
+                view.state.doc.descendants((node, pos) => {
+                  if (node.isText && node.text) {
+                    chunks.push({ pos, text: node.text });
+                  }
+                });
+
+                try {
+                  const matches = await getCodexMatches(chunks, entries as any);
+                  
+                  if (view.isDestroyed) return;
+                  
+                  const decorations: Decoration[] = [];
+                  matches.forEach(m => {
+                    // Check if bounds are valid for the current document
+                    if (m.start < view.state.doc.content.size && m.end <= view.state.doc.content.size) {
+                      decorations.push(
+                        Decoration.inline(m.start, m.end, {
+                          nodeName: 'span',
+                          class: 'codex-highlight group',
+                          'data-codex-id': m.codexId?.toString(),
+                        })
+                      );
+                    }
+                  });
+
+                  const decorationSet = DecorationSet.create(view.state.doc, decorations);
+                  view.dispatch(view.state.tr.setMeta('updateCodexHighlights', decorationSet));
+                } catch (err) {
+                  console.error("Failed to get codex matches", err);
                 }
-              }, 800);
+              }, 500); // Use 500ms debounce as discussed
             },
             destroy() {
               if (debounceTimer) clearTimeout(debounceTimer);
@@ -146,29 +153,3 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
     ];
   },
 });
-
-function getDecorationsInternal(doc: ProseMirrorNode, ac: AhoCorasick): DecorationSet {
-  const decorations: Decoration[] = [];
-
-  doc.descendants((node, pos) => {
-    if (!node.isText) return;
-    
-    const text = node.text || '';
-    const matches = ac.search(text);
-
-    matches.forEach(match => {
-      const startPos = pos + match.start;
-      const endPos = pos + match.end;
-      
-      decorations.push(
-        Decoration.inline(startPos, endPos, {
-          nodeName: 'span',
-          class: 'codex-highlight group',
-          'data-codex-id': match.data.id?.toString(),
-        })
-      );
-    });
-  });
-
-  return DecorationSet.create(doc, decorations);
-}
