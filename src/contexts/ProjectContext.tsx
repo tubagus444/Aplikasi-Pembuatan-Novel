@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { db, ensureDefaultProject } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ErrorService } from '@/src/services/errorService';
@@ -38,7 +38,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     projectId ? db.projects.get(projectId) : undefined
   , [projectId]);
 
-  const switchProject = async (id: number) => {
+  const switchProject = useCallback(async (id: number) => {
     try {
       await db.projects.update(id, { lastOpened: Date.now() });
       setProjectId(id);
@@ -52,9 +52,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  };
+  }, []);
 
-  const createProject = async (name: string) => {
+  const createProject = useCallback(async (name: string) => {
     try {
       const newId = await db.projects.add({
         name,
@@ -62,7 +62,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         createdAt: Date.now(),
         lastOpened: Date.now(),
       });
-      
+
       await db.chapters.add({
         projectId: newId,
         title: 'Chapter 1',
@@ -81,25 +81,24 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  };
+  }, [switchProject]);
 
-  const deleteProject = async (id: number) => {
+  const deleteProject = useCallback(async (id: number) => {
     try {
-      if (projectId === id) {
+      // LQ3: tentukan target pindah SEBELUM menghapus, lalu HAPUS dulu; pindah hanya
+      // setelah hapus sukses (agar tidak terlanjur berpindah bila penghapusan gagal).
+      const deletingActive = projectId === id;
+      let nextId: number | undefined;
+      if (deletingActive) {
         const other = await db.projects.where('id').notEqual(id).first();
-        if (other) {
-          await switchProject(other.id!);
-        } else {
-          const defaultId = await ensureDefaultProject();
-          if (defaultId) setProjectId(defaultId);
-        }
+        nextId = other?.id;
       }
-      
+
       await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions], async () => {
         // Ambil semua chapter ID yang dimiliki project ini untuk menghapus snapshots-nya
         const chapters = await db.chapters.where('projectId').equals(id).toArray();
         const chapterIds = chapters.map(c => c.id!).filter(Boolean);
-        
+
         // Hapus snapshots untuk chapter-chapter tersebut
         if (chapterIds.length > 0) {
           await db.snapshots.where('chapterId').anyOf(chapterIds).delete();
@@ -114,6 +113,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         await db.chatSessions.where('projectId').equals(id).delete();
         await db.projects.delete(id);
       });
+
+      // Pindah proyek hanya setelah penghapusan sukses.
+      if (deletingActive) {
+        if (nextId) {
+          await switchProject(nextId);
+        } else {
+          const defaultId = await ensureDefaultProject();
+          if (defaultId) setProjectId(defaultId);
+        }
+      }
     } catch (error) {
       ErrorService.log({
         message: 'Failed to delete project',
@@ -123,17 +132,20 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  };
+  }, [projectId, switchProject]);
+
+  // Memo value + useCallback agar konsumen/anak ber-memo tidak re-render sia-sia. (LQ2)
+  const value = useMemo(() => ({
+    projectId,
+    project,
+    isLoading,
+    switchProject,
+    createProject,
+    deleteProject
+  }), [projectId, project, isLoading, switchProject, createProject, deleteProject]);
 
   return (
-    <ProjectContext.Provider value={{
-      projectId,
-      project,
-      isLoading,
-      switchProject,
-      createProject,
-      deleteProject
-    }}>
+    <ProjectContext.Provider value={value}>
       {children}
     </ProjectContext.Provider>
   );

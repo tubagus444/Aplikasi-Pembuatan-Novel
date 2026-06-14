@@ -17,11 +17,17 @@ function fastStringify(val: any): string {
 export function useOptimizedLiveQuery<T>(querier: () => Promise<T> | T, deps?: any[]): T | undefined {
   const result = useLiveQuery(querier, deps);
   const ref = useRef<T | undefined>(undefined);
-  
-  // Only update the ref if the deep content actually changed
-  if (fastStringify(result) !== fastStringify(ref.current)) {
-    ref.current = result;
+  const lastResultRef = useRef<T | undefined>(undefined);
+
+  // useLiveQuery mengembalikan referensi yang STABIL sampai query dijalankan ulang
+  // (mis. tabelnya berubah). Lakukan perbandingan-dalam (JSON.stringify) HANYA ketika
+  // referensi itu berubah → hindari stringify mahal pada setiap render. (LQ1)
+  if (result !== lastResultRef.current) {
+    lastResultRef.current = result;
+    if (fastStringify(result) !== fastStringify(ref.current)) {
+      ref.current = result;
+    }
   }
-  
+
   return ref.current;
 }

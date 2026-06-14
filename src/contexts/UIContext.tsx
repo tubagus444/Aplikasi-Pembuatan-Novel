@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -44,26 +44,22 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('aetherscribe-theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  }, []);
+
+  // Memo value agar konsumen tidak re-render saat provider render tanpa perubahan state. (LQ2)
+  const value = useMemo(() => ({
+    sidebarOpen, setSidebarOpen,
+    isFocusMode, setIsFocusMode,
+    isSearchOpen, setIsSearchOpen,
+    isExportOpen, setIsExportOpen,
+    isProjectManagerOpen, setIsProjectManagerOpen,
+    theme, setTheme, toggleTheme
+  }), [sidebarOpen, isFocusMode, isSearchOpen, isExportOpen, isProjectManagerOpen, theme, toggleTheme]);
 
   return (
-    <UIContext.Provider value={{
-      sidebarOpen,
-      setSidebarOpen,
-      isFocusMode,
-      setIsFocusMode,
-      isSearchOpen,
-      setIsSearchOpen,
-      isExportOpen,
-      setIsExportOpen,
-      isProjectManagerOpen,
-      setIsProjectManagerOpen,
-      theme,
-      setTheme,
-      toggleTheme
-    }}>
+    <UIContext.Provider value={value}>
       {children}
     </UIContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useMemo } from 'react';
 
 type PanelType = 'none' | 'assistant' | 'snapshots' | 'insights';
 
@@ -20,13 +20,12 @@ export const EditorPanelProvider: React.FC<{children: React.ReactNode}> = ({chil
   const [activePanel, setActivePanel] = useState<PanelType>('none');
   const [saveStatus, setSaveStatus] = useState<string>('');
 
+  const value = useMemo(() => ({
+    activePanel, setActivePanel, saveStatus, setSaveStatus
+  }), [activePanel, saveStatus]);
+
   return (
-    <EditorPanelContext.Provider value={{
-      activePanel, 
-      setActivePanel,
-      saveStatus,
-      setSaveStatus
-    }}>
+    <EditorPanelContext.Provider value={value}>
       {children}
     </EditorPanelContext.Provider>
   );

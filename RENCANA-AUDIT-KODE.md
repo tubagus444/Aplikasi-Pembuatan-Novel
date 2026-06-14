@@ -26,7 +26,7 @@
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP ✅ diperbaiki; BK4/BK6–BK10 belum | ✅ mendalam |
 | 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 analisa selesai (sehat) | ✅ mendalam |
-| 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | 🔄 analisa selesai | ✅ mendalam |
+| 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
 | 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1 ✅ diperbaiki; ED2/ED3/ED4 belum | ✅ mendalam |
 | 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | 🔄 analisa selesai | ✅ struktural |
 
@@ -339,14 +339,14 @@ Skema Orama jelas; `search` mengambil record lengkap dari Dexie (data mutakhir) 
 **Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P2
 
 **Temuan:**
-- 🟡 **LQ1. `useOptimizedLiveQuery` mem-`JSON.stringify` hasil tiap render** untuk dedupe referensi. Untuk koleksi besar (mis. `chapters` dengan `content` penuh, atau codex banyak) → stringify mahal **tiap render** → bisa kontraproduktif. Pertimbangkan dedupe lebih murah (bandingkan `id`+`lastModified`/panjang) atau batasi pemakaian ke koleksi kecil.
-- 🟡 **LQ2. Context value tak di-memo.** `ProjectContext` (fungsi switch/create/delete dibuat ulang tiap render) serta `UIContext`/`EditorPanelContext` (objek value baru tiap render) → konsumen re-render berlebih. `useMemo`/`useCallback` untuk value.
-- 🟡 **LQ3. `ProjectContext.deleteProject` berpindah proyek SEBELUM transaksi hapus** (88–116); bila hapus gagal, sudah terlanjur switch. Urutkan hapus dulu lalu switch (atau rollback).
-- 🟢 **LQ4.** `NavigationContext` sinkron `activeChapter` saat bab terhapus pakai `isMounted` guard — benar.
+- ✅ **LQ1 (DIPERBAIKI). `useOptimizedLiveQuery` mem-`JSON.stringify` tiap render.** Ditambah short-circuit referensi: `JSON.stringify` kini hanya dijalankan saat referensi hasil `useLiveQuery` berubah (mis. tabel berubah), bukan tiap render. Untuk koleksi besar (chapters/codex), biaya per-render hilang.
+- ✅ **LQ2 (DIPERBAIKI). Context value tak di-memo.** `ProjectContext` (switch/create/delete → `useCallback`, value → `useMemo`), `UIContext` (`toggleTheme` → `useCallback`, value → `useMemo`), `EditorPanelContext` (value → `useMemo`). Konsumen/anak ber-`memo` tak lagi re-render karena identitas value/fungsi berubah sia-sia.
+- ✅ **LQ3 (DIPERBAIKI). Urutan `deleteProject`.** Sekarang: hitung target pindah → **HAPUS dulu** (transaksi) → baru pindah proyek. Bila penghapusan gagal, tidak terlanjur berpindah.
+- 🟢 **LQ4.** `NavigationContext` sinkron `activeChapter` saat bab terhapus pakai `isMounted` guard — benar (tak diubah).
 
 **Catatan positif:** pemisahan context per-domain rapi; `useProjectData` mengelompokkan live query; guard `useContext===undefined` konsisten.
 
-**Tindakan disarankan:** LQ2 (memo value) & LQ1 (dedupe lebih murah) paling berdampak pada performa; LQ3 keandalan.
+Verifikasi: `tsc` 0 error, vitest 21/21.
 
 ### [#11] Editor TipTap — `src/features/editor/hooks/*`, `extensions/*`
 **Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P2 (⚠️ memuat 1 data-loss)
