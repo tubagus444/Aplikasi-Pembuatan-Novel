@@ -76,3 +76,6 @@ Berbasis fitur di bawah `src/features/{assistant,chapters,codex,editor,lore}` (m
 - Catatan `HMR`/`DISABLE_HMR` di `vite.config.ts` untuk lingkungan host Google AI Studio (proyek ini di-scaffold sebagai applet AI Studio); biarkan apa adanya.
 - `firebase-applet-config.json` berisi nilai placeholder — sinkronisasi Firebase bersifat opt-in dan config asli berasal dari pengguna, bukan file ini.
 - Ini **aplikasi pribadi, satu pengguna**; sesuai keputusan pemilik, pengerasan keamanan proxy (auth, rate limiting, base URL Ollama yang dikontrol klien / permukaan SSRF di `server.ts`) sengaja di luar cakupan kecuali diangkat secara eksplisit.
+
+## Audit kualitas kode
+`RENCANA-AUDIT-KODE.md` (root) adalah tracker audit bertahap: 12 area dengan prioritas, status per-item (✅/🔄/⬜), dan temuan. Item berdampak-tinggi sudah diperbaiki (P0 jantung AI, data-loss autosave, body-limit server, backup chatSessions, ketahanan DB/worker, dll). Sisa item bersifat cosmetic/opt-in/refactor besar. Cek file itu sebelum mengerjakan ulang area yang sudah diaudit, dan perbarui statusnya bila menyentuh temuan terkait.
