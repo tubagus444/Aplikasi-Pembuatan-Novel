@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useEditorSetup } from '@/src/features/editor/hooks/useEditorSetup';
 import { useEditorSave } from '@/src/features/editor/hooks/useEditorSave';
 import { useEditorCodexSync } from '@/src/features/editor/hooks/useEditorCodex';
@@ -36,14 +36,16 @@ export function useNovelEditor({
 
   const [activeCodexPopup, setActiveCodexPopup] = useState<{ id: number; x: number; y: number } | null>(null);
 
-  let onEditorUpdateRef: any = null;
+  // Ref stabil: onUpdate editor selalu memanggil versi terbaru onEditorUpdate (ED3).
+  const onEditorUpdateRef = useRef<((props: any) => void) | null>(null);
+  const handleEditorUpdate = useCallback((props: any) => onEditorUpdateRef.current?.(props), []);
 
   const editor = useEditorSetup({
     chapterId,
     initialContent: chapter?.content,
     codexEntries,
     onCodexClick: (id, e) => setActiveCodexPopup({ id, x: e.clientX, y: e.clientY }),
-    onUpdate: (props) => onEditorUpdateRef?.(props),
+    onUpdate: handleEditorUpdate,
   });
 
   useEditorCodexSync(editor, codexEntries);
@@ -54,8 +56,8 @@ export function useNovelEditor({
     editor
   });
 
-  // Wire up the callback
-  onEditorUpdateRef = onEditorUpdate;
+  // Wire up the callback (dibaca lewat ref saat update terjadi → selalu versi terbaru)
+  onEditorUpdateRef.current = onEditorUpdate;
 
   // Typewriter
   useTypewriterMode(editor, isTypewriterMode, containerRef, () => setActiveCodexPopup(null));

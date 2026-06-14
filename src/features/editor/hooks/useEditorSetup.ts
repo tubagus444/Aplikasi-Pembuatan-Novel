@@ -152,7 +152,8 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
   useEffect(() => {
     if (editor && initialContent !== undefined && !hasSetInitialContent.current) {
       if (editor.getHTML() !== initialContent) {
-        editor.commands.setContent(initialContent);
+        // emitUpdate:false → muat konten awal tanpa memicu onUpdate (cegah autosave churn). (ED2)
+        editor.commands.setContent(initialContent, { emitUpdate: false });
       }
       hasSetInitialContent.current = true;
     }

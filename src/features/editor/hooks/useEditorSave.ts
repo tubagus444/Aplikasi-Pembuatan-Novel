@@ -16,7 +16,6 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const chapterIdRef = useRef(chapterId);
   const isMountedRef = useRef(true);
-  const skipNextUpdateRef = useRef(false);
   const htmlRef = useRef(editor?.getHTML() || "");
 
   const performSave = useCallback((id: number, content: string) => {
@@ -76,11 +75,6 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
   }, [chapter?.title]); // Only dependency needed is title, not content
 
   const onEditorUpdate = useCallback(({ editor: currentEditor }: { editor: Editor }) => {
-    if (skipNextUpdateRef.current) {
-      skipNextUpdateRef.current = false;
-      return;
-    }
-    
     const idToSave = chapterIdRef.current;
 
     // Tangkap konten terkini SEGERA (bukan di dalam timeout) agar flush saat ganti

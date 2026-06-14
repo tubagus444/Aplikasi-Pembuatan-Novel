@@ -20,14 +20,14 @@
 | 1 | Orkestrasi AI & ketahanan | `src/services/ai/index.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 2 | Klasifikasi error & tipe | `src/services/ai/errors.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 3 | Proxy AI (parsing response) | `src/services/ai/proxy.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
-| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1 ✅ + C9 ✅; C2–C8/C11 belum | ✅ mendalam |
+| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1/C2/C5/C6/C8/C9 ✅; C3/C4/C11 belum | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
 | 6 | Server proxy | `server.ts` | P1 | 🔄 SV1/SV2/SV3/SV15 ✅; SV5/SV6/SV10 belum | ✅ mendalam |
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP ✅ diperbaiki; BK4/BK6–BK10 belum | ✅ mendalam |
 | 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 analisa selesai (sehat) | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
-| 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1 ✅ diperbaiki; ED2/ED3/ED4 belum | ✅ mendalam |
+| 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1/ED2/ED3 ✅; ED4 belum | ✅ mendalam |
 | 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | 🔄 analisa selesai | ✅ struktural |
 
 ---
@@ -191,20 +191,20 @@ db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningka
 #### Temuan — Keandalan (prioritas)
 
 - ✅ **C1 (DIPERBAIKI — Opsi "AC-first + embed background"). Head-of-line blocking + timeout 30s saat embedding pertama.** `getRelevantContext` kini: (1) selalu kembalikan hasil Aho-Corasick dengan cepat; (2) hitung skor semantik **hanya jika sudah siap** (`semanticReady`: model termuat + semua embedding tercache); (3) bila belum siap, picu `ensureEmbeddings()` sebagai **tugas latar tanpa di-await** (loop tetap `yield` tiap 10) lalu balas AC-only kali ini. Hasil: query tak pernah timeout/memblokir; semantik aktif otomatis di query berikutnya. **Bonus:** filter relevansi diubah jadi `acScore>0 || finalScore>20` agar kecocokan eksak tunggal tetap muncul di mode AC-only (sebelumnya `finalScore>20` membuang exact-match tunggal). Verifikasi: `tsc` 0 error, vitest 21/21.
-- 🟡 **C2. Kegagalan semantik senyap.** Bila download/init model gagal → hanya `console.error` (85–96, 285–287); tidak ada log `ErrorService`, tak ada notifikasi, tak ada retry. Fitur diam-diam turun ke AC-only — sulit didiagnosis.
+- ✅ **C2 (DIPERBAIKI). Kegagalan semantik senyap.** `getEmbedder` kini **reset `modelInitPromise=null` saat gagal** → model bisa dicoba ulang (sebelumnya promise gagal ter-cache selamanya). `ensureEmbeddings` catch mem-post `PROGRESS { type: 'embedding_error', message }` agar kegagalan tidak senyap (bisa ditangkap UI lewat event `semantic-indexing-progress`).
 - 🟡 **C3. Timeout tidak membatalkan kerja worker.** `sendToWorker` reject di 30s tapi tak mengirim sinyal batal; worker lanjut. Tidak ada protokol cancel per-request.
 - 🟡 **C11. `worker.onerror` me-redispatch `ErrorEvent('error')` ke `window`** (`contextEngine` 44) → berpotensi memicu handler error global/menggandakan log. Perlu dipastikan tak menimbulkan loop.
 
 #### Temuan — Correctness / konsistensi
 
 - 🟡 **C4. Inkonsistensi pencocokan nama berimbuhan Indonesia.** `AhoCorasick.search` (dipakai konteks **dan** highlight `GET_CODEX_MATCHES`) hanya cocok bila kedua sisi batas non-alfanumerik → **tidak** mengenali "Kaelnya/Kaellah/Kaelpun". Sementara `getCodexRegex` (dipakai `SCAN_APPEARANCES`) **mengenali** sufiks via `INDONESIAN_PARTICLES`. → highlight & konteks melewatkan bentuk bersufiks yang justru terdeteksi scan kemunculan. Perilaku dua jalur berbeda untuk hal yang sama.
-- 🟡 **C5. `GET_CODEX_MATCHES` → `codexId: m.data.entry.id` bisa `undefined`** untuk entri belum tersimpan; ada guard `m.data.entry` tapi bukan `entry.id`. Highlight downstream bisa salah.
-- 🟡 **C6. `SCAN_APPEARANCES` menguji regex pada `ch.content` mentah (HTML).** Tag/atribut bisa memicu false positive/negatif; idealnya strip HTML dulu (seperti `countWords` di utils).
+- ✅ **C5 (DIPERBAIKI). `GET_CODEX_MATCHES` → `codexId` undefined.** Ditambah guard `m.data.entry.id !== undefined` → entri tanpa id dilewati (tak merusak highlight).
+- ✅ **C6 (DIPERBAIKI). `SCAN_APPEARANCES` pada HTML mentah.** Konten kini di-strip tag (`replace(/<[^>]*>/g, ' ')`) sebelum diuji regex → tak ada false-match di dalam tag/atribut.
 - 🟢 **C7. `cosineSimilarity` mengasumsikan embedding ternormalisasi** (`normalize:true`). Embedding lama yang tak ternormalisasi → skor meleset. Risiko rendah.
 
 #### Temuan — Maintainability
 
-- 🟡 **C8. Angka ajaib skoring tersebar** tanpa dokumentasi: `ALPHA=60`, `BETA=1`, boost `10`, `finalScore>20`, `acScore += isAlias?5:10`, plus blok `SCORE_*`/`MIN_SCORE_THRESHOLD`/`DEFAULT_MAX_CHARS`. Sulit di-tune/uji.
+- ✅ **C8 (DIPERBAIKI). Angka ajaib skoring.** Diekstrak jadi konstanta bernama berkomentar: `AC_NAME_SCORE`, `AC_ALIAS_SCORE`, `SEMANTIC_WEIGHT`, `AC_WEIGHT`, `EXACT_MATCH_BOOST`, `RELEVANCE_THRESHOLD` (perilaku identik, lebih mudah di-tune).
 - ✅ **C9 (DIPERBAIKI). Variabel mati** `embedderInitializing` dihapus (diganti `backgroundIndexing` yang dipakai untuk guard indexing latar).
 - 🟢 **C10. `embeddingCache` tak terbatas** (~1.5KB/entri) — wajar; dibersihkan saat `INVALIDATE_CACHE { deep }`.
 
@@ -355,8 +355,8 @@ Verifikasi: `tsc` 0 error, vitest 21/21.
 - ✅ **ED1 (DIPERBAIKI). Edit terbaru bisa hilang saat ganti bab cepat / keluar mode write < 1.5s.** Di `useEditorSave`, `htmlRef.current` dulu hanya diisi **di dalam** timeout debounce. Saat ganti chapter/unmount, flush memakai snapshot **lama** → edit terakhir hilang bila pindah < 1.5s. **Perbaikan diterapkan:** `htmlRef.current = currentEditor.getHTML()` kini dipanggil **segera** di awal `onEditorUpdate` (di luar timeout), sehingga flush selalu memakai teks terkini. Trade-off: `getHTML()` per-keystroke (biaya sepele untuk ukuran bab normal). Verifikasi: `tsc` 0 error, vitest 21/21.
 
 **Temuan — Maintainability / churn:**
-- 🟡 **ED2. `skipNextUpdateRef` mati.** Dideklarasi & dicek (79) tapi **tak pernah di-set `true`** → `setContent` saat load tetap memicu `onUpdate`→autosave (write sia-sia + `saveStatus` berkedip). Wire-kan, atau `setContent(content, { emitUpdate:false })`.
-- 🟡 **ED3. Wiring `onEditorUpdateRef` rapuh.** Variabel lokal di-reassign tiap render lalu dipakai via closure (komentarnya pun mengakui hacky). Ganti dengan `useRef` eksplisit.
+- ✅ **ED2 (DIPERBAIKI). `skipNextUpdateRef` mati.** `useEditorSetup` kini `setContent(initialContent, { emitUpdate: false })` → load konten awal tak memicu autosave (tak ada write sia-sia / kedip status). Ref mati `skipNextUpdateRef` dihapus.
+- ✅ **ED3 (DIPERBAIKI). Wiring `onEditorUpdateRef` rapuh.** Diganti `useRef` + `useCallback` stabil di `useNovelEditor`; `onUpdate` editor membaca versi terbaru lewat ref (tak lagi variabel lokal di-reassign).
 - 🟡 **ED4. `PassiveCodexHighlight` walk seluruh text node tiap `docChanged`** (debounce 500ms) → biaya naik dengan ukuran bab (dimitigasi debounce + worker). `data-codex-id` bisa `'undefined'` (cross-ref **C5** #4).
 
 **Catatan positif:** highlight pakai meta-transaction + `map` decorations (benar) dengan cek bounds & debounce; pemisahan hook editor (setup/save/AI/search/codex) rapi; flush-on-unmount & flush-on-chapter-switch sudah ada (tinggal perbaiki sumber datanya, ED1).

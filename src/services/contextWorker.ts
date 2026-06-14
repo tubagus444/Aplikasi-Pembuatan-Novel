@@ -91,8 +91,14 @@ async function getEmbedder() {
       }
     });
   }
-  embedder = await modelInitPromise;
-  return embedder;
+  try {
+    embedder = await modelInitPromise;
+    return embedder;
+  } catch (err) {
+    // Jangan cache promise yang gagal — izinkan percobaan ulang pada panggilan berikutnya. (C2)
+    modelInitPromise = null;
+    throw err;
+  }
 }
 
 function dotProduct(a: Float32Array, b: Float32Array): number {
@@ -137,6 +143,14 @@ const SCORE_KEY_MATCH = 30;
 const MIN_SCORE_THRESHOLD = 25; // Raised threshold for leaner context
 const DEFAULT_MAX_CHARS = 1200; // Lowered limit for leaner context
 const MIN_WORD_LENGTH = 4;
+
+// Bobot skor hibrida untuk getRelevantContext (semantik vs exact-match Aho-Corasick). (C8)
+const AC_NAME_SCORE = 10;        // skor kecocokan nama (exact)
+const AC_ALIAS_SCORE = 5;        // skor kecocokan alias (exact)
+const SEMANTIC_WEIGHT = 60;      // skala skor semantik (~0..1) -> ~0..60
+const AC_WEIGHT = 1.0;           // bobot skor exact-match
+const EXACT_MATCH_BOOST = 10;    // dorongan agar kecocokan eksak pasti muncul
+const RELEVANCE_THRESHOLD = 20;  // ambang skor minimum untuk entri non-eksak
 
 const regexCache = new Map<string, RegExp>();
 
@@ -253,8 +267,10 @@ async function ensureEmbeddings(allCodex: CodexEntry[]): Promise<void> {
       db.embeddings.bulkPut(toSaveToDb).catch(e => console.warn("Failed to save embeddings to db", e));
     }
     self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_done' } });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Background embedding indexing failed", error);
+    // Surface ke UI agar kegagalan semantik tidak senyap. (C2)
+    self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_error', message: error?.message || String(error) } });
   } finally {
     backgroundIndexing = false;
   }
@@ -273,7 +289,7 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
     if (!entry) return;
     const key = entry.id !== undefined ? entry.id : entry.name;
     const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
-    current.acScore += isAlias ? 5 : 10;
+    current.acScore += isAlias ? AC_ALIAS_SCORE : AC_NAME_SCORE;
     entryScores.set(key, current);
   });
 
@@ -301,18 +317,15 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
     void ensureEmbeddings(allCodex);
   }
 
-  // 3. Hybrid Scoring
-  const ALPHA = 60; // Weight multiplier for semantic score (similarity is usually 0.0 - 1.0)
-  const BETA = 1.0; // Weight multiplier for AC score
-
+  // 3. Hybrid Scoring (konstanta lihat C8 di atas)
   return Array.from(entryScores.values())
     .map(item => {
-      // similarity is between -1 and 1, usually between 0 and 1. We scale semantic to ~0-60.
-      const scaledSemantic = Math.max(0, item.semanticScore) * ALPHA;
-      const scaledAc = item.acScore * BETA;
+      // similarity ~0..1 → diskalakan ke ~0..SEMANTIC_WEIGHT.
+      const scaledSemantic = Math.max(0, item.semanticScore) * SEMANTIC_WEIGHT;
+      const scaledAc = item.acScore * AC_WEIGHT;
 
-      // If there's an exact match, give it an extra boost to ensure it surfaces
-      const exactMatchBoost = item.acScore > 0 ? 10 : 0;
+      // Beri dorongan agar kecocokan eksak pasti muncul.
+      const exactMatchBoost = item.acScore > 0 ? EXACT_MATCH_BOOST : 0;
 
       item.finalScore = scaledSemantic + scaledAc + exactMatchBoost;
       return item;
@@ -320,7 +333,7 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
     // Selalu sertakan entri dengan kecocokan eksak (acScore>0) — penting agar mode
     // AC-only (sebelum embedding panas) tetap mengembalikan konteks; selain itu pakai
     // ambang skor semantik. (Dulu: finalScore>20 saja, yang membuang kecocokan eksak tunggal.)
-    .filter(item => item.acScore > 0 || item.finalScore > 20)
+    .filter(item => item.acScore > 0 || item.finalScore > RELEVANCE_THRESHOLD)
     .sort((a, b) => b.finalScore - a.finalScore)
     .map(item => item.entry);
 }
@@ -433,7 +446,8 @@ self.onmessage = async (e: MessageEvent) => {
         chunks.forEach((chunk: any) => {
           const acMatches = ac.search(chunk.text);
           acMatches.forEach(m => {
-            if (m.data && m.data.entry) {
+            // Lewati entri tanpa id — codexId yang undefined merusak highlight downstream. (C5)
+            if (m.data && m.data.entry && m.data.entry.id !== undefined) {
               matches.push({
                 start: chunk.pos + m.start,
                 end: chunk.pos + m.end,
@@ -465,7 +479,8 @@ self.onmessage = async (e: MessageEvent) => {
         
         result = chapters
           .filter((ch: any) => {
-            const lowerContent = (ch.content || '').toLowerCase();
+            // Strip tag HTML agar tak ada false-match di dalam tag/atribut. (C6)
+            const lowerContent = (ch.content || '').replace(/<[^>]*>/g, ' ').toLowerCase();
             // Reset lastIndex for test() because the regex is global/cached
             nameRegex.lastIndex = 0;
             if (nameRegex.test(lowerContent)) return true;
