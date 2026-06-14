@@ -48,7 +48,7 @@ fitur → src/services/ai/index.ts (facade: processRewrite / processChat / extra
 ```
 
 - **Kunci BYOK ada di sisi klien.** Disimpan di `localStorage` ter-encode base64 (atau `sessionStorage`) dengan kunci `ai_key_<provider>`, dibaca oleh `getSettings()` di `index.ts`, lalu diteruskan ke proxy lewat header `x-api-key`. Server memprioritaskan kunci dari klien dan jatuh ke `.env` (`GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CLAUDE_API_KEY`) sebagai cadangan. Provider/model/contextDepth juga berupa kunci localStorage (`ai_provider`, `ai_model_<provider>`, `ai_context_depth`).
-- **Urutan fallback** adalah `['openrouter','google','claude','groq']`; fallback dilewati untuk `INVALID_KEY`/`UNAUTHORIZED`/`QUOTA_EXCEEDED` (percuma mengulang kunci yang salah) dan hanya dipakai untuk error koneksi/server/rate-limit. Circuit terbuka setelah 3 kegagalan beruntun selama 30 detik.
+- **Urutan fallback** adalah `['openrouter','google','claude','groq']`; fallback dilewati untuk `INVALID_KEY`/`QUOTA_EXCEEDED` (percuma mengulang kunci yang salah) dan hanya dipakai untuk error koneksi/server/rate-limit. Circuit terbuka setelah 3 kegagalan beruntun selama 30 detik.
 - **Dua mode injeksi konteks** (keduanya di `index.ts`):
   - **Mode caching** untuk google/claude/openrouter saat `contextDepth !== 'minimal'`: *seluruh* Story Bible + Codex diurutkan secara deterministik dan ditempatkan di system prompt yang **statis** untuk memaksimalkan cache prompt provider; teks scene yang dinamis diletakkan di user prompt.
   - **Mode RAG legacy** selain itu: `getRelevantContext`/`getRelevantBibleRules` memfilter lore secara dinamis lewat context worker.
