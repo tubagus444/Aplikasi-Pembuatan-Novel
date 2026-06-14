@@ -10,6 +10,10 @@ export function useTokenCounter(text: string, model: string = 'gpt-4o', debounce
     // Initialize worker
     workerRef.current = new Worker(new URL('../workers/tokenWorker.ts', import.meta.url), { type: 'module' });
 
+    workerRef.current.onerror = (error) => {
+      window.dispatchEvent(new ErrorEvent('error', { error: error, message: error.message }));
+    };
+
     workerRef.current.onmessage = (e: MessageEvent) => {
       if (e.data.type === 'TOKEN_COUNT') {
         setTokenCount(e.data.tokens);

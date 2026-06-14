@@ -72,10 +72,22 @@ export const backupService = {
   async compressData(dataString: string): Promise<Blob> {
     const encoder = new TextEncoder();
     const data = encoder.encode(dataString);
-    const stream = new Blob([data]).stream();
-    // @ts-ignore
-    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
-    return await new Response(compressedStream).blob();
+    const blob = new Blob([data]);
+    
+    if (typeof CompressionStream === 'undefined') {
+      console.warn("CompressionStream not supported in this browser. Backup will be uncompressed.");
+      return blob;
+    }
+
+    try {
+      const stream = blob.stream();
+      // @ts-ignore
+      const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+      return await new Response(compressedStream).blob();
+    } catch (err) {
+      console.error("Compression failed:", err);
+      return blob;
+    }
   },
 
   /**

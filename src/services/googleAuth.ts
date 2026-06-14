@@ -9,6 +9,7 @@ export interface GoogleUser {
 
 let cachedAccessToken: string | null = null;
 let cachedUser: GoogleUser | null = null;
+let tokenExpiresAt: number | null = null;
 
 const loadGisScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -65,6 +66,9 @@ export const googleSignIn = async (clientId: string): Promise<{ user: GoogleUser
           }
           if (response.access_token) {
              cachedAccessToken = response.access_token;
+             // Set expiration to 5 mins before actual expiry to be safe
+             const expiresIn = response.expires_in ? parseInt(response.expires_in, 10) : 3600;
+             tokenExpiresAt = Date.now() + (expiresIn - 300) * 1000;
              // Fetch user info
              try {
                 const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -99,6 +103,12 @@ export const googleSignIn = async (clientId: string): Promise<{ user: GoogleUser
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
+  if (cachedAccessToken && tokenExpiresAt && Date.now() > tokenExpiresAt) {
+    cachedAccessToken = null;
+    cachedUser = null;
+    tokenExpiresAt = null;
+    throw new Error("TOKEN_EXPIRED");
+  }
   return cachedAccessToken;
 };
 
@@ -114,4 +124,5 @@ export const logout = async () => {
   }
   cachedAccessToken = null;
   cachedUser = null;
+  tokenExpiresAt = null;
 };

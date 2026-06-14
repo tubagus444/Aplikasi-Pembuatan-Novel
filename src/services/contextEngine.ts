@@ -41,6 +41,7 @@ function getWorker(): Worker {
     };
     worker.onerror = (e) => {
       console.error('Context Worker Error:', e);
+      window.dispatchEvent(new ErrorEvent('error', { error: e.error, message: e.message }));
       terminateWorker();
     };
   }

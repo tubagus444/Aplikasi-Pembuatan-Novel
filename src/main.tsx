@@ -38,13 +38,13 @@ createRoot(document.getElementById('root')!).render(
     <ProjectProvider>
       <NavigationProvider>
         <UIProvider>
-          <BackupProvider>
-            <ToastProvider>
+          <ToastProvider>
+            <BackupProvider>
               <ErrorBoundary>
                 <App />
               </ErrorBoundary>
-            </ToastProvider>
-          </BackupProvider>
+            </BackupProvider>
+          </ToastProvider>
         </UIProvider>
       </NavigationProvider>
     </ProjectProvider>

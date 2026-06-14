@@ -10,6 +10,10 @@ function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(new URL('./oramaWorker.ts', import.meta.url), { type: 'module' });
     
+    worker.onerror = (error) => {
+      window.dispatchEvent(new ErrorEvent('error', { error: error, message: error.message }));
+    };
+
     worker.onmessage = (e) => {
       const { type, id, result, error } = e.data;
       if (type === 'SEARCH_RESULT' && id !== undefined && pendingRequests.has(id)) {
