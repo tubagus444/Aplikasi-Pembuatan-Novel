@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
-import { initAuth, googleSignIn, logout, getAccessToken } from '../services/googleAuth';
-import { User } from 'firebase/auth';
+import { initAuth, googleSignIn, logout, getAccessToken, GoogleUser } from '../services/googleAuth';
 import { syncProjectToDrive } from '../services/driveBackupService';
 
 export function useDriveSync() {
   const [needsAuth, setNeedsAuth] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const unsub = initAuth(
+    initAuth(
       (currentUser, token) => {
         setUser(currentUser);
         setNeedsAuth(false);
@@ -20,15 +19,17 @@ export function useDriveSync() {
         setNeedsAuth(true);
       }
     );
-    return () => {
-      if (typeof unsub === 'function') unsub();
-    };
   }, []);
 
   const handleLogin = async () => {
+    const clientId = localStorage.getItem('google_client_id');
+    if (!clientId) {
+       alert("Silakan masukkan Google Client ID di Pengaturan terlebih dahulu.");
+       return;
+    }
     setIsLoggingIn(true);
     try {
-      const result = await googleSignIn();
+      const result = await googleSignIn(clientId);
       if (result) {
         setUser(result.user);
         setNeedsAuth(false);

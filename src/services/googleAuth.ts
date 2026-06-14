@@ -1,66 +1,101 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+// Keeping this clean without firebase dependencies
 
-// Handle missing/dummy config gracefully
-const isDummyConfig = firebaseConfig.projectId === 'missing-project';
+export interface GoogleUser {
+  name: string;
+  email: string;
+  picture: string;
+}
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-
-const provider = new GoogleAuthProvider();
-// Request Workspace scopes for Google Drive
-provider.addScope('https://www.googleapis.com/auth/drive.file');
-
-let isSigningIn = false;
 let cachedAccessToken: string | null = null;
+let cachedUser: GoogleUser | null = null;
 
-export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
-  onAuthFailure?: () => void
-) => {
-  if (isDummyConfig) {
-    console.warn("Firebase config is missing due to a platform provisioning issue. Google Auth will not work.");
-    if (onAuthFailure) onAuthFailure();
-    return () => {}; // No-op unsubscribe for dummy config
-  }
-
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
-      }
-    } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
+const loadGisScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return resolve();
+    if ((window as any).google?.accounts?.oauth2) {
+      resolve();
+      return;
     }
+    const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve());
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load GIS script')));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load GIS script'));
+    document.head.appendChild(script);
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
-  if (isDummyConfig) {
-      alert("Cannot sign in: Firebase configuration is missing. This is a known platform issue.");
-      return null;
+export const initAuth = async (
+  onAuthSuccess?: (user: GoogleUser, token: string) => void,
+  onAuthFailure?: () => void
+) => {
+  if (cachedAccessToken && cachedUser) {
+    if (onAuthSuccess) onAuthSuccess(cachedUser, cachedAccessToken);
+  } else {
+    if (onAuthFailure) onAuthFailure();
   }
-  try {
-    isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
-    }
+};
 
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error: any) {
-    console.error('Sign in error:', error);
-    throw error;
-  } finally {
-    isSigningIn = false;
+export const googleSignIn = async (clientId: string): Promise<{ user: GoogleUser; accessToken: string } | null> => {
+  if (!clientId || clientId.trim() === '') {
+    alert("Silakan masukkan Google Client ID di Pengaturan terlebih dahulu.");
+    return null;
   }
+
+  await loadGisScript();
+
+  return new Promise((resolve, reject) => {
+    try {
+      const client = (window as any).google.accounts.oauth2.initTokenClient({
+        client_id: clientId.trim(),
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+        callback: async (response: any) => {
+          if (response.error !== undefined) {
+             console.error("GIS Error:", response);
+             reject(response);
+          }
+          if (response.access_token) {
+             cachedAccessToken = response.access_token;
+             // Fetch user info
+             try {
+                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${cachedAccessToken}` }
+                });
+                if (userInfoRes.ok) {
+                   const data = await userInfoRes.json();
+                   cachedUser = {
+                     name: data.name,
+                     email: data.email,
+                     picture: data.picture
+                   };
+                   resolve({ user: cachedUser, accessToken: cachedAccessToken });
+                } else {
+                   cachedUser = { name: 'Unknown', email: 'Connected', picture: '' };
+                   resolve({ user: cachedUser, accessToken: cachedAccessToken });
+                }
+             } catch (e) {
+                console.error("Failed to fetch user info", e);
+                cachedUser = { name: 'Unknown', email: 'Connected', picture: '' };
+                resolve({ user: cachedUser, accessToken: cachedAccessToken });
+             }
+          }
+        },
+      });
+      client.requestAccessToken({ prompt: 'consent' });
+    } catch (err) {
+      console.error('Sign in error:', err);
+      reject(err);
+    }
+  });
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
@@ -68,7 +103,15 @@ export const getAccessToken = async (): Promise<string | null> => {
 };
 
 export const logout = async () => {
-  if (isDummyConfig) return;
-  await auth.signOut();
+  if (cachedAccessToken) {
+    try {
+      if ((window as any).google?.accounts?.oauth2) {
+         (window as any).google.accounts.oauth2.revoke(cachedAccessToken, () => {
+             console.log("Access token revoked");
+         });
+      }
+    } catch (e) {}
+  }
   cachedAccessToken = null;
+  cachedUser = null;
 };
