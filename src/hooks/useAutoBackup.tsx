@@ -68,8 +68,7 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
       try {
         const token = await getAccessToken();
         if (token) {
-          // 0 is dummy id that means 'whole database' in our implementation
-          await syncProjectToDrive(0);
+          await syncProjectToDrive();
         }
       } catch (err) {
         console.error("Google Drive sync failed:", err);

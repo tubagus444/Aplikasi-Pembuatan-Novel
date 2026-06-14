@@ -46,15 +46,12 @@ async function getAppFolder(accessToken: string): Promise<string | null> {
 }
 
 // Upload a single project backup
-export async function syncProjectToDrive(projectId: number): Promise<boolean> {
+export async function syncProjectToDrive(): Promise<boolean> {
   const accessToken = await getAccessToken();
   if (!accessToken) return false;
 
   const folderId = await getAppFolder(accessToken);
   if (!folderId) return false;
-
-  const project = await db.projects.get(projectId);
-  if (!project) return false;
 
   // Generate backup content
   const backupObject = await backupService.collectAllData();

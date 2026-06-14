@@ -56,8 +56,8 @@ export function useDriveSync() {
         return;
       }
       
-      // Use 0 or -1 to just trigger a full DB backup without specific project ID since collectAllData ignores it basically
-      await syncProjectToDrive(0);
+      // Use trigger a full DB backup
+      await syncProjectToDrive();
       alert('Berhasil disinkronisasi ke Google Drive!');
     } catch (err) {
       console.error('Drive sync failed', err);
