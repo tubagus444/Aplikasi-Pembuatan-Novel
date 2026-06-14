@@ -82,15 +82,18 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
     }
     
     const idToSave = chapterIdRef.current;
-    
+
+    // Tangkap konten terkini SEGERA (bukan di dalam timeout) agar flush saat ganti
+    // bab / unmount selalu menyimpan teks terbaru, bukan snapshot lama. Mencegah
+    // kehilangan edit terakhir bila user pindah bab/keluar < 1.5s setelah mengetik.
+    htmlRef.current = currentEditor.getHTML();
+
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     setSaveStatus('Menyimpan...');
-    
+
     saveTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current) {
-        const html = currentEditor.getHTML();
-        htmlRef.current = html;
-        performSave(idToSave, html);
+        performSave(idToSave, htmlRef.current);
         saveTimeoutRef.current = null;
       }
     }, 1500);

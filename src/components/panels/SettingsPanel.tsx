@@ -265,21 +265,9 @@ export function SettingsPanel() {
   const handleBackup = async () => {
     setIsBackingUp(true);
     try {
-      const backup = {
-        version: 1,
-        timestamp: Date.now(),
-        data: {
-          projects: await db.projects.toArray(),
-          chapters: await db.chapters.toArray(),
-          codex: await db.codex.toArray(),
-          bible: await db.bible.toArray(),
-          aiActions: await db.aiActions.toArray(),
-          snapshots: await db.snapshots.toArray(),
-          timeline: await db.timeline.toArray(),
-          relationships: await db.relationships.toArray()
-        }
-      };
-      
+      // Satu sumber kebenaran: termasuk chatSessions & versi terbaru.
+      const backup = await backupService.collectAllData();
+
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -335,41 +323,8 @@ export function SettingsPanel() {
         return;
       }
 
-      await db.transaction('rw', 
-        [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], 
-        async () => {
-          // Clear existing data
-          await db.projects.clear();
-          await db.chapters.clear();
-          await db.codex.clear();
-          await db.bible.clear();
-          await db.aiActions.clear();
-          await db.snapshots.clear();
-          await db.timeline.clear();
-          await db.relationships.clear();
-
-          // Restore from backup
-          if (backup.data.projects?.length) await db.projects.bulkAdd(backup.data.projects);
-          if (backup.data.chapters?.length) await db.chapters.bulkAdd(backup.data.chapters);
-          if (backup.data.codex?.length) await db.codex.bulkAdd(backup.data.codex);
-          
-          // Deduplicate bible entries before bulk adding to respect unique index
-          if (backup.data.bible?.length) {
-            const seen = new Set<string>();
-            const uniqueBible = backup.data.bible.filter((entry: any) => {
-              const compositeKey = `${entry.projectId}|${entry.key}`;
-              if (seen.has(compositeKey)) return false;
-              seen.add(compositeKey);
-              return true;
-            });
-            await db.bible.bulkAdd(uniqueBible);
-          }
-
-          if (backup.data.aiActions?.length) await db.aiActions.bulkAdd(backup.data.aiActions);
-          if (backup.data.snapshots?.length) await db.snapshots.bulkAdd(backup.data.snapshots);
-          if (backup.data.timeline?.length) await db.timeline.bulkAdd(backup.data.timeline);
-          if (backup.data.relationships?.length) await db.relationships.bulkAdd(backup.data.relationships);
-      });
+      // Satu sumber kebenaran restore (clear semua tabel + chatSessions + embeddings, atomik).
+      await backupService.restoreData(backup);
 
       alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
       window.location.reload();

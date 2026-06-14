@@ -18,6 +18,7 @@ export interface BackupData {
     snapshots: any[];
     timeline: any[];
     relationships: any[];
+    chatSessions: any[];
   };
 }
 
@@ -29,7 +30,7 @@ export const backupService = {
    */
   async collectAllData(): Promise<BackupData> {
     return {
-      version: 1,
+      version: 2, // v2: menyertakan chatSessions
       timestamp: Date.now(),
       data: {
         projects: await db.projects.toArray(),
@@ -39,7 +40,8 @@ export const backupService = {
         aiActions: await db.aiActions.toArray(),
         snapshots: await db.snapshots.toArray(),
         timeline: await db.timeline.toArray(),
-        relationships: await db.relationships.toArray()
+        relationships: await db.relationships.toArray(),
+        chatSessions: await db.chatSessions.toArray()
       }
     };
   },
@@ -133,16 +135,18 @@ export const backupService = {
   },
 
   /**
-   * Restores data from an internal backup record.
+   * Sumber kebenaran tunggal untuk SEMUA jalur restore (internal DB & file).
+   * Semua tabel di-clear lalu diisi ulang dalam satu transaksi (atomik: rollback
+   * bila gagal). `embeddings` sengaja di-clear—bukan dipulihkan—agar di-regenerasi
+   * ulang dari codex (mencegah embedding basi/tak sinkron setelah restore).
+   * Backward-compatible: backup lama tanpa `chatSessions` tetap aman (guard `?.length`).
    */
-  async restoreFromBackup(backupId: number): Promise<void> {
-    const backup = await db.backups.get(backupId);
-    if (!backup) throw new Error('Backup not found');
+  async restoreData(parsedData: BackupData): Promise<void> {
+    const data = parsedData?.data;
+    if (!data || !data.projects) throw new Error('Format cadangan tidak valid');
 
-    const parsedData: BackupData = JSON.parse(backup.data);
-    
-    await db.transaction('rw', 
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], 
+    await db.transaction('rw',
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings],
       async () => {
         // Clear existing data
         await db.projects.clear();
@@ -153,15 +157,15 @@ export const backupService = {
         await db.snapshots.clear();
         await db.timeline.clear();
         await db.relationships.clear();
-
-        const { data } = parsedData;
+        await db.chatSessions.clear();
+        await db.embeddings.clear(); // di-regenerasi dari codex; jangan dipulihkan dari backup
 
         // Restore from backup
         if (data.projects?.length) await db.projects.bulkAdd(data.projects);
         if (data.chapters?.length) await db.chapters.bulkAdd(data.chapters);
         if (data.codex?.length) await db.codex.bulkAdd(data.codex);
-        
-        // Deduplicate bible entries before bulk adding
+
+        // Deduplicate bible entries before bulk adding (respect unique index [projectId+key])
         if (data.bible?.length) {
           const seen = new Set<string>();
           const uniqueBible = data.bible.filter((entry: any) => {
@@ -177,7 +181,19 @@ export const backupService = {
         if (data.snapshots?.length) await db.snapshots.bulkAdd(data.snapshots);
         if (data.timeline?.length) await db.timeline.bulkAdd(data.timeline);
         if (data.relationships?.length) await db.relationships.bulkAdd(data.relationships);
+        if (data.chatSessions?.length) await db.chatSessions.bulkAdd(data.chatSessions);
     });
+  },
+
+  /**
+   * Restores data from an internal backup record.
+   */
+  async restoreFromBackup(backupId: number): Promise<void> {
+    const backup = await db.backups.get(backupId);
+    if (!backup) throw new Error('Backup not found');
+
+    const parsedData: BackupData = JSON.parse(backup.data);
+    await this.restoreData(parsedData);
   },
 
   /**

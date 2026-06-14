@@ -23,6 +23,9 @@ export class AetherScribeDB extends Dexie {
 
   constructor() {
     super('AetherScribeDB');
+    // Baseline sengaja dimulai di v10 (definisi <v10 sudah dihapus). Untuk fresh
+    // install, Dexie membangun bertahap v10→v17 sehingga seluruh tabel terbentuk
+    // mulai v11. v10 dipertahankan karena memiliki .upgrade() (dedup bible).
     this.version(10).stores({
       bible: '++id, projectId, key'
     }).upgrade(async (tx) => {
@@ -101,6 +104,8 @@ export class AetherScribeDB extends Dexie {
       chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt'
     });
 
+    // Catatan: v15 identik dengan v14 (no-op version bump historis). JANGAN dihapus —
+    // menghapus versi tengah dapat memicu jalur upgrade ulang bagi DB yang sudah di v15+.
     this.version(15).stores({
       projects: '++id, name, lastOpened',
       chapters: '++id, projectId, order',
@@ -149,6 +154,40 @@ export class AetherScribeDB extends Dexie {
 }
 
 export const db = new AetherScribeDB();
+
+// --- Ketahanan koneksi DB (multi-tab & upgrade) ---
+// db.ts dimuat juga di context worker & orama worker → ada koneksi IndexedDB ganda.
+// Tanpa handler ini, upgrade skema bisa menggantung diam-diam (blocked) atau gagal
+// senyap (VersionError) dan baru muncul sebagai error di query pertama.
+// Catatan: JANGAN memakai ErrorService di sini — ia menulis ke db.errors, sehingga
+// saat DB justru bermasalah, logging bisa ikut menggantung. Pakai console + event.
+function notifyDbIssue(level: 'warning' | 'error', message: string) {
+  if (level === 'error') console.error(`[DB] ${message}`);
+  else console.warn(`[DB] ${message}`);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('aetherscribe-db-issue', { detail: { level, message } }));
+  }
+}
+
+// Tab/koneksi lain ingin upgrade ke skema lebih baru → tutup koneksi ini agar
+// upgrade-nya bisa lanjut. Di main thread, muat ulang agar memakai skema/kode terbaru.
+db.on('versionchange', () => {
+  db.close();
+  if (typeof window !== 'undefined') {
+    notifyDbIssue('warning', 'Database diperbarui di tab lain. Memuat ulang halaman…');
+    window.location.reload();
+  }
+});
+
+// Upgrade di koneksi ini terblokir oleh koneksi lama yang belum menutup (tab lain).
+db.on('blocked', () => {
+  notifyDbIssue('warning', 'Pembaruan database terblokir. Tutup tab AetherScribe lain agar pembaruan selesai.');
+});
+
+// Buka eksplisit untuk menangkap kegagalan (VersionError/kuota/korup) lebih awal.
+db.open().catch((err: any) => {
+  notifyDbIssue('error', 'Gagal membuka database: ' + (err?.message || String(err)));
+});
 
 // Helper to initialize a default project if none exists
 export async function ensureDefaultProject() {

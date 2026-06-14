@@ -20,15 +20,15 @@
 | 1 | Orkestrasi AI & ketahanan | `src/services/ai/index.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 2 | Klasifikasi error & tipe | `src/services/ai/errors.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 3 | Proxy AI (parsing response) | `src/services/ai/proxy.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
-| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | ⬜ | 🔴 scan awal |
-| 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | ⬜ | 🔴 scan awal |
-| 6 | Server proxy | `server.ts` | P1 | ⬜ | ⚪ |
-| 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx` | P1 | ⬜ | ⚪ |
-| 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | ⬜ | ⚪ |
-| 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | ⬜ | ⚪ (ada test) |
-| 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ⬜ | ⚪ |
-| 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | ⬜ | ⚪ |
-| 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx` (56KB), `BiblePanel.tsx` (51KB), `OutlinePanel.tsx` (38KB) | P2 | ⬜ | ⚪ |
+| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 analisa selesai (menunggu keputusan perbaikan) | ✅ mendalam |
+| 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
+| 6 | Server proxy | `server.ts` | P1 | 🔄 SV1 ✅ diperbaiki; SV2/SV3/SV15 belum | ✅ mendalam |
+| 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP ✅ diperbaiki; BK4/BK6–BK10 belum | ✅ mendalam |
+| 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 analisa selesai (menunggu keputusan perbaikan) | ✅ mendalam |
+| 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 analisa selesai (sehat) | ✅ mendalam |
+| 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | 🔄 analisa selesai | ✅ mendalam |
+| 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1 ✅ diperbaiki; ED2/ED3/ED4 belum | ✅ mendalam |
+| 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | 🔄 analisa selesai | ✅ struktural |
 
 ---
 
@@ -156,71 +156,233 @@ Desain ketahanan (circuit breaker + exponential backoff + fallback berurutan) da
 ## FASE 2 — P1: Keandalan & data
 
 ### [#5] Skema & migrasi Dexie — `src/db.ts`
-**Status:** ⬜ · **Prioritas:** P1
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P1
 
-**Temuan awal (🔴 dari scan):**
-- 🟡 **`version(15)` identik dengan `version(14)`** (104–116) — versi tanpa perubahan skema, mungkin bekas migrasi yang dibatalkan; perlu dipastikan tidak ada `.upgrade()` yang hilang.
-- 🟡 **Tidak ada penanganan gagal buka DB** (blocked/quota/versi lebih baru di tab lain) — `db` dibuat langsung (151) tanpa handler `on('blocked')`/error global.
-- ⚪ Verifikasi integritas indeks (`*aliases`, `&[projectId+key]`) dan apakah seluruh tabel di `types.ts` punya indeks yang dipakai query.
+#### Temuan — Keandalan (prioritas)
 
-**Tindakan:** _(diisi setelah analisa)_
+- ✅ **D1 (DIPERBAIKI). Penanganan gagal buka/upgrade DB.** Ditambahkan `db.on('versionchange')` (tutup koneksi + reload di main thread), `db.on('blocked')` (peringatkan tutup tab lain), dan `db.open().catch()` (tangkap VersionError/kuota/korup lebih awal). Notifikasi lewat `console` + `CustomEvent('aetherscribe-db-issue')` — **sengaja tidak** memakai `ErrorService` (yang menulis ke `db.errors`) agar tidak ikut menggantung saat DB bermasalah. Ini juga menutup **RG4** (#8): koneksi Dexie ganda (main + 2 worker) kini menutup dengan benar saat upgrade.
 
----
+#### Temuan — Maintainability / kebersihan
 
-### [#4] Mesin konteks (worker) — `src/services/contextWorker.ts`
-**Status:** ⬜ · **Prioritas:** P1
+- ✅ **D2 (DIKOMENTARI). `version(15)` identik 100% dengan `version(14)`**: no-op version bump historis. Sudah diberi komentar penjelas di kode (jangan dihapus — menghapus versi tengah memicu jalur upgrade ulang).
+- 🟡 **D3. Repetisi skema** v11–17 menyalin seluruh definisi store tiap versi walau hanya 1 tabel berubah. Sah secara Dexie tapi verbose & rawan salah salin. Catatan saja (tak bisa diringkas tanpa risiko).
+- ✅ **D4 (DIKOMENTARI). Baseline v10** (versi <10 sengaja dihapus) — sudah diberi komentar penjelas di kode agar tidak terlihat seperti tabel hilang.
+- 🟢 **D5. Migrasi dedup bible v10 benar** (keep-first, delete dups) sebelum unique index `&[projectId+key]` di v11. Minor: `idsToDelete: any[]` longgar tipe; pemenang duplikat bersifat arbitrer (yang pertama ditemui) — dapat diterima.
+- ⚪ **D6. Konten default Inggris** di `ensureDefaultProject` ("Untitled Novel", "Once upon a time...", "Dark and atmospheric") pada app berbahasa Indonesia — kosmetik.
 
-**Temuan awal (🔴 dari scan):**
-- 🟡 **Pekerjaan yatim (orphaned) saat timeout**: `contextEngine` punya timeout 30s, tapi worker tetap melanjutkan embedding setelah pemanggil menyerah → CPU terbuang.
-- 🟡 **Kegagalan model embedding senyap**: bila download/inisialisasi model gagal hanya `console.error`; fitur semantik mati tanpa pemberitahuan & tanpa retry (85–96, 285–287).
-- 🟡 **Angka ajaib skoring**: `ALPHA=60`, `filter > 20`, threshold lain hard-coded (134–139, 290–305) — perlu didokumentasikan/diuji.
-- 🟡 **Duplikasi build relationship-graph** (juga ada di #1) — kandidat dipusatkan.
+#### Verifikasi yang sudah dilakukan
+- ✅ Seluruh indeks cocok dengan field di `types.ts` (`*aliases`, `&[projectId+key]`, `activeChapterId`, dst.).
+- ✅ `backups` tanpa `projectId` itu **benar** — `BackupRecord` memang global (bukan per-proyek), jadi bukan indeks hilang.
+- ✅ `aiUsageLogs.timestamp` terindeks → `cleanupAILogs()` (where timestamp.below) efisien.
 
-**Tindakan:** _(diisi setelah analisa)_
+#### Catatan
+db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningkatan paling berdampak murni soal **ketahanan saat open/upgrade/multi-tab (D1)**.
 
----
-
-### [#6] Server proxy — `server.ts`
-**Status:** ⬜ · **Prioritas:** P1 · **Belum di-scan**
-> Catatan CLAUDE.md: hardening keamanan (auth, rate-limit, SSRF Ollama) **sengaja out-of-scope**. Fokus audit di sini: kebenaran penerusan request/error, penanganan timeout, parsing per-provider.
-
-**Tindakan:** _(diisi setelah analisa)_
+#### Tindakan yang disarankan (belum dikerjakan)
+1. **D1** — tambah handler `versionchange`/`blocked` + `db.open().catch()` dengan log & notifikasi.
+2. **D2/D4** — beri komentar penjelas (v15 no-op; baseline v10).
+3. **D6** — (opsional) lokalkan konten default ke Indonesia.
 
 ---
 
-### [#7] Backup & sync Drive
-**Status:** ⬜ · **Prioritas:** P1 · **Belum di-scan**
-**Cek:** round-trip gzip (backup→restore), perilaku saat kuota penuh, refresh token OAuth, kegagalan backup yang senyap.
+### [#4] Mesin konteks (worker) — `src/services/contextWorker.ts` (+ `contextEngine.ts`)
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P1
 
-**Tindakan:** _(diisi setelah analisa)_
+#### Temuan — Keandalan (prioritas)
+
+- 🔴 **C1. Head-of-line blocking + timeout 30s saat embedding pertama.** Worker single-thread memproses pesan **berurutan**. `GET_RELEVANT_CONTEXT` pertama kali pada codex besar meng-embed entri **satu per satu** (`await` per entri, yield tiap 10) — bisa jauh melebihi timeout 30s di `sendToWorker` (`contextEngine` 55–60). Akibat:
+  - Pada **mode RAG legacy**, `getRelevantContext` reject saat timeout → `processRewrite`/`processChat` **gagal total** memanggil AI.
+  - Pesan ringan lain (COUNT_TOKENS, bible rules, meter token) **antre di belakang** embedding → ikut kena timeout 30s.
+  - Worker tetap menghitung setelah timeout (lihat C3) — sebagian menguntungkan (cache hangat) tapi tak terkendali.
+  - **Opsi perbaikan:** pra-embed di idle/background, pisahkan jalur embedding berat dari kueri ringan, timeout lebih panjang/khusus untuk embedding, atau kembalikan hasil AC-only dulu lalu "upgrade" semantik.
+- 🟡 **C2. Kegagalan semantik senyap.** Bila download/init model gagal → hanya `console.error` (85–96, 285–287); tidak ada log `ErrorService`, tak ada notifikasi, tak ada retry. Fitur diam-diam turun ke AC-only — sulit didiagnosis.
+- 🟡 **C3. Timeout tidak membatalkan kerja worker.** `sendToWorker` reject di 30s tapi tak mengirim sinyal batal; worker lanjut. Tidak ada protokol cancel per-request.
+- 🟡 **C11. `worker.onerror` me-redispatch `ErrorEvent('error')` ke `window`** (`contextEngine` 44) → berpotensi memicu handler error global/menggandakan log. Perlu dipastikan tak menimbulkan loop.
+
+#### Temuan — Correctness / konsistensi
+
+- 🟡 **C4. Inkonsistensi pencocokan nama berimbuhan Indonesia.** `AhoCorasick.search` (dipakai konteks **dan** highlight `GET_CODEX_MATCHES`) hanya cocok bila kedua sisi batas non-alfanumerik → **tidak** mengenali "Kaelnya/Kaellah/Kaelpun". Sementara `getCodexRegex` (dipakai `SCAN_APPEARANCES`) **mengenali** sufiks via `INDONESIAN_PARTICLES`. → highlight & konteks melewatkan bentuk bersufiks yang justru terdeteksi scan kemunculan. Perilaku dua jalur berbeda untuk hal yang sama.
+- 🟡 **C5. `GET_CODEX_MATCHES` → `codexId: m.data.entry.id` bisa `undefined`** untuk entri belum tersimpan; ada guard `m.data.entry` tapi bukan `entry.id`. Highlight downstream bisa salah.
+- 🟡 **C6. `SCAN_APPEARANCES` menguji regex pada `ch.content` mentah (HTML).** Tag/atribut bisa memicu false positive/negatif; idealnya strip HTML dulu (seperti `countWords` di utils).
+- 🟢 **C7. `cosineSimilarity` mengasumsikan embedding ternormalisasi** (`normalize:true`). Embedding lama yang tak ternormalisasi → skor meleset. Risiko rendah.
+
+#### Temuan — Maintainability
+
+- 🟡 **C8. Angka ajaib skoring tersebar** tanpa dokumentasi: `ALPHA=60`, `BETA=1`, boost `10`, `finalScore>20`, `acScore += isAlias?5:10`, plus blok `SCORE_*`/`MIN_SCORE_THRESHOLD`/`DEFAULT_MAX_CHARS`. Sulit di-tune/uji.
+- 🟡 **C9. Variabel mati** `embedderInitializing` (dideklarasi, tak pernah dipakai).
+- 🟢 **C10. `embeddingCache` tak terbatas** (~1.5KB/entri) — wajar; dibersihkan saat `INVALIDATE_CACHE { deep }`.
+
+#### Catatan
+Algoritma inti (Aho-Corasick, hybrid scoring, caching embedding ke IndexedDB) sudah solid. Risiko terbesar bersifat **operasional**: embedding pertama memblokir worker (C1) & kegagalan senyap (C2). Plus satu **inkonsistensi nyata** (C4) yang memengaruhi kualitas highlight/konteks bahasa Indonesia.
+_(Koreksi: catatan awal soal "duplikasi relationship-graph" keliru — graph dibangun di `index.ts`, bukan worker; sudah ditangani di #1/M1.)_
+
+#### Tindakan yang disarankan (belum dikerjakan)
+1. **C1** — strategi anti-blocking untuk embedding pertama (idle pre-embed / timeout khusus / hasil bertahap). Paling berdampak.
+2. **C4** — satukan logika boundary nama (AC mengenali sufiks Indonesia, atau pakai jalur regex yang sama) agar highlight/konteks konsisten.
+3. **C2** — log kegagalan model ke `ErrorService` + notifikasi.
+4. **C5/C6/C9** — guard `entry.id`, strip HTML di SCAN_APPEARANCES, hapus variabel mati.
+5. **C3/C8/C11** — sekunder (protokol cancel, dokumentasi konstanta, cek redispatch error).
 
 ---
 
-### [#8] RAG Orama (sinkronisasi) — `src/services/rag/*`
-**Status:** ⬜ · **Prioritas:** P1 · **Belum di-scan**
-**Cek:** konsistensi index dengan Dexie (stale?), kebenaran hook add/update/delete, penanganan kegagalan worker.
+### [#6] Server proxy — `server.ts` (Express 4.22.1)
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P1
+> Catatan CLAUDE.md: hardening keamanan (auth, rate-limit, SSRF Ollama) **sengaja out-of-scope**. Fokus audit: kebenaran penerusan request/error, timeout, parsing per-provider.
 
-**Tindakan:** _(diisi setelah analisa)_
+#### Temuan — Correctness (memengaruhi fitur inti)
+
+- ✅ **SV1 (DIPERBAIKI). `express.json()` tanpa `limit` → default 100kb.** Body proxy pada **mode caching** (full codex ≤50KB + bible + relationship graph + `userPrompt`+scene+history) mudah melebihi 100kb → Express balas **413** → panggilan AI gagal untuk novel sedang/besar. **Perbaikan diterapkan:** `app.use(express.json({ limit: '25mb' }))`. Verifikasi: `tsc` 0 error (runtime 413 tak ada unit-test; perlu uji manual bila ingin pasti).
+- 🟡 **SV15. Tidak ada validasi input + error async tak tertangkap.** `const isStream = !!body.stream;` (16) berada **di luar** `try`; bila `body` undefined (request malformed) → `TypeError`. Express 4 **tidak meneruskan error dari handler async** → unhandled rejection, request **menggantung tanpa respons**. Perlu validasi + pindahkan ke dalam try (atau bungkus async handler).
+
+#### Temuan — Keandalan
+
+- 🟡 **SV2/SV4. Tak ada timeout & tak ada propagasi abort ke provider.** `fetch(url, …)` ke provider tanpa `AbortSignal`. Saat klien membatalkan / timeout 60s (dari perbaikan #3), koneksi klien→server putus tapi fetch server→provider **lanjut (orphaned)** → buang kuota & resource. Sebaiknya `req.on('close')` → abort upstream.
+- 🟡 **SV3. Streaming: error setelah header terkirim.** Bila gagal/putus di tengah stream, blok `catch` memanggil `res.status(500).json(...)` padahal header SSE sudah dikirim → `ERR_HTTP_HEADERS_SENT`. Perlu guard `if (!res.headersSent)`.
+
+#### Temuan — Maintainability / minor
+
+- 🟡 **SV6. Default model Google tak konsisten antar lapis:** server `gemini-1.5-flash` (47) vs proxy `gemini-2.0-flash`.
+- 🟡 **SV5. (cross-ref #3 P2)** Server membungkus error provider sebagai `{ error: "<text>" }`; sudah ditangani di klien, tapi bisa dibuat konsisten (teruskan JSON asli).
+- 🟡 **SV10.** Pola penanganan error mirip diulang di tiga endpoint (`proxy`, `google-models`, `ollama-models`).
+- 🟢 **SV-SEC.** SSRF via `ollamaBaseUrl` (dikontrol klien) + tanpa auth/rate-limit → **sengaja out-of-scope** per CLAUDE.md. Dicatat saja.
+
+#### Catatan positif
+Urutan route benar (API sebelum middleware Vite), prioritas kunci klien→`.env` benar, passthrough streaming byte-per-byte, dan forwarding status non-stream sudah tepat.
+
+#### Tindakan yang disarankan (belum dikerjakan)
+1. **SV1** — naikkan `express.json` limit. Quick win, dampak tinggi (memperbaiki fitur inti caching).
+2. **SV15** — validasi body + pindahkan pembacaan ke dalam `try` (cegah request menggantung).
+3. **SV2/SV4/SV3** — abort upstream saat klien putus + guard `headersSent` pada stream.
+4. **SV6/SV5/SV10** — kebersihan.
+
+---
+
+### [#7] Backup & sync Drive — `backupService.ts`, `driveBackupService.ts`, `useAutoBackup.tsx`, `googleAuth.ts`
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P1
+
+#### Temuan — Integritas data (prioritas)
+
+- ✅ **BK1 (DIPERBAIKI). `chatSessions` tidak ikut dicadangkan.** `collectAllData` (version→2) kini menyertakan `chatSessions`; semua jalur backup (internal/file/Drive) & restore ikut membawanya. Backup lama tanpa chatSessions tetap aman dipulihkan (guard `?.length`).
+- ✅ **BK2 (DIPERBAIKI). Restore tidak membersihkan `embeddings`.** `restoreData` kini `db.embeddings.clear()` di dalam transaksi → embeddings di-regenerasi dari codex (tak ada lagi embedding basi pasca-restore).
+- 🟡 **BK4. Fallback kompresi tetap bernama `.json.gz`.** Bila `CompressionStream` absen/gagal, `compressData` mengembalikan blob **tak terkompresi** tetapi nama file tetap `.json.gz`. Saat restore (`SettingsPanel` 312–317), cabang `.gz` memanggil `DecompressionStream` pada data mentah → gagal → backup itu **tak bisa dipulihkan**.
+
+#### Temuan — Maintainability
+
+- ✅ **BK-DUP (sebagian DIPERBAIKI). Logika restore & "kumpul data" terduplikasi.** Ternyata ada **3** tempat kumpul-data (`collectAllData`, `SettingsPanel.handleBackup`, drive via collectAllData) + **2** tempat restore. **Perbaikan:** `SettingsPanel.handleBackup` kini memakai `backupService.collectAllData()`, dan `SettingsPanel.handleFileChange` memakai `backupService.restoreData()` → **satu sumber kebenaran** untuk collect & restore. _Tersisa:_ `compressData` masih duplikat di `backupService` & `driveBackupService` (belum disatukan).
+- 🟡 **BK8. Import `firebase/app` tak terpakai** di `googleAuth.ts` (komentarnya sendiri bilang "tanpa firebase") → menyeret firebase ke bundle sia-sia.
+
+#### Temuan — Keandalan Drive/Auth
+
+- 🟡 **BK7. Tidak ada refresh token senyap.** `getAccessToken` melempar `TOKEN_EXPIRED` saat kedaluwarsa & mengosongkan cache; tak ada refresh otomatis (GIS mendukung `prompt:''`). Auto-sync Drive **mati ~tiap jam** sampai user login ulang manual.
+- 🟡 **BK6. Handle folder tidak dipersist.** `directoryHandleRef` hanya di memori; setelah reload, backup ke folder eksternal **berhenti diam-diam** sampai user memilih folder lagi (handle bisa disimpan di IndexedDB).
+- 🟡 **BK10. Spam konflik di perangkat baru.** Auto-backup memanggil `syncProjectToDrive()` tanpa `force`; bila ada file di Drive tapi perangkat ini belum pernah sync → `CONFLICT_DETECTED` tiap siklus (toast error berulang).
+- 🟡 **BK9. Kegagalan DELETE rotasi Drive tak dicek** (`await fetch(...DELETE)` tanpa cek `.ok`) → file lama bisa menumpuk diam-diam.
+
+#### Temuan — Minor / kosmetik
+
+- 🟡 **BK3.** Backup **internal** (IndexedDB) tidak dikompresi (hanya file/Drive yang gzip) → 5× JSON penuh bisa membengkak.
+- 🟡 **BK11.** `googleSignIn`: setelah `reject(response)` saat `response.error`, tak ada `return` → eksekusi callback lanjut.
+- ⚪ **BK12.** Pakai `alert()`/`window.confirm()` (bukan sistem toast/modal app); pesan toast campur Inggris/Indonesia.
+
+#### Catatan positif
+Arsitektur 3-lapis (internal → folder → Drive) dengan rotasi 5 & gzip cukup matang. Atomicitas restore aman: transaksi `'rw'` rollback bila throw, dan `JSON.parse` dilakukan **sebelum** clear → data tidak hilang bila file korup. Error per-lapis di auto-backup ditangani terpisah dengan baik.
+
+#### Tindakan yang disarankan (belum dikerjakan)
+1. **BK1 + BK-DUP + BK2** — satukan logika backup/restore jadi satu sumber kebenaran (dipakai internal & file), sertakan `chatSessions`, dan `clear embeddings` saat restore.
+2. **BK4** — jangan beri ekstensi `.gz` bila gagal kompresi (atau tandai status kompresi di file).
+3. **BK7 / BK6** — refresh token senyap (GIS `prompt:''`) + persist folder handle ke IndexedDB.
+4. **BK8 / BK9 / BK10 / BK3 / BK11 / BK12** — kebersihan & keandalan sekunder.
+
+---
+
+### [#8] RAG Orama (sinkronisasi) — `oramaStore.ts`, `oramaSync.ts`, `oramaWorker.ts`
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P1
+
+#### Temuan — Keandalan (prioritas)
+
+- 🟡 **RG1+RG7. Search bisa menggantung selamanya.** `oramaSync.search` **tak punya timeout** (beda dengan `contextEngine.sendToWorker` yang 30s), dan worker Orama **tak punya mekanisme reject pending saat crash** (tak ada padanan `terminateWorker`). Jika worker error/crash di tengah `SEARCH`, promise di main-thread **tak pernah resolve/reject** → `getRelevantContext` (mode RAG legacy) **hang tanpa batas** → panggilan AI menggantung. Diperparah karena `catch` di worker hanya `console.error` dan **tidak** mem-post `SEARCH_RESULT { error }`. _(Mitigasi parsial: `oramaStore.search` punya try/catch internal yang mengembalikan `[]` untuk kasus umum.)_
+- 🟡 **RG3. Index/update/remove fire-and-forget** (tanpa ack/penanganan error) → drift indeks senyap; entri yang gagal diindeks tak diketahui.
+- ✅ **RG4 (TERTANGANI via #5 D1). Koneksi Dexie ganda** (main + context worker + orama worker — semua buka `@/src/db`). Karena `db.ts` kini punya handler `versionchange`/`blocked`/`open().catch()`, **setiap** koneksi worker juga menutup dengan benar saat upgrade → tak lagi memblokir/menggantung.
+- 🟡 **RG5. `worker.onerror` redispatch `ErrorEvent('error')` ke `window`** — sama seperti C11 (#4); potensi menggandakan log/handler global.
+
+#### Temuan — Correctness (minor)
+
+- 🟡 **RG2. Race init vs hook (kecil).** Entri yang dibuat tepat sebelum `INIT_ORAMA` selesai bisa terlewat (`indexEntry` keluar awal saat `db` masih null). Umumnya tertutup oleh loop init yang membaca Dexie setelah commit; risiko sempit. Catatan saja.
+- 🟢 **RG6. `oramaStore` singleton hanya dipakai di dalam worker** (main-thread mengimpor `oramaSync`, tak menyentuh `oramaStore`) — bukan bug, sekadar catatan agar tak membingungkan.
+
+#### Temuan — Arsitektur / maintainability
+
+- 🟡 **RG-ARCH. Tiga sistem relevansi codex tumpang tindih:** Aho-Corasick exact + MiniLM semantic (**contextWorker**, #4) + Orama BM25 (**orama worker**), lewat **dua worker terpisah** yang sama-sama memindai codex. CLAUDE.md memosisikan Orama sebagai "fallback RAG leksikal", tapi pembagian peran/biaya rangkap perlu didokumentasikan/ditegaskan agar tidak redundan.
+
+#### Catatan positif
+Skema Orama jelas; `search` mengambil record lengkap dari Dexie (data mutakhir) sambil menjaga urutan relevansi; hooks menjaga sinkron inkremental (create/update/delete); `init` idempoten dengan guard `currentProjectId`. `oramaSync.init` dikonfirmasi dipanggil di `ProjectContext` saat load/switch proyek.
+
+#### Tindakan yang disarankan (belum dikerjakan)
+1. **RG1+RG7** — tambah timeout pada `oramaSync.search` + reject semua pending saat `worker.onerror` (pola `terminateWorker` ala `contextEngine`); worker `SEARCH catch` harus mem-post `SEARCH_RESULT { error }`.
+2. **RG4** — selesaikan bersama **#5 D1** (handler `versionchange`/`blocked` di `db.ts` berlaku untuk semua koneksi worker).
+3. **RG3 / RG2** — (opsional) ack indexing / re-sync setelah init.
+4. **RG-ARCH / RG5 / RG6** — dokumentasi pembagian peran & kebersihan.
 
 ---
 
 ## FASE 3 — P2: Maintainability & kebersihan
 
 ### [#9] Algoritma murni — `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts`
-**Status:** ⬜ · **Prioritas:** P2 · **Belum di-scan** (sudah ada unit test)
-**Cek:** edge case (overlap match, unicode, boundary chunk), cakupan test.
+**Status:** 🔄 Analisa mendalam selesai — **sehat**, belum ada perubahan kode. · **Prioritas:** P2
+
+**Temuan (semua minor):**
+- 🟡 **L1. Konsistensi boundary nama Indonesia.** `chunkEngine.countMatches` (`\b…\b`) & `AhoCorasick.search` (batas non-alfanumerik) **tak mengenali sufiks** Indonesia, sedangkan `getCodexRegex` mengenali (cross-ref **C4** #4). Idealnya satu sumber kebenaran boundary.
+- 🟡 **L2. Regex mention greedy.** `loreUtils` `@rule:(\S+)`/`@codex:(\S+)` menyertakan tanda baca akhir (mis. `@codex:Kael.` → "Kael."). Edge parsing.
+- 🟢 **L3. Angka ajaib** (threshold `0.5`, top-2 scene, `len>3`) — wajar, terdokumentasi via test.
+
+**Catatan positif:** fungsi murni & deterministik, **sudah ada unit test** (ahoCorasick, chunkEngine, loreUtils, utils). Risiko rendah; cocok jadi tempat menambah test edge-case bila boundary (L1) disatukan.
+
+**Tindakan disarankan:** (opsional) satukan logika boundary (L1) lalu tambah test; perketat regex mention (L2).
 
 ### [#10] State & live query — `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts`
-**Status:** ⬜ · **Prioritas:** P2 · **Belum di-scan**
-**Cek:** re-render berlebih, dependency array `useLiveQuery`, stale closure.
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P2
+
+**Temuan:**
+- 🟡 **LQ1. `useOptimizedLiveQuery` mem-`JSON.stringify` hasil tiap render** untuk dedupe referensi. Untuk koleksi besar (mis. `chapters` dengan `content` penuh, atau codex banyak) → stringify mahal **tiap render** → bisa kontraproduktif. Pertimbangkan dedupe lebih murah (bandingkan `id`+`lastModified`/panjang) atau batasi pemakaian ke koleksi kecil.
+- 🟡 **LQ2. Context value tak di-memo.** `ProjectContext` (fungsi switch/create/delete dibuat ulang tiap render) serta `UIContext`/`EditorPanelContext` (objek value baru tiap render) → konsumen re-render berlebih. `useMemo`/`useCallback` untuk value.
+- 🟡 **LQ3. `ProjectContext.deleteProject` berpindah proyek SEBELUM transaksi hapus** (88–116); bila hapus gagal, sudah terlanjur switch. Urutkan hapus dulu lalu switch (atau rollback).
+- 🟢 **LQ4.** `NavigationContext` sinkron `activeChapter` saat bab terhapus pakai `isMounted` guard — benar.
+
+**Catatan positif:** pemisahan context per-domain rapi; `useProjectData` mengelompokkan live query; guard `useContext===undefined` konsisten.
+
+**Tindakan disarankan:** LQ2 (memo value) & LQ1 (dedupe lebih murah) paling berdampak pada performa; LQ3 keandalan.
 
 ### [#11] Editor TipTap — `src/features/editor/hooks/*`, `extensions/*`
-**Status:** ⬜ · **Prioritas:** P2 · **Belum di-scan**
-**Cek:** race auto-save, performa highlight pada teks panjang.
+**Status:** 🔄 Analisa mendalam selesai — belum ada perubahan kode. · **Prioritas:** P2 (⚠️ memuat 1 data-loss)
+
+**Temuan — Data-loss (prioritas):**
+- ✅ **ED1 (DIPERBAIKI). Edit terbaru bisa hilang saat ganti bab cepat / keluar mode write < 1.5s.** Di `useEditorSave`, `htmlRef.current` dulu hanya diisi **di dalam** timeout debounce. Saat ganti chapter/unmount, flush memakai snapshot **lama** → edit terakhir hilang bila pindah < 1.5s. **Perbaikan diterapkan:** `htmlRef.current = currentEditor.getHTML()` kini dipanggil **segera** di awal `onEditorUpdate` (di luar timeout), sehingga flush selalu memakai teks terkini. Trade-off: `getHTML()` per-keystroke (biaya sepele untuk ukuran bab normal). Verifikasi: `tsc` 0 error, vitest 21/21.
+
+**Temuan — Maintainability / churn:**
+- 🟡 **ED2. `skipNextUpdateRef` mati.** Dideklarasi & dicek (79) tapi **tak pernah di-set `true`** → `setContent` saat load tetap memicu `onUpdate`→autosave (write sia-sia + `saveStatus` berkedip). Wire-kan, atau `setContent(content, { emitUpdate:false })`.
+- 🟡 **ED3. Wiring `onEditorUpdateRef` rapuh.** Variabel lokal di-reassign tiap render lalu dipakai via closure (komentarnya pun mengakui hacky). Ganti dengan `useRef` eksplisit.
+- 🟡 **ED4. `PassiveCodexHighlight` walk seluruh text node tiap `docChanged`** (debounce 500ms) → biaya naik dengan ukuran bab (dimitigasi debounce + worker). `data-codex-id` bisa `'undefined'` (cross-ref **C5** #4).
+
+**Catatan positif:** highlight pakai meta-transaction + `map` decorations (benar) dengan cek bounds & debounce; pemisahan hook editor (setup/save/AI/search/codex) rapi; flush-on-unmount & flush-on-chapter-switch sudah ada (tinggal perbaiki sumber datanya, ED1).
+
+**Tindakan disarankan:** **ED1 dulu** (cegah kehilangan data), lalu ED2/ED3 kebersihan.
 
 ### [#12] Panel UI raksasa — `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx`
-**Status:** ⬜ · **Prioritas:** P2 · **Belum di-scan**
-**Cek:** pemecahan komponen (file 38–56KB), pemisahan logika dari presentasi.
+**Status:** 🔄 Analisa struktural selesai — belum ada perubahan kode. · **Prioritas:** P2
+
+**Metrik (mengubah gambaran awal):**
+
+| File | Baris | useState | `db.` langsung | Sifat |
+|------|-------|----------|----------------|-------|
+| `SettingsPanel.tsx` | 1030 | 18 | **26** | God-component: UI + akses data + logika bisnis |
+| `BiblePanel.tsx` | 939 | 2 | 0 | Besar karena **JSX/presentasi** |
+| `OutlinePanel.tsx` | 725 | 7 | 0 | Besar karena **JSX/presentasi** |
+
+**Temuan:**
+- 🟡 **UI1. `SettingsPanel` adalah target refactor sesungguhnya.** 26 akses `db.` langsung + 18 state mencampur presentasi dengan logika backup/restore, pengaturan AI, dan fetch model. Logika restore-nya juga **duplikat** dengan `backupService` (cross-ref **#7 BK-DUP**). Saran: ekstrak ke hook/service (`useSettings*`, satukan backup/restore), sisakan presentasi.
+- 🟢 **UI2. `BiblePanel`/`OutlinePanel` besar karena JSX**, logika sudah didelegasikan (≤7 state, 0 db) → **risiko rendah**. Refactor (pecah sub-komponen) opsional untuk keterbacaan, bukan prioritas.
+
+**Tindakan disarankan:** prioritaskan pemecahan `SettingsPanel` (sekaligus menuntaskan BK-DUP #7); BiblePanel/OutlinePanel ditunda.
 
 ---
 

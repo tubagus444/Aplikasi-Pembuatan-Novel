@@ -7,7 +7,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Body bisa besar pada mode caching (full Story Bible + Codex di system prompt).
+  // Default Express 100kb akan menolak (413), jadi limit dinaikkan.
+  app.use(express.json({ limit: '25mb' }));
 
   // API Proxy Layer for AI Calls
   app.post("/api/ai/proxy", async (req, res) => {
