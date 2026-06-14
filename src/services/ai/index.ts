@@ -17,20 +17,73 @@ export class AIError extends Error {
   }
 }
 
-const abortControllers = new Map<string, AbortController>();
+// Satu tipe aksi bisa punya beberapa panggilan berjalan bersamaan, jadi simpan
+// kumpulan controller per-tipe agar pembatalan & pembersihan tidak salah sasaran.
+const abortControllers = new Map<string, Set<AbortController>>();
+
+function registerAbort(type: string, controller: AbortController) {
+  let set = abortControllers.get(type);
+  if (!set) {
+    set = new Set();
+    abortControllers.set(type, set);
+  }
+  set.add(controller);
+}
+
+function unregisterAbort(type: string, controller: AbortController) {
+  const set = abortControllers.get(type);
+  if (set) {
+    set.delete(controller);
+    if (set.size === 0) abortControllers.delete(type);
+  }
+}
 
 export function cancelAI(type?: string) {
   if (type) {
-    const controller = abortControllers.get(type);
-    if (controller) {
-      controller.abort();
+    const set = abortControllers.get(type);
+    if (set) {
+      set.forEach(controller => controller.abort());
       abortControllers.delete(type);
     }
   } else {
     // Cancel all
-    abortControllers.forEach(controller => controller.abort());
+    abortControllers.forEach(set => set.forEach(controller => controller.abort()));
     abortControllers.clear();
   }
+}
+
+const CACHE_SUPPORTED_PROVIDERS = ['google', 'claude', 'openrouter'];
+const MAX_CACHED_LORE_CHARS = 50000;
+
+function isCacheSupported(provider: string): boolean {
+  return CACHE_SUPPORTED_PROVIDERS.includes(provider.toLowerCase());
+}
+
+/** Membangun blok "RELATIONSHIP GRAPH" (Graph-RAG) dari relasi yang diberikan. */
+function buildRelationshipGraph(relationships: Relationship[], codex: CodexEntry[]): string {
+  if (!relationships || relationships.length === 0) return '';
+  const idToName = Object.fromEntries(codex.map(c => [c.id, c.name]));
+  const parts = relationships.map(r => {
+    const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
+    const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
+    return `${srcName} (${r.type}) -> ${tgtName}${r.description ? `: ${r.description}` : ''}`;
+  });
+  return `\n\nRELATIONSHIP GRAPH:\n${parts.join('\n')}`;
+}
+
+/**
+ * Mode caching: seluruh Story Bible + Codex diurutkan deterministik agar system
+ * prompt benar-benar statis (memaksimalkan cache prompt provider).
+ */
+function buildCachedContextBlock(bibleRules: StoryBibleRule[], codexEntries: CodexEntry[], relationships: Relationship[] = []): string {
+  const sortedRules = [...bibleRules].sort((a, b) => a.key.localeCompare(b.key));
+  const sortedCodex = [...codexEntries].sort((a, b) => a.name.localeCompare(b.name));
+
+  const bibleString = sortedRules.map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`).join('\n') || 'No specific rules set.';
+  const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, MAX_CACHED_LORE_CHARS) || 'No specific lore.';
+  const graphString = buildRelationshipGraph(relationships, codexEntries);
+
+  return `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
 }
 
 function getSettings() {
@@ -116,23 +169,12 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
       lore = loreParts.join('\n');
     }
     
-    // Build Relationship Graph (Graph-RAG format)
+    // Build Relationship Graph (Graph-RAG format), hanya relasi yang menyentuh codex relevan.
     if (relationships && relationships.length > 0) {
-      const activeRelations = relationships.filter(r => 
+      const activeRelations = relationships.filter(r =>
         includedCodexIds.has(r.sourceId) || includedCodexIds.has(r.targetId)
       );
-      
-      if (activeRelations.length > 0) {
-        const idToName = Object.fromEntries(codex.map(c => [c.id, c.name]));
-        const graphParts = activeRelations.map(r => {
-           const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
-           const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
-           let relStr = `${srcName} (${r.type}) -> ${tgtName}`;
-           if (r.description) relStr += `: ${r.description}`;
-           return relStr;
-        });
-        graph = `\n\nRELATIONSHIP GRAPH:\n${graphParts.join('\n')}`;
-      }
+      graph = buildRelationshipGraph(activeRelations, codex);
     }
   }
   
@@ -144,7 +186,7 @@ const MAX_RETRIES = 3;
 const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq']; // Ordered preference for fallback
 
 // Basic circuit breaker implementation
-const circuitBreaker = new Map<string, { failures: number, resetTime: number }>();
+const circuitBreaker = new Map<string, { failures: number, resetTime: number, halfOpenInFlight?: boolean }>();
 const CIRCUIT_OPEN_THRESHOLD = 3; // 3 consecutive failures to open circuit
 const CIRCUIT_RESET_TIME = 1000 * 30; // 30 seconds
 
@@ -153,7 +195,9 @@ function checkCircuit(provider: string): boolean {
   if (!state) return true;
   if (state.failures >= CIRCUIT_OPEN_THRESHOLD) {
     if (Date.now() > state.resetTime) {
-      // Half-open: allow one trial
+      // Half-open: izinkan hanya SATU percobaan; blokir request lain sampai hasilnya diketahui.
+      if (state.halfOpenInFlight) return false;
+      state.halfOpenInFlight = true;
       return true;
     }
     return false; // Circuit Open
@@ -169,7 +213,13 @@ function recordFailure(provider: string) {
   const state = circuitBreaker.get(provider) || { failures: 0, resetTime: 0 };
   state.failures += 1;
   state.resetTime = Date.now() + CIRCUIT_RESET_TIME;
+  state.halfOpenInFlight = false; // percobaan half-open gagal → buka kembali
   circuitBreaker.set(provider, state);
+}
+
+function clearHalfOpen(provider: string) {
+  const state = circuitBreaker.get(provider);
+  if (state) state.halfOpenInFlight = false;
 }
 
 const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -181,35 +231,35 @@ async function callAIWithBackoff(
   isFallback: boolean = false
 ): Promise<string> {
   let attempt = 1;
+  // Hindari mutasi objek params milik pemanggil; resolusi model & key dilakukan lokal.
+  const model = params.model || settings.models[provider as keyof typeof settings.models];
+  const apiKey = settings.keys[provider as keyof typeof settings.keys];
 
   while (attempt <= MAX_RETRIES) {
     if (!checkCircuit(provider)) {
-      if (attempt === 1 && !isFallback) {
-         // Force fallback if circuit is open on primary provider
-         break;
-      } else if (isFallback) {
-         throw new AIError(`Koneksi ${provider} terputus sementara (Circuit Open).`, 'CIRCUIT_OPEN', provider);
+      // Circuit terbuka: provider utama langsung dialihkan ke fallback; fallback digagalkan.
+      if (isFallback) {
+        throw new AIError(`Koneksi ${provider} terputus sementara (Circuit Open).`, 'CIRCUIT_OPEN', provider);
       }
+      break;
     }
 
     try {
-      if (!params.model) {
-        params.model = settings.models[provider as keyof typeof settings.models];
-      }
+      const result = await callProxy(provider, { ...params, model }, apiKey);
 
-      const apiKey = settings.keys[provider as keyof typeof settings.keys];
-      const result = await callProxy(provider, params, apiKey);
-      
       recordSuccess(provider);
       return result;
 
     } catch (error: any) {
-      if (error.name === 'AbortError') throw error;
-      
+      if (error.name === 'AbortError') {
+        clearHalfOpen(provider); // jangan biarkan trial half-open menggantung karena pembatalan
+        throw error;
+      }
+
       recordFailure(provider);
-      
-      // If unauthorized, don't retry, let it fail immediately so user knows API key is wrong
-      if (error.code === 'INVALID_KEY' || error.code === 'UNAUTHORIZED' || error.code === 'QUOTA_EXCEEDED') {
+
+      // Kunci salah / kuota habis: percuma diulang, lempar segera agar user tahu.
+      if (error.code === 'INVALID_KEY' || error.code === 'QUOTA_EXCEEDED') {
         throw new AIError(error.message, error.code, provider);
       }
 
@@ -244,7 +294,7 @@ async function callAI(params: AIRenderParams): Promise<string> {
     
     // Only attempt fallback if we know it's a connection/server/rate limit issue
     // NOT if there's no API key or Invalid API Key.
-    if (error.code !== 'INVALID_KEY' && error.code !== 'QUOTA_EXCEEDED' && error.code !== 'UNAUTHORIZED') {
+    if (error.code !== 'INVALID_KEY' && error.code !== 'QUOTA_EXCEEDED') {
       for (const fallback of FALLBACK_ORDER) {
         if (fallback === provider) continue; // Already tried
         
@@ -269,15 +319,19 @@ async function callAI(params: AIRenderParams): Promise<string> {
       provider
     );
 
+    // Metadata harus serializable untuk IndexedDB (structured clone): JANGAN sertakan
+    // fungsi (onChunk/onRetry) atau AbortSignal, dan potong prompt agar tidak membengkak.
     ErrorService.log({
       message: aiError.message,
       type: 'error',
       source: `AI-Service (${provider})`,
-      metadata: { 
-        params: { ...params, signal: undefined }, 
+      metadata: {
         provider,
         code: aiError.code,
-        rawMessage: error.rawMessage
+        actionType: params.actionType,
+        model: params.model,
+        rawMessage: typeof error.rawMessage === 'string' ? error.rawMessage.slice(0, 1000) : undefined,
+        promptPreview: params.userPrompt?.slice(0, 500)
       }
     });
     throw aiError;
@@ -290,13 +344,29 @@ function extractCandidateSentences(text: string): string {
   return candidates.slice(0, 60).join(' ');
 }
 
+/** Mengupas respons model (yang kerap dibungkus code fence/prosa) menjadi array JSON. */
+function parseJsonArray(raw: string): any[] {
+  let text = raw.trim();
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) text = fenceMatch[1].trim();
+
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start !== -1 && end !== -1 && end > start) {
+    text = text.substring(start, end + 1);
+  }
+
+  const data = JSON.parse(text);
+  if (!Array.isArray(data)) throw new Error('Hasil ekstraksi bukan array JSON.');
+  return data;
+}
+
 // Facade Methods
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
   const settings = getSettings();
   const provider = params.provider || settings.provider;
-  const isCacheSupported = ['google', 'claude', 'openrouter'].includes(provider.toLowerCase());
-  
+
   // RAG for Rewrite
   let textForRAG = params.ragContextText ? params.ragContextText + '\n' + params.selection : params.selection;
   let relevantScenesText = '';
@@ -314,33 +384,16 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   }
 
   let contextBlock = '';
-  if (isCacheSupported && settings.contextDepth !== 'minimal') {
-    // CACHING MODE: Provide full static knowledge base to maximize cache hits
-    const sortedRules = [...params.bibleRules].sort((a, b) => a.key.localeCompare(b.key));
-    const sortedCodex = [...params.codexEntries].sort((a, b) => a.name.localeCompare(b.name));
-    
-    const bibleString = sortedRules.map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`).join('\n') || 'No specific rules set.';
-    const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, 50000) || 'No specific lore.';
-    
-    let graphString = '';
-    if (params.relationships && params.relationships.length > 0) {
-      const idToName = Object.fromEntries(params.codexEntries.map(c => [c.id, c.name]));
-      const graphParts = params.relationships.map(r => {
-         const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
-         const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
-         return `${srcName} (${r.type}) -> ${tgtName}${r.description ? `: ${r.description}` : ''}`;
-      });
-      graphString = `\n\nRELATIONSHIP GRAPH:\n${graphParts.join('\n')}`;
-    }
-    
-    contextBlock = `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
+  if (isCacheSupported(provider) && settings.contextDepth !== 'minimal') {
+    // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
+    contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
   } else {
     // LEGACY RAG MODE: Filter dynamically
     const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
     const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
     contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
   }
-  
+
   const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
   
   // User Prompt must contain the dynamic scene context to keep the System instruction perfectly static for caching
@@ -349,10 +402,9 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
     userPrompt = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${userPrompt}`;
   }
 
+  const controller = new AbortController();
+  registerAbort('rewrite', controller);
   try {
-    const controller = new AbortController();
-    abortControllers.set('rewrite', controller);
-    
     const res = await callAI({
       systemInstruction,
       userPrompt,
@@ -363,20 +415,19 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       signal: controller.signal,
       actionType: 'rewrite'
     });
-    abortControllers.delete('rewrite');
     return res;
   } catch (error) {
-    abortControllers.delete('rewrite');
     if (error instanceof AIError) throw error;
     throw new AIError(error instanceof Error ? error.message : 'AI rewrite failed.', "API_ERROR");
+  } finally {
+    unregisterAbort('rewrite', controller);
   }
 }
 
 export async function processChat(params: ChatParams): Promise<string> {
   const settings = getSettings();
   const provider = params.provider || settings.provider;
-  const isCacheSupported = ['google', 'claude', 'openrouter'].includes(provider.toLowerCase());
-  
+
   // RAG for Chat
   let textForRAG = params.message;
   let relevantScenesText = '';
@@ -404,27 +455,9 @@ export async function processChat(params: ChatParams): Promise<string> {
   }
 
   let contextBlock = '';
-  if (isCacheSupported && settings.contextDepth !== 'minimal') {
-    // CACHING MODE: Provide full static knowledge base to maximize cache hits
-    const sortedRules = [...params.bibleRules].sort((a, b) => a.key.localeCompare(b.key));
-    const sortedCodex = [...params.codexEntries].sort((a, b) => a.name.localeCompare(b.name));
-    
-    // Hard cap at 50,000 chars to avoid overwhelming local memory before sending to massive context models
-    const bibleString = sortedRules.map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`).join('\n') || 'No specific rules set.';
-    const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, 50000) || 'No specific lore.';
-    
-    let graphString = '';
-    if (params.relationships && params.relationships.length > 0) {
-      const idToName = Object.fromEntries(params.codexEntries.map(c => [c.id, c.name]));
-      const graphParts = params.relationships.map(r => {
-         const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
-         const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
-         return `${srcName} (${r.type}) -> ${tgtName}${r.description ? `: ${r.description}` : ''}`;
-      });
-      graphString = `\n\nRELATIONSHIP GRAPH:\n${graphParts.join('\n')}`;
-    }
-    
-    contextBlock = `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
+  if (isCacheSupported(provider) && settings.contextDepth !== 'minimal') {
+    // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
+    contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
   } else {
     // LEGACY RAG MODE: Filter dynamically
     const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
@@ -442,10 +475,9 @@ export async function processChat(params: ChatParams): Promise<string> {
     ? params.history.slice(-MAX_HISTORY_MESSAGES)
     : params.history;
 
+  const controller = new AbortController();
+  registerAbort('chat', controller);
   try {
-    const controller = new AbortController();
-    abortControllers.set('chat', controller);
-    
     const res = await callAI({
       systemInstruction,
       userPrompt: userPromptWithContext,
@@ -457,12 +489,12 @@ export async function processChat(params: ChatParams): Promise<string> {
       signal: controller.signal,
       actionType: 'chat'
     });
-    abortControllers.delete('chat');
     return res;
   } catch (error) {
-    abortControllers.delete('chat');
     if (error instanceof AIError) throw error;
     throw new AIError(error instanceof Error ? error.message : 'AI chat failed.', "API_ERROR");
+  } finally {
+    unregisterAbort('chat', controller);
   }
 }
 
@@ -477,13 +509,7 @@ export async function extractToCodex(
 
   try {
     const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, actionType: 'extract' });
-    let textData = res.replace(/^```json/m, '').replace(/^```/m, '').trim();
-    const startIdx = textData.indexOf('[');
-    const endIdx = textData.lastIndexOf(']');
-    if (startIdx !== -1 && endIdx !== -1) {
-      textData = textData.substring(startIdx, endIdx + 1);
-    }
-    return JSON.parse(textData);
+    return parseJsonArray(res);
   } catch (error: any) {
     console.error('Extraction Error:', error);
     if (error instanceof AIError) throw error;
