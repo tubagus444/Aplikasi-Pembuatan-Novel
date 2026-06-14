@@ -55,7 +55,7 @@ async function startServer() {
         }
         break;
       case 'ollama':
-        url = `${(ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '')}/api/chat`; // Wait, ollama's OpenAI compatible endpoint is /v1/chat/completions
+        // Use Ollama's OpenAI-compatible endpoint so the request body matches other providers.
         url = `${(ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '')}/v1/chat/completions`;
         break;
       default:

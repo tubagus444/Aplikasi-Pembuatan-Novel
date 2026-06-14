@@ -6,6 +6,7 @@ import { testConnection, fetchGoogleModels } from '@/src/services/ai';
 import { cn } from '@/src/lib/utils';
 import { useAutoBackup } from '@/src/hooks/useAutoBackup';
 import { backupService } from '@/src/services/backupService';
+import { clearEmbeddingCache } from '@/src/services/contextEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { useStorageQuota } from '@/src/hooks/useStorageQuota';
@@ -766,11 +767,16 @@ export function SettingsPanel() {
                 </div>
                 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (window.confirm('Apakah Anda yakin ingin menghapus seluruh cache penyematan vektor semantik? Background worker akan membangun ulangnya secara asinkron.')) {
-                      window.localStorage.removeItem('semantic_vector_cache_v1');
-                      alert('Cache penyematan telah dibersihkan. Daemon latar belakang akan membangun kembali indeks semantik secara inkremental.');
-                      window.dispatchEvent(new Event('semantic_cache_cleared'));
+                      try {
+                        await clearEmbeddingCache();
+                        alert('Cache penyematan telah dibersihkan. Worker akan membangun kembali indeks semantik secara inkremental.');
+                        window.dispatchEvent(new Event('semantic_cache_cleared'));
+                      } catch (err) {
+                        console.error('Failed to clear embedding cache', err);
+                        alert('Gagal membersihkan cache penyematan.');
+                      }
                     }
                   }}
                   className="w-full flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/10 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-xl border border-amber-200/50 dark:border-amber-800/30 font-medium text-sm transition-colors shadow-sm"

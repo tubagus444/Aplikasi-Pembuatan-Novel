@@ -118,8 +118,17 @@ export async function getCodexMatches(chunks: {pos: number; text: string}[], all
   return sendToWorker('GET_CODEX_MATCHES', { chunks, allCodex });
 }
 
-export async function invalidateContextCache() {
-  return sendToWorker('INVALIDATE_CACHE', {});
+export async function invalidateContextCache(deep: boolean = false) {
+  return sendToWorker('INVALIDATE_CACHE', { deep });
+}
+
+/**
+ * Clears the persisted semantic embeddings so the worker re-embeds the codex
+ * from scratch on the next retrieval. Used by the "Clear Vector Cache" action.
+ */
+export async function clearEmbeddingCache() {
+  await db.embeddings.clear();
+  await invalidateContextCache(true);
 }
 
 /**
