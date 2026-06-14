@@ -5,6 +5,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { backupService } from '@/src/services/backupService';
+import { syncProjectToDrive } from '@/src/services/driveBackupService';
+import { getAccessToken } from '@/src/services/googleAuth';
 
 // Shim for requestIdleCallback
 const idleCallback = (cb: IdleRequestCallback) => {
@@ -60,6 +62,17 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
         } catch (err) {
           console.error("External backup failed:", err);
         }
+      }
+
+      // Layer 3: Google Drive (if authenticated)
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          // 0 is dummy id that means 'whole database' in our implementation
+          await syncProjectToDrive(0);
+        }
+      } catch (err) {
+        console.error("Google Drive sync failed:", err);
       }
       
       const now = Date.now();
