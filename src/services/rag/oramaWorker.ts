@@ -26,7 +26,11 @@ self.onmessage = async (e: MessageEvent) => {
       default:
         console.warn(`[OramaWorker] Unknown message type: ${type}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[OramaWorker] Error handling ${type}:`, error);
+    // Untuk SEARCH, WAJIB balas (dengan error) agar promise pemanggil tidak menggantung. (RG1)
+    if (type === 'SEARCH') {
+      self.postMessage({ type: 'SEARCH_RESULT', id: e.data.id, error: error?.message || 'Orama worker error' });
+    }
   }
 };

@@ -13,7 +13,17 @@ async function startServer() {
 
   // API Proxy Layer for AI Calls
   app.post("/api/ai/proxy", async (req, res) => {
-    const { provider, body, ollamaBaseUrl } = req.body;
+    // SV2: batalkan permintaan ke provider bila klien memutus koneksi (hemat kuota & resource).
+    const upstream = new AbortController();
+    res.on('close', () => upstream.abort());
+
+    // SV15: validasi input agar request malformed tidak melempar di luar try.
+    // (Express 4 tidak menangkap error async → request bisa menggantung tanpa respons.)
+    const { provider, body, ollamaBaseUrl } = req.body || {};
+    if (!provider || typeof provider !== 'string' || !body || typeof body !== 'object') {
+      return res.status(400).json({ error: "Permintaan tidak valid: 'provider' dan 'body' wajib ada." });
+    }
+
     const clientApiKey = (req.headers['x-api-key'] as string) || '';
     const isStream = !!body.stream;
     
@@ -71,7 +81,8 @@ async function startServer() {
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: upstream.signal
       });
 
       if (!response.ok) {
@@ -103,8 +114,15 @@ async function startServer() {
       const data = await response.json();
       res.status(response.status).json(data);
     } catch (error: any) {
+      // Klien memutus / kita abort upstream → koneksi sudah tidak ada, jangan kirim apa-apa.
+      if (error?.name === 'AbortError') return;
       console.error(`Proxy error for ${provider}:`, error);
-      res.status(500).json({ error: error.message });
+      // SV3: bila streaming SSE sudah dimulai, header sudah terkirim → jangan tulis status/JSON lagi.
+      if (!res.headersSent) {
+        res.status(500).json({ error: error.message });
+      } else {
+        res.end();
+      }
     }
   });
 

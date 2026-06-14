@@ -4,23 +4,45 @@ import { db } from '@/src/db';
 // OramaWorker instance
 let worker: Worker | null = null;
 let messageIdCounter = 0;
-const pendingRequests = new Map();
+const SEARCH_TIMEOUT_MS = 15000;
+
+interface PendingRequest {
+  resolve: (val: any) => void;
+  reject: (err: any) => void;
+  timeoutId: ReturnType<typeof setTimeout>;
+}
+const pendingRequests = new Map<number, PendingRequest>();
+
+// Reject SEMUA request tertunda agar promise tidak menggantung saat worker crash. (RG1/RG7)
+function rejectAllPending(reason: string) {
+  pendingRequests.forEach(({ reject, timeoutId }) => {
+    clearTimeout(timeoutId);
+    reject(new Error(reason));
+  });
+  pendingRequests.clear();
+}
 
 function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(new URL('./oramaWorker.ts', import.meta.url), { type: 'module' });
-    
+
     worker.onerror = (error) => {
-      window.dispatchEvent(new ErrorEvent('error', { error: error, message: error.message }));
+      console.error('[Orama] Worker error:', error.message);
+      // Jangan biarkan caller menggantung: gagalkan semua request lalu reset worker
+      // (akan dibuat ulang pada pemakaian berikutnya). Tidak me-redispatch error ke window.
+      rejectAllPending('Orama worker error/crash');
+      try { worker?.terminate(); } catch (e) { /* noop */ }
+      worker = null;
     };
 
     worker.onmessage = (e) => {
       const { type, id, result, error } = e.data;
       if (type === 'SEARCH_RESULT' && id !== undefined && pendingRequests.has(id)) {
-        const { resolve, reject } = pendingRequests.get(id);
+        const pending = pendingRequests.get(id)!;
+        clearTimeout(pending.timeoutId);
         pendingRequests.delete(id);
-        if (error) reject(new Error(error));
-        else resolve(result);
+        if (error) pending.reject(new Error(error));
+        else pending.resolve(result);
       }
     };
   }
@@ -65,8 +87,20 @@ export const oramaSync = {
   search: (query: string, limit: number = 5): Promise<CodexEntry[]> => {
     return new Promise((resolve, reject) => {
       const id = ++messageIdCounter;
-      pendingRequests.set(id, { resolve, reject });
-      getWorker().postMessage({ id, type: 'SEARCH', payload: { query, limit } });
+      const timeoutId = setTimeout(() => {
+        if (pendingRequests.has(id)) {
+          pendingRequests.delete(id);
+          reject(new Error('Orama search timed out'));
+        }
+      }, SEARCH_TIMEOUT_MS);
+      pendingRequests.set(id, { resolve, reject, timeoutId });
+      try {
+        getWorker().postMessage({ id, type: 'SEARCH', payload: { query, limit } });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        pendingRequests.delete(id);
+        reject(err);
+      }
     });
   }
 };

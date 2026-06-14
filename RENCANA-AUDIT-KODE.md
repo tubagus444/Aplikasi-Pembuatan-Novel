@@ -20,11 +20,11 @@
 | 1 | Orkestrasi AI & ketahanan | `src/services/ai/index.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 2 | Klasifikasi error & tipe | `src/services/ai/errors.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 3 | Proxy AI (parsing response) | `src/services/ai/proxy.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
-| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 analisa selesai (menunggu keputusan perbaikan) | ✅ mendalam |
+| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1 ✅ + C9 ✅; C2–C8/C11 belum | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
-| 6 | Server proxy | `server.ts` | P1 | 🔄 SV1 ✅ diperbaiki; SV2/SV3/SV15 belum | ✅ mendalam |
+| 6 | Server proxy | `server.ts` | P1 | 🔄 SV1/SV2/SV3/SV15 ✅; SV5/SV6/SV10 belum | ✅ mendalam |
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP ✅ diperbaiki; BK4/BK6–BK10 belum | ✅ mendalam |
-| 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 analisa selesai (menunggu keputusan perbaikan) | ✅ mendalam |
+| 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 analisa selesai (sehat) | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | 🔄 analisa selesai | ✅ mendalam |
 | 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1 ✅ diperbaiki; ED2/ED3/ED4 belum | ✅ mendalam |
@@ -190,11 +190,7 @@ db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningka
 
 #### Temuan — Keandalan (prioritas)
 
-- 🔴 **C1. Head-of-line blocking + timeout 30s saat embedding pertama.** Worker single-thread memproses pesan **berurutan**. `GET_RELEVANT_CONTEXT` pertama kali pada codex besar meng-embed entri **satu per satu** (`await` per entri, yield tiap 10) — bisa jauh melebihi timeout 30s di `sendToWorker` (`contextEngine` 55–60). Akibat:
-  - Pada **mode RAG legacy**, `getRelevantContext` reject saat timeout → `processRewrite`/`processChat` **gagal total** memanggil AI.
-  - Pesan ringan lain (COUNT_TOKENS, bible rules, meter token) **antre di belakang** embedding → ikut kena timeout 30s.
-  - Worker tetap menghitung setelah timeout (lihat C3) — sebagian menguntungkan (cache hangat) tapi tak terkendali.
-  - **Opsi perbaikan:** pra-embed di idle/background, pisahkan jalur embedding berat dari kueri ringan, timeout lebih panjang/khusus untuk embedding, atau kembalikan hasil AC-only dulu lalu "upgrade" semantik.
+- ✅ **C1 (DIPERBAIKI — Opsi "AC-first + embed background"). Head-of-line blocking + timeout 30s saat embedding pertama.** `getRelevantContext` kini: (1) selalu kembalikan hasil Aho-Corasick dengan cepat; (2) hitung skor semantik **hanya jika sudah siap** (`semanticReady`: model termuat + semua embedding tercache); (3) bila belum siap, picu `ensureEmbeddings()` sebagai **tugas latar tanpa di-await** (loop tetap `yield` tiap 10) lalu balas AC-only kali ini. Hasil: query tak pernah timeout/memblokir; semantik aktif otomatis di query berikutnya. **Bonus:** filter relevansi diubah jadi `acScore>0 || finalScore>20` agar kecocokan eksak tunggal tetap muncul di mode AC-only (sebelumnya `finalScore>20` membuang exact-match tunggal). Verifikasi: `tsc` 0 error, vitest 21/21.
 - 🟡 **C2. Kegagalan semantik senyap.** Bila download/init model gagal → hanya `console.error` (85–96, 285–287); tidak ada log `ErrorService`, tak ada notifikasi, tak ada retry. Fitur diam-diam turun ke AC-only — sulit didiagnosis.
 - 🟡 **C3. Timeout tidak membatalkan kerja worker.** `sendToWorker` reject di 30s tapi tak mengirim sinyal batal; worker lanjut. Tidak ada protokol cancel per-request.
 - 🟡 **C11. `worker.onerror` me-redispatch `ErrorEvent('error')` ke `window`** (`contextEngine` 44) → berpotensi memicu handler error global/menggandakan log. Perlu dipastikan tak menimbulkan loop.
@@ -209,7 +205,7 @@ db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningka
 #### Temuan — Maintainability
 
 - 🟡 **C8. Angka ajaib skoring tersebar** tanpa dokumentasi: `ALPHA=60`, `BETA=1`, boost `10`, `finalScore>20`, `acScore += isAlias?5:10`, plus blok `SCORE_*`/`MIN_SCORE_THRESHOLD`/`DEFAULT_MAX_CHARS`. Sulit di-tune/uji.
-- 🟡 **C9. Variabel mati** `embedderInitializing` (dideklarasi, tak pernah dipakai).
+- ✅ **C9 (DIPERBAIKI). Variabel mati** `embedderInitializing` dihapus (diganti `backgroundIndexing` yang dipakai untuk guard indexing latar).
 - 🟢 **C10. `embeddingCache` tak terbatas** (~1.5KB/entri) — wajar; dibersihkan saat `INVALIDATE_CACHE { deep }`.
 
 #### Catatan
@@ -232,12 +228,12 @@ _(Koreksi: catatan awal soal "duplikasi relationship-graph" keliru — graph dib
 #### Temuan — Correctness (memengaruhi fitur inti)
 
 - ✅ **SV1 (DIPERBAIKI). `express.json()` tanpa `limit` → default 100kb.** Body proxy pada **mode caching** (full codex ≤50KB + bible + relationship graph + `userPrompt`+scene+history) mudah melebihi 100kb → Express balas **413** → panggilan AI gagal untuk novel sedang/besar. **Perbaikan diterapkan:** `app.use(express.json({ limit: '25mb' }))`. Verifikasi: `tsc` 0 error (runtime 413 tak ada unit-test; perlu uji manual bila ingin pasti).
-- 🟡 **SV15. Tidak ada validasi input + error async tak tertangkap.** `const isStream = !!body.stream;` (16) berada **di luar** `try`; bila `body` undefined (request malformed) → `TypeError`. Express 4 **tidak meneruskan error dari handler async** → unhandled rejection, request **menggantung tanpa respons**. Perlu validasi + pindahkan ke dalam try (atau bungkus async handler).
+- ✅ **SV15 (DIPERBAIKI). Validasi input + error async.** Ditambah guard di awal handler: `req.body || {}` + cek `provider`/`body` valid → balas 400 bila malformed. Tidak ada lagi `TypeError` tak tertangkap yang membuat request menggantung.
 
 #### Temuan — Keandalan
 
-- 🟡 **SV2/SV4. Tak ada timeout & tak ada propagasi abort ke provider.** `fetch(url, …)` ke provider tanpa `AbortSignal`. Saat klien membatalkan / timeout 60s (dari perbaikan #3), koneksi klien→server putus tapi fetch server→provider **lanjut (orphaned)** → buang kuota & resource. Sebaiknya `req.on('close')` → abort upstream.
-- 🟡 **SV3. Streaming: error setelah header terkirim.** Bila gagal/putus di tengah stream, blok `catch` memanggil `res.status(500).json(...)` padahal header SSE sudah dikirim → `ERR_HTTP_HEADERS_SENT`. Perlu guard `if (!res.headersSent)`.
+- ✅ **SV2/SV4 (DIPERBAIKI). Propagasi abort ke provider.** `AbortController` + `res.on('close', () => upstream.abort())`; `signal` diteruskan ke `fetch`. Saat klien memutus / timeout 60s (dari #3), fetch server→provider ikut dibatalkan → tak lagi orphaned. (Catatan: belum ada timeout server independen; mengandalkan timeout klien.)
+- ✅ **SV3 (DIPERBAIKI). Streaming: error setelah header terkirim.** `catch` kini: abort klien → `return`; selain itu guard `if (!res.headersSent)` sebelum `res.status().json()`, jika header sudah terkirim cukup `res.end()` → tak ada lagi `ERR_HTTP_HEADERS_SENT`.
 
 #### Temuan — Maintainability / minor
 
@@ -300,10 +296,10 @@ Arsitektur 3-lapis (internal → folder → Drive) dengan rotasi 5 & gzip cukup 
 
 #### Temuan — Keandalan (prioritas)
 
-- 🟡 **RG1+RG7. Search bisa menggantung selamanya.** `oramaSync.search` **tak punya timeout** (beda dengan `contextEngine.sendToWorker` yang 30s), dan worker Orama **tak punya mekanisme reject pending saat crash** (tak ada padanan `terminateWorker`). Jika worker error/crash di tengah `SEARCH`, promise di main-thread **tak pernah resolve/reject** → `getRelevantContext` (mode RAG legacy) **hang tanpa batas** → panggilan AI menggantung. Diperparah karena `catch` di worker hanya `console.error` dan **tidak** mem-post `SEARCH_RESULT { error }`. _(Mitigasi parsial: `oramaStore.search` punya try/catch internal yang mengembalikan `[]` untuk kasus umum.)_
+- ✅ **RG1+RG7 (DIPERBAIKI). Search bisa menggantung selamanya.** Sekarang: (1) `oramaSync.search` punya **timeout 15s** (reject + bersihkan pending); (2) `worker.onerror` mem-**reject SEMUA pending** lalu reset worker (dibuat ulang saat dipakai lagi); (3) worker `SEARCH catch` kini mem-post `SEARCH_RESULT { error }` sehingga promise pasti settle. `contextEngine.getRelevantContext` sudah membungkus `search` dalam try/catch → rejection ditangani anggun (fallback ke hasil contextWorker). Verifikasi: `tsc` 0 error, vitest 21/21.
 - 🟡 **RG3. Index/update/remove fire-and-forget** (tanpa ack/penanganan error) → drift indeks senyap; entri yang gagal diindeks tak diketahui.
 - ✅ **RG4 (TERTANGANI via #5 D1). Koneksi Dexie ganda** (main + context worker + orama worker — semua buka `@/src/db`). Karena `db.ts` kini punya handler `versionchange`/`blocked`/`open().catch()`, **setiap** koneksi worker juga menutup dengan benar saat upgrade → tak lagi memblokir/menggantung.
-- 🟡 **RG5. `worker.onerror` redispatch `ErrorEvent('error')` ke `window`** — sama seperti C11 (#4); potensi menggandakan log/handler global.
+- ✅ **RG5 (DIPERBAIKI). `worker.onerror` redispatch `ErrorEvent('error')` ke `window`** — dihapus; diganti `console.error` + reject-pending. (Padanannya C11 di #4 masih terbuka untuk contextEngine.)
 
 #### Temuan — Correctness (minor)
 

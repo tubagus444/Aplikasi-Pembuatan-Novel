@@ -15,7 +15,7 @@ env.allowLocalModels = false;
 env.backends.onnx.wasm.numThreads = 1;
 
 let embedder: any = null;
-let embedderInitializing = false;
+let backgroundIndexing = false; // cegah indexing embedding latar berjalan ganda
 let modelInitPromise: Promise<any> | null = null;
 let encoders = new Map<string, any>();
 
@@ -161,129 +161,144 @@ function getBoundaryRegex(name: string): RegExp {
   return regex;
 }
 
-async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise<CodexEntry[]> {
-  if (!text || !allCodex || allCodex.length === 0) return [];
-
-  // 1. Exact Match Score (AhoCorasick)
-  const ac = getAcInstance(allCodex);
-  const entryScores = new Map<string | number, { entry: CodexEntry; acScore: number; semanticScore: number; finalScore: number }>();
-
-  if (allCodex.length > 0) {
-    const matches = ac.search(text);
-
-    matches.forEach(match => {
-      const { entry, isAlias } = match.data;
-      if (!entry) return;
-      const key = entry.id !== undefined ? entry.id : entry.name;
-
-      const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
-      current.acScore += isAlias ? 5 : 10;
-      entryScores.set(key, current);
-    });
+// Apakah skor semantik siap dipakai untuk SELURUH codex saat ini (model termuat
+// & setiap entri punya embedding tercache dengan hash terkini)?
+function semanticReady(allCodex: CodexEntry[]): boolean {
+  if (!embedder) return false;
+  for (const entry of allCodex) {
+    const key = entry.id !== undefined ? entry.id : entry.name;
+    const info = embeddingCache.get(key);
+    if (!info || info.contentHash !== getCodexHash(entry)) return false;
   }
+  return true;
+}
 
-  // 2. Semantic Score (Transformers.js)
+/**
+ * Memuat model + menyiapkan embedding (ambil dari IndexedDB bila ada, embed yang
+ * belum ada). DIJALANKAN SEBAGAI TUGAS LATAR (tidak di-await oleh query) sehingga
+ * worker tidak memblokir respons konteks. Loop tetap yield agar pesan ringan lain
+ * (token meter, bible rules) bisa diselingi. Lihat audit C1.
+ */
+async function ensureEmbeddings(allCodex: CodexEntry[]): Promise<void> {
+  if (backgroundIndexing) return;
+  backgroundIndexing = true;
   try {
-    const textEmbedding = await getSemanticEmbedding(text);
+    await getEmbedder();
 
-    // Compute or retrieve embeddings for all Codex entries
-    let newlyEmbeddedCount = 0;
-
-    // First classify what needs to be embedded to notify UI
-    let missingEmbeddingsCount = 0;
-    const missingKeys = [];
-    for (const entry of allCodex) {
+    // 1. Muat embedding tersimpan dari IndexedDB untuk entri yang belum ada di cache.
+    const needFromDb = allCodex.filter(entry => {
       const key = entry.id !== undefined ? entry.id : entry.name;
-      const hash = getCodexHash(entry);
-      let entryEmbeddingInfo = embeddingCache.get(key);
-      if (!entryEmbeddingInfo || entryEmbeddingInfo.contentHash !== hash) {
-        missingKeys.push({ entry, key, hash, compositeId: `${entry.projectId}_${key}` });
-      }
-    }
-    
-    if (missingKeys.length > 0) {
+      const info = embeddingCache.get(key);
+      return !info || info.contentHash !== getCodexHash(entry);
+    });
+
+    if (needFromDb.length > 0) {
       try {
-        const compositeIds = missingKeys.map(m => m.compositeId);
-        const storedEmbeddings = await db.embeddings.bulkGet(compositeIds);
-        
-        for (let i = 0; i < missingKeys.length; i++) {
-          const stored = storedEmbeddings[i];
-          const m = missingKeys[i];
-          if (stored && stored.contentHash === m.hash) {
-             embeddingCache.set(m.key, { embedding: stored.embedding, contentHash: stored.contentHash });
-          } else {
-             missingEmbeddingsCount++; // Found out it truly implies work
+        const compositeIds = needFromDb.map(e => `${e.projectId}_${e.id !== undefined ? e.id : e.name}`);
+        const stored = await db.embeddings.bulkGet(compositeIds);
+        needFromDb.forEach((entry, i) => {
+          const s = stored[i];
+          const key = entry.id !== undefined ? entry.id : entry.name;
+          if (s && s.contentHash === getCodexHash(entry)) {
+            embeddingCache.set(key, { embedding: s.embedding, contentHash: s.contentHash });
           }
-        }
+        });
       } catch (err) {
         console.warn("Failed to load embeddings from IndexedDB", err);
-        missingEmbeddingsCount = missingKeys.length;
       }
     }
-    
-    // Notify UI we are starting to embed
-    if (missingEmbeddingsCount > 0) {
-       self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_start', total: missingEmbeddingsCount, completed: 0 } });
-    }
 
-    const toSaveToDb = [];
+    // 2. Entri yang benar-benar perlu di-embed (belum ada di cache setelah load DB).
+    const toEmbed = allCodex.filter(entry => {
+      const key = entry.id !== undefined ? entry.id : entry.name;
+      const info = embeddingCache.get(key);
+      return !info || info.contentHash !== getCodexHash(entry);
+    });
 
-    for (const entry of allCodex) {
+    if (toEmbed.length === 0) return;
+
+    self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_start', total: toEmbed.length, completed: 0 } });
+
+    const toSaveToDb: any[] = [];
+    let done = 0;
+    for (const entry of toEmbed) {
       const key = entry.id !== undefined ? entry.id : entry.name;
       const hash = getCodexHash(entry);
-      
-      let entryEmbeddingInfo = embeddingCache.get(key);
-      if (!entryEmbeddingInfo || entryEmbeddingInfo.contentHash !== hash) {
-        // Build concise semantic representation for the entry
-        // Combine name, aliases, description and category for embedding
-        const textToEmbed = `[${entry.category || 'General'}] ${entry.name}${entry.aliases?.length ? ` (aka ${entry.aliases.join(', ')})` : ''}: ${entry.description || ''}`;
-        
-        try {
-           const embedding = await getSemanticEmbedding(textToEmbed);
-           entryEmbeddingInfo = { embedding, contentHash: hash };
-           embeddingCache.set(key, entryEmbeddingInfo);
-           
-           toSaveToDb.push({
-             id: `${entry.projectId}_${key}`,
-             projectId: entry.projectId,
-             codexId: key,
-             contentHash: hash,
-             embedding: embedding,
-             lastUpdated: Date.now()
-           });
-           
-           newlyEmbeddedCount++;
-           
-           if (newlyEmbeddedCount % 5 === 0 || newlyEmbeddedCount === missingEmbeddingsCount) {
-              self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_progress', total: missingEmbeddingsCount, completed: newlyEmbeddedCount } });
-           }
-           
-           // Yield to event loop every 10 embeddings
-           if (newlyEmbeddedCount % 10 === 0) {
-             await new Promise(resolve => setTimeout(resolve, 0));
-           }
-        } catch (e) {
-           console.error("Failed to embed entry", entry.name, e);
+      const textToEmbed = `[${entry.category || 'General'}] ${entry.name}${entry.aliases?.length ? ` (aka ${entry.aliases.join(', ')})` : ''}: ${entry.description || ''}`;
+      try {
+        const embedding = await getSemanticEmbedding(textToEmbed);
+        embeddingCache.set(key, { embedding, contentHash: hash });
+        toSaveToDb.push({
+          id: `${entry.projectId}_${key}`,
+          projectId: entry.projectId,
+          codexId: key,
+          contentHash: hash,
+          embedding,
+          lastUpdated: Date.now()
+        });
+        done++;
+        if (done % 5 === 0 || done === toEmbed.length) {
+          self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_progress', total: toEmbed.length, completed: done } });
         }
-      }
-
-      if (entryEmbeddingInfo) {
-        const similarity = cosineSimilarity(textEmbedding, entryEmbeddingInfo.embedding);
-        const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
-        current.semanticScore = similarity;
-        entryScores.set(key, current);
+        // Yield ke event loop tiap 10 embedding agar pesan lain bisa diproses.
+        if (done % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      } catch (e) {
+        console.error("Failed to embed entry", entry.name, e);
       }
     }
 
     if (toSaveToDb.length > 0) {
       db.embeddings.bulkPut(toSaveToDb).catch(e => console.warn("Failed to save embeddings to db", e));
     }
-    
-    if (missingEmbeddingsCount > 0) {
-       self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_done' } });
-    }
+    self.postMessage({ type: 'PROGRESS', payload: { type: 'embedding_done' } });
   } catch (error) {
-    console.error("Semantic search failed, falling back to pure AhoCorasick", error);
+    console.error("Background embedding indexing failed", error);
+  } finally {
+    backgroundIndexing = false;
+  }
+}
+
+async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise<CodexEntry[]> {
+  if (!text || !allCodex || allCodex.length === 0) return [];
+
+  // 1. Exact Match Score (AhoCorasick) — selalu cepat.
+  const ac = getAcInstance(allCodex);
+  const entryScores = new Map<string | number, { entry: CodexEntry; acScore: number; semanticScore: number; finalScore: number }>();
+
+  const matches = ac.search(text);
+  matches.forEach(match => {
+    const { entry, isAlias } = match.data;
+    if (!entry) return;
+    const key = entry.id !== undefined ? entry.id : entry.name;
+    const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
+    current.acScore += isAlias ? 5 : 10;
+    entryScores.set(key, current);
+  });
+
+  // 2. Semantic Score — HANYA jika sudah siap. Jika belum, picu indexing latar
+  //    (tanpa di-await) dan lanjut dengan AC-only agar query ini tetap cepat & tak
+  //    pernah timeout/memblokir worker. Semantik aktif otomatis di query berikutnya.
+  if (semanticReady(allCodex)) {
+    try {
+      const textEmbedding = await getSemanticEmbedding(text);
+      for (const entry of allCodex) {
+        const key = entry.id !== undefined ? entry.id : entry.name;
+        const info = embeddingCache.get(key);
+        if (info) {
+          const similarity = cosineSimilarity(textEmbedding, info.embedding);
+          const current = entryScores.get(key) || { entry, acScore: 0, semanticScore: 0, finalScore: 0 };
+          current.semanticScore = similarity;
+          entryScores.set(key, current);
+        }
+      }
+    } catch (error) {
+      console.error("Semantic scoring failed, falling back to pure AhoCorasick", error);
+    }
+  } else {
+    // Non-blocking warm-up; hasil query ini tetap AC-only.
+    void ensureEmbeddings(allCodex);
   }
 
   // 3. Hybrid Scoring
@@ -295,14 +310,17 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
       // similarity is between -1 and 1, usually between 0 and 1. We scale semantic to ~0-60.
       const scaledSemantic = Math.max(0, item.semanticScore) * ALPHA;
       const scaledAc = item.acScore * BETA;
-      
+
       // If there's an exact match, give it an extra boost to ensure it surfaces
       const exactMatchBoost = item.acScore > 0 ? 10 : 0;
-      
+
       item.finalScore = scaledSemantic + scaledAc + exactMatchBoost;
       return item;
     })
-    .filter(item => item.finalScore > 20) // Minimum threshold to filter out low-relevance
+    // Selalu sertakan entri dengan kecocokan eksak (acScore>0) — penting agar mode
+    // AC-only (sebelum embedding panas) tetap mengembalikan konteks; selain itu pakai
+    // ambang skor semantik. (Dulu: finalScore>20 saja, yang membuang kecocokan eksak tunggal.)
+    .filter(item => item.acScore > 0 || item.finalScore > 20)
     .sort((a, b) => b.finalScore - a.finalScore)
     .map(item => item.entry);
 }
