@@ -20,12 +20,12 @@
 | 1 | Orkestrasi AI & ketahanan | `src/services/ai/index.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 2 | Klasifikasi error & tipe | `src/services/ai/errors.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 3 | Proxy AI (parsing response) | `src/services/ai/proxy.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
-| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1/C2/C5/C6/C8/C9 ✅; C3/C4/C11 belum | ✅ mendalam |
+| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1/C2/C4/C5/C6/C8/C9 ✅; C3/C11 belum | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
 | 6 | Server proxy | `server.ts` | P1 | 🔄 SV1/SV2/SV3/SV15 ✅; SV5/SV6/SV10 belum | ✅ mendalam |
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP ✅ diperbaiki; BK4/BK6–BK10 belum | ✅ mendalam |
 | 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
-| 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 analisa selesai (sehat) | ✅ mendalam |
+| 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 L1 ✅ (+test); L2 belum | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
 | 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1/ED2/ED3 ✅; ED4 belum | ✅ mendalam |
 | 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | 🔄 analisa selesai | ✅ struktural |
@@ -197,7 +197,7 @@ db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningka
 
 #### Temuan — Correctness / konsistensi
 
-- 🟡 **C4. Inkonsistensi pencocokan nama berimbuhan Indonesia.** `AhoCorasick.search` (dipakai konteks **dan** highlight `GET_CODEX_MATCHES`) hanya cocok bila kedua sisi batas non-alfanumerik → **tidak** mengenali "Kaelnya/Kaellah/Kaelpun". Sementara `getCodexRegex` (dipakai `SCAN_APPEARANCES`) **mengenali** sufiks via `INDONESIAN_PARTICLES`. → highlight & konteks melewatkan bentuk bersufiks yang justru terdeteksi scan kemunculan. Perilaku dua jalur berbeda untuk hal yang sama.
+- ✅ **C4 (DIPERBAIKI). Inkonsistensi pencocokan nama berimbuhan Indonesia.** `AhoCorasick.search` kini menoleransi akhiran/partikel Indonesia (`nya/ku/mu/lah/kah/pun/toh`) — selaras dengan `getCodexRegex`. "Kaelnya/Kaelpun" kini terdeteksi di konteks & highlight, dan akhiran disertakan ke rentang sorot. Aditif (tak menghapus match lama). Ditambah unit test (lihat #9 L1).
 - ✅ **C5 (DIPERBAIKI). `GET_CODEX_MATCHES` → `codexId` undefined.** Ditambah guard `m.data.entry.id !== undefined` → entri tanpa id dilewati (tak merusak highlight).
 - ✅ **C6 (DIPERBAIKI). `SCAN_APPEARANCES` pada HTML mentah.** Konten kini di-strip tag (`replace(/<[^>]*>/g, ' ')`) sebelum diuji regex → tak ada false-match di dalam tag/atribut.
 - 🟢 **C7. `cosineSimilarity` mengasumsikan embedding ternormalisasi** (`normalize:true`). Embedding lama yang tak ternormalisasi → skor meleset. Risiko rendah.
@@ -327,7 +327,7 @@ Skema Orama jelas; `search` mengambil record lengkap dari Dexie (data mutakhir) 
 **Status:** 🔄 Analisa mendalam selesai — **sehat**, belum ada perubahan kode. · **Prioritas:** P2
 
 **Temuan (semua minor):**
-- 🟡 **L1. Konsistensi boundary nama Indonesia.** `chunkEngine.countMatches` (`\b…\b`) & `AhoCorasick.search` (batas non-alfanumerik) **tak mengenali sufiks** Indonesia, sedangkan `getCodexRegex` mengenali (cross-ref **C4** #4). Idealnya satu sumber kebenaran boundary.
+- ✅ **L1 (DIPERBAIKI). Konsistensi boundary nama Indonesia.** `AhoCorasick.search` (C4) & `chunkEngine.countMatches` kini menoleransi akhiran Indonesia, selaras dengan `getCodexRegex`. Ditambah unit test `ahoCorasick.test.ts` ("…Indonesian suffix particles…") → total test 21→22.
 - 🟡 **L2. Regex mention greedy.** `loreUtils` `@rule:(\S+)`/`@codex:(\S+)` menyertakan tanda baca akhir (mis. `@codex:Kael.` → "Kael."). Edge parsing.
 - 🟢 **L3. Angka ajaib** (threshold `0.5`, top-2 scene, `len>3`) — wajar, terdokumentasi via test.
 

@@ -12,6 +12,10 @@ class TrieNode {
   output: { keyword: string; data: any }[] = [];
 }
 
+// Akhiran/partikel Indonesia yang boleh menempel pada nama (selaras dengan
+// getCodexRegex di utils.ts). Mis. "Kaelnya", "Kaelpun", "Kaellah". (C4)
+const INDONESIAN_SUFFIX = /^(nya|ku|mu|lah|kah|pun|toh)(?![a-zA-Z0-9])/i;
+
 export class AhoCorasick {
   private root: TrieNode = new TrieNode();
 
@@ -71,21 +75,29 @@ export class AhoCorasick {
 
         for (const out of node.output) {
             const start = i - out.keyword.length + 1;
-            
-            // Boundary check: ensure it's a whole word or Indonesian suffix
-            const prevChar = start > 0 ? text[start - 1] : ' ';
-            const nextChar = i < text.length - 1 ? text[i + 1] : ' ';
-            
-            const isPrevBoundary = !/[a-zA-Z0-9]/.test(prevChar);
-            const isNextBoundary = !/[a-zA-Z0-9]/.test(nextChar);
+            let end = i + 1;
 
-            if (isPrevBoundary && isNextBoundary) {
-                results.push({
-                    start,
-                    end: i + 1,
-                    keyword: out.keyword,
-                    data: out.data
-                });
+            // Boundary check: pastikan kecocokan satu kata utuh, dengan toleransi
+            // akhiran/partikel Indonesia (mis. "Kaelnya", "Kaelpun").
+            const prevChar = start > 0 ? text[start - 1] : ' ';
+            const isPrevBoundary = !/[a-zA-Z0-9]/.test(prevChar);
+            if (!isPrevBoundary) continue;
+
+            const nextChar = end < text.length ? text[end] : ' ';
+            let isNextBoundary = !/[a-zA-Z0-9]/.test(nextChar);
+
+            if (!isNextBoundary) {
+                // Akhiran Indonesia langsung setelah nama → tetap dianggap cocok;
+                // sertakan akhiran ke dalam rentang agar highlight mencakup kata penuh.
+                const suffix = text.slice(end).match(INDONESIAN_SUFFIX);
+                if (suffix) {
+                    end += suffix[0].length;
+                    isNextBoundary = true;
+                }
+            }
+
+            if (isNextBoundary) {
+                results.push({ start, end, keyword: out.keyword, data: out.data });
             }
         }
     }

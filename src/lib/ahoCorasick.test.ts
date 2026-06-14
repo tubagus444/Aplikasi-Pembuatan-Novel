@@ -52,6 +52,21 @@ describe("AhoCorasick", () => {
     expect(result[0].end).toBe(8);
   });
 
+  it("should match names with Indonesian suffix particles and include them in range", () => {
+    const ac = new AhoCorasick([{ word: "Kael", data: { id: 1 } }]);
+
+    const result = ac.search("Kaelnya pergi, lalu Kaelpun datang. Bukan Kaelx.");
+    // "Kaelnya" & "Kaelpun" cocok (akhiran), "Kaelx" tidak.
+    expect(result.length).toBe(2);
+
+    expect(result[0].keyword).toBe("Kael");
+    expect(result[0].start).toBe(0);
+    expect(result[0].end).toBe(7); // mencakup "Kaelnya"
+
+    expect(result[1].start).toBe(20);
+    expect(result[1].end).toBe(27); // mencakup "Kaelpun"
+  });
+
   it("should accurately capture multiple overlapping but separated keywords", () => {
      const ac = new AhoCorasick([
        { word: "Bapak", data: { id: 1 } },

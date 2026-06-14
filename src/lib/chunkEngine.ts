@@ -42,9 +42,9 @@ function countMatches(text: string, words: string[]): number {
   if (!text || words.length === 0) return 0;
   const lowerText = text.toLowerCase();
   return words.reduce((count, word) => {
-    // Avoid regex injection issues
+    // Avoid regex injection issues; toleransi akhiran/partikel Indonesia (L1).
     const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
+    const regex = new RegExp(`\\b${escapedWord}(?:nya|ku|mu|lah|kah|pun|toh)?\\b`, 'gi');
     const matches = lowerText.match(regex);
     return count + (matches ? matches.length : 0);
   }, 0);
