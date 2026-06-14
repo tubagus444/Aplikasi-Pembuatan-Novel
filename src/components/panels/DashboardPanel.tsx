@@ -5,7 +5,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { db } from '@/src/db';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { BarChart2, Book, FileText, Clock, Database, HardDrive, Target, Sparkles, Server, AlertTriangle, ScrollText, Network } from 'lucide-react';
 import { countWords } from '@/src/lib/utils';
@@ -19,11 +19,11 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
   const [storageInfo, setStorageInfo] = useState<{ usage: number, quota: number } | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const project = useLiveQuery(() => db.projects.get(projectId), [projectId]);
-  const chapters = useLiveQuery(() => db.chapters.where('projectId').equals(projectId).toArray(), [projectId]);
+  const project = useOptimizedLiveQuery(() => db.projects.get(projectId), [projectId]);
+  const chapters = useOptimizedLiveQuery(() => db.chapters.where('projectId').equals(projectId).toArray(), [projectId]);
   const { codexEntries, aiActions, bibleRules } = useProjectData(projectId);
   
-  const systemStats = useLiveQuery(async () => {
+  const systemStats = useOptimizedLiveQuery(async () => {
     return {
       snapshots: await db.snapshots.count(),
       backups: await db.backups.count(),
@@ -31,7 +31,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
     };
   }, []);
 
-  const aiStats = useLiveQuery(async () => {
+  const aiStats = useOptimizedLiveQuery(async () => {
     const chatSessions = await db.chatSessions.where('projectId').equals(projectId).toArray();
     let messageCount = 0;
     chatSessions.forEach(s => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Search, MessageSquareText, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScribbleAssistantPanel } from '@/src/features/assistant/components/ScribbleAssistantPanel';
+import { VirtuosoGrid } from 'react-virtuoso';
 
 import { CodexForm } from '@/src/features/codex/components/CodexForm';
 import { CodexCard } from '@/src/features/codex/components/CodexCard';
@@ -48,59 +49,59 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     cancelEdit,
     addBond,
     deleteRelationship,
-    handleToggleLinking,
-    hasMore,
-    loadMore
+    handleToggleLinking
   } = useCodexPanel(projectId);
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-6">
-        <div>
-          <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 italic">Kamus Data (Codex)</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium tracking-wide">Data pembangunan dunia untuk injeksi konteks AI.</p>
+    <div className="max-w-5xl mx-auto h-[calc(100vh-8rem)] flex flex-col pt-1">
+      <div className="shrink-0">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-6">
+          <div>
+            <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 italic">Kamus Data (Codex)</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium tracking-wide">Data pembangunan dunia untuk injeksi konteks AI.</p>
+          </div>
+          {!isAdding && (
+            <button 
+              onClick={startAdding}
+              className="self-start md:self-auto flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
+            >
+              <Plus size={16} /> Entri Baru
+            </button>
+          )}
         </div>
-        {!isAdding && (
-          <button 
-            onClick={startAdding}
-            className="self-start md:self-auto flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
-          >
-            <Plus size={16} /> Entri Baru
-          </button>
+
+        {!isAdding && (entries?.length ?? 0) > 0 && (
+          <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Cari entri Codex berdasarkan nama, alias, atau deskripsi..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-200 placeholder:text-slate-400"
+              />
+            </div>
+            <select
+               value={filterCategory}
+               onChange={(e) => setFilterCategory(e.target.value as any)}
+               className="w-full sm:w-48 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
+            >
+              <option value="all">Semua Kategori</option>
+              <option value="character">Karakter</option>
+              <option value="location">Lokasi</option>
+              <option value="magic">Sistem Sihir</option>
+              <option value="item">Item & Artefak</option>
+              <option value="other">Lore Lainnya</option>
+            </select>
+          </div>
         )}
       </div>
 
-      {!isAdding && (entries?.length ?? 0) > 0 && (
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text"
-              placeholder="Cari entri Codex berdasarkan nama, alias, atau deskripsi..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-200 placeholder:text-slate-400"
-            />
-          </div>
-          <select
-             value={filterCategory}
-             onChange={(e) => setFilterCategory(e.target.value as any)}
-             className="w-full sm:w-48 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
-          >
-            <option value="all">Semua Kategori</option>
-            <option value="character">Karakter</option>
-            <option value="location">Lokasi</option>
-            <option value="magic">Sistem Sihir</option>
-            <option value="item">Item & Artefak</option>
-            <option value="other">Lore Lainnya</option>
-          </select>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
+      <div className="flex-1 overflow-hidden relative">
         <AnimatePresence>
           {isAdding && (
-            <div className="col-span-full">
+            <div className="w-full pb-10 overflow-y-auto h-full px-2" data-codex-form>
               <CodexForm 
                 initialData={initialData}
                 editingId={editingId}
@@ -112,40 +113,46 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
           )}
         </AnimatePresence>
 
-        {filteredEntries.map(entry => (
-          <CodexCard
-            key={entry.id}
-            entry={entry}
-            entries={entries || []}
-            relationships={relationships || []}
-            projectId={projectId}
-            linkingId={linkingId}
-            linkingTarget={linkingTarget}
-            linkingType={linkingType}
-            onSetLinkingTarget={setLinkingTarget}
-            onSetLinkingType={setLinkingType}
-            onToggleLinking={handleToggleLinking}
-            onAddBond={addBond}
-            onEdit={startEditing}
-            onDelete={deleteEntry}
-            onSelect={setSelectedEntry}
-            onDeleteRelationship={deleteRelationship}
-          />
-        ))}
-
-        {hasMore && !isAdding && (
-          <div className="col-span-full py-6 flex justify-center">
-            <button 
-              onClick={loadMore}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-            >
-              Muat Lebih Banyak Entri
-            </button>
-          </div>
+        {!isAdding && filteredEntries.length > 0 && (
+           <VirtuosoGrid
+             style={{ height: '100%' }}
+             totalCount={filteredEntries.length}
+             data={filteredEntries}
+             components={{
+               List: React.forwardRef((props, ref) => (
+                 <div {...props} ref={ref as React.Ref<HTMLDivElement>} className="grid grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 pb-24" />
+               )),
+               Item: ({ children, ...props }) => (
+                 <div {...props}>
+                   {children}
+                 </div>
+               )
+             }}
+             itemContent={(index, entry) => (
+               <CodexCard
+                 key={entry.id}
+                 entry={entry}
+                 entries={entries || []}
+                 relationships={relationships || []}
+                 projectId={projectId}
+                 linkingId={linkingId}
+                 linkingTarget={linkingTarget}
+                 linkingType={linkingType}
+                 onSetLinkingTarget={setLinkingTarget}
+                 onSetLinkingType={setLinkingType}
+                 onToggleLinking={handleToggleLinking}
+                 onAddBond={addBond}
+                 onEdit={startEditing}
+                 onDelete={deleteEntry}
+                 onSelect={setSelectedEntry}
+                 onDeleteRelationship={deleteRelationship}
+               />
+             )}
+           />
         )}
 
         {entries?.length === 0 && !isAdding && (
-          <div className="col-span-full py-24 px-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/30">
+          <div className="py-24 px-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/30">
             <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/40 rounded-full flex items-center justify-center mx-auto mb-6">
               <Database className="text-indigo-500 dark:text-indigo-400" size={32} />
             </div>
@@ -163,7 +170,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
         )}
         
         {entries && entries.length > 0 && filteredEntries.length === 0 && !isAdding && (
-          <div className="col-span-full py-16 text-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl">
+          <div className="py-16 text-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl">
             <Search size={32} className="mx-auto mb-4 opacity-50" />
             <p>Tidak ada entri yang cocok dengan kriteria pencarian Anda.</p>
             <button 

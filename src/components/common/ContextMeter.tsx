@@ -10,10 +10,16 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useContextMeter } from '@/src/hooks/useContextMeter';
 import { useAvailableProviders } from '@/src/hooks/useAvailableProviders';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/src/db';
 
 export function ContextMeter() {
   const { projectId } = useProject();
-  const { activeChapter } = useNavigation();
+  const { activeChapterId } = useNavigation();
+  const activeChapter = useLiveQuery(() => 
+    activeChapterId ? db.chapters.get(activeChapterId) : undefined
+  , [activeChapterId]);
+
   const chapterText = activeChapter?.content || '';
   const { selectedProvider } = useAvailableProviders();
   const [isOpen, setIsOpen] = useState(false);

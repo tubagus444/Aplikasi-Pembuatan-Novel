@@ -11,10 +11,16 @@ import { useUI } from '@/src/contexts/UIContext';
 import { WritingStats } from '@/src/components/common/WritingStats';
 import { ContextMeter } from '@/src/components/common/ContextMeter';
 import { cn } from '@/src/lib/utils';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/src/db';
 
 export function Header() {
   const { projectId, project } = useProject();
-  const { viewMode, activeChapter } = useNavigation();
+  const { viewMode, activeChapterId } = useNavigation();
+  const activeChapter = useLiveQuery(() => 
+    activeChapterId ? db.chapters.get(activeChapterId) : undefined
+  , [activeChapterId]);
+
   const { 
     sidebarOpen, 
     setSidebarOpen, 

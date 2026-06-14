@@ -110,7 +110,7 @@ export function Sidebar() {
             </nav>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 py-4 no-scrollbar">
+          <div className="flex-1 flex flex-col px-2 py-4 overflow-hidden">
             {viewMode === 'write' && projectId && (
               <ChapterList 
                 projectId={projectId} 
@@ -123,8 +123,8 @@ export function Sidebar() {
                 }} 
               />
             )}
-            {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Data Dunia</p>}
-            {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4">Aturan Dasar</p>}
+            {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4 overflow-y-auto">Data Dunia</p>}
+            {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4 overflow-y-auto">Aturan Dasar</p>}
           </div>
     </aside>
   );

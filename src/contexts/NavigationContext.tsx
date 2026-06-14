@@ -14,7 +14,6 @@ interface NavigationContextType {
   setActiveChapterId: (id: number | null) => void;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
-  activeChapter: any;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -34,10 +33,6 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     }
   }, [projectId]);
 
-  const activeChapter = useLiveQuery(() => 
-    activeChapterId ? db.chapters.get(activeChapterId) : undefined
-  , [activeChapterId]);
-
   // Handle case where active chapter is deleted
   useEffect(() => {
     let isMounted = true;
@@ -55,20 +50,19 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       }
     };
 
-    if (activeChapter === undefined && activeChapterId) {
+    if (activeChapterId) {
       syncActiveChapter();
     }
 
     return () => { isMounted = false; };
-  }, [activeChapter, activeChapterId, projectId]);
+  }, [activeChapterId, projectId]);
 
   return (
     <NavigationContext.Provider value={{
       activeChapterId,
       setActiveChapterId,
       viewMode,
-      setViewMode,
-      activeChapter
+      setViewMode
     }}>
       {children}
     </NavigationContext.Provider>

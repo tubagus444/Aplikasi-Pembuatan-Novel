@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, BrainCircuit } from 'lucide-react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { cn } from '@/src/lib/utils';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
@@ -23,19 +24,19 @@ export function AIAssistantPanel() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [input, setInput] = useState('');
 
-  const codexEntries = useLiveQuery(() => 
+  const codexEntries = useOptimizedLiveQuery(() => 
     projectId ? db.codex.where('projectId').equals(projectId).toArray() : []
   , [projectId]);
 
-  const bibleRules = useLiveQuery(() => 
+  const bibleRules = useOptimizedLiveQuery(() => 
     projectId ? db.bible.where('projectId').equals(projectId).toArray() : []
   , [projectId]);
 
-  const relationships = useLiveQuery(() => 
+  const relationships = useOptimizedLiveQuery(() => 
     projectId ? db.relationships.where('projectId').equals(projectId).toArray() : []
   , [projectId]);
 
-  const chapters = useLiveQuery(() => 
+  const chapters = useOptimizedLiveQuery(() => 
     projectId ? db.chapters.where('projectId').equals(projectId).sortBy('order') : []
   , [projectId]);
 

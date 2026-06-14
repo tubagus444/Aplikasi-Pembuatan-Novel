@@ -1,19 +1,19 @@
 import { useState, useMemo } from 'react';
 import { db } from '@/src/db';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { CodexEntry, CodexCategory } from '@/src/types';
 import { invalidateContextCache } from '@/src/services/contextEngine';
 
 export function useCodexPanel(projectId: number) {
-  const entries = useLiveQuery(() => 
+  const entries = useOptimizedLiveQuery(() => 
     db.codex.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
-  const bibleRules = useLiveQuery(() => 
+  const bibleRules = useOptimizedLiveQuery(() => 
     db.bible.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
-  const relationships = useLiveQuery(() => 
+  const relationships = useOptimizedLiveQuery(() => 
     db.relationships.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
@@ -30,11 +30,8 @@ export function useCodexPanel(projectId: number) {
 
   const [initialData, setInitialData] = useState<Partial<CodexEntry>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  
-  const CODEX_PAGE_SIZE = 15;
-  const [visibleCount, setVisibleCount] = useState(CODEX_PAGE_SIZE);
 
-  const allFilteredEntries = useMemo(() => {
+  const filteredEntries = useMemo(() => {
     if (!entries) return [];
     return entries.filter(entry => {
       const matchesSearch = 
@@ -47,18 +44,6 @@ export function useCodexPanel(projectId: number) {
       return matchesSearch && matchesCategory;
     });
   }, [entries, searchQuery, filterCategory]);
-
-  const filteredEntries = useMemo(() => {
-    return allFilteredEntries.slice(0, visibleCount);
-  }, [allFilteredEntries, visibleCount]);
-  
-  const hasMore = allFilteredEntries.length > visibleCount;
-  const loadMore = () => setVisibleCount(prev => prev + CODEX_PAGE_SIZE);
-
-  // Reset pagination when filter changes
-  useMemo(() => {
-    setVisibleCount(CODEX_PAGE_SIZE);
-  }, [searchQuery, filterCategory]);
 
   const startAdding = () => {
     setInitialData({ name: '', category: 'character', description: '', aliases: [], tags: [] });
@@ -96,7 +81,7 @@ export function useCodexPanel(projectId: number) {
         tags: data.tags || []
       });
     } else {
-      const newId = await db.codex.add({
+      await db.codex.add({
         projectId,
         name: data.name,
         category: data.category || 'character',
@@ -192,8 +177,6 @@ export function useCodexPanel(projectId: number) {
     cancelEdit,
     addBond,
     deleteRelationship,
-    handleToggleLinking,
-    hasMore,
-    loadMore
+    handleToggleLinking
   };
 }

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import React, { useState, useRef, useEffect } from 'react';
+import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { db } from '@/src/db';
 import { Target, TrendingUp, Edit2, Clock, BarChart2, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,11 +20,20 @@ export function WritingStats({ projectId }: WritingStatsProps) {
   const [isEditingDaily, setIsEditingDaily] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const chapters = useLiveQuery(() => 
-    db.chapters.where('projectId').equals(projectId).toArray()
-  , [projectId]);
+  // Optimized query: only return scalar values to avoid memory bloat and deep equality cost
+  const stats = useOptimizedLiveQuery(async () => {
+    const allChapters = await db.chapters.where('projectId').equals(projectId).toArray();
+    let words = 0;
+    for (const ch of allChapters) {
+      words += countWords(ch.content);
+    }
+    return {
+      totalWords: words,
+      chapterCount: allChapters.length
+    };
+  }, [projectId]);
 
-  const project = useLiveQuery(() => 
+  const project = useOptimizedLiveQuery(() => 
     db.projects.get(projectId)
   , [projectId]);
 
@@ -40,17 +49,15 @@ export function WritingStats({ projectId }: WritingStatsProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const totalWords = useMemo(() => {
-    if (!chapters) return 0;
-    return chapters.reduce((acc, ch) => acc + countWords(ch.content), 0);
-  }, [chapters]);
+  const totalWords = stats?.totalWords || 0;
+  const chapterCount = stats?.chapterCount || 0;
 
   const wordGoal = project?.wordGoal || 50000;
   const dailyGoal = project?.dailyGoal || 1500;
   const progressPercent = Math.min(100, Math.round((totalWords / wordGoal) * 100));
   
   const readTimeMin = Math.ceil(totalWords / 250);
-  const avgChapterWords = chapters && chapters.length > 0 ? Math.round(totalWords / chapters.length) : 0;
+  const avgChapterWords = chapterCount > 0 ? Math.round(totalWords / chapterCount) : 0;
 
   const updateGoal = (newGoal: string) => {
     const val = parseInt(newGoal.replace(/,/g, ''));
