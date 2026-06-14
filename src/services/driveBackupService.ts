@@ -6,6 +6,7 @@ const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_API_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 
 const FOLDER_NAME = 'AetherScribe Backups';
+const MAX_BACKUPS = 5;
 
 // Get or create the AetherScribe folder
 async function getAppFolder(accessToken: string): Promise<string | null> {
@@ -45,7 +46,17 @@ async function getAppFolder(accessToken: string): Promise<string | null> {
   return createData.id;
 }
 
-// Upload a single project backup
+// Compress string data to gzip Blob
+async function compressData(dataString: string): Promise<Blob> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(dataString);
+  const stream = new Blob([data]).stream();
+  // @ts-ignore - CompressionStream is available in modern browsers but TypeScript might be strict
+  const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+  return await new Response(compressedStream).blob();
+}
+
+// Upload a single project backup with Versioning and Compression
 export async function syncProjectToDrive(): Promise<boolean> {
   const accessToken = await getAccessToken();
   if (!accessToken) return false;
@@ -53,56 +64,62 @@ export async function syncProjectToDrive(): Promise<boolean> {
   const folderId = await getAppFolder(accessToken);
   if (!folderId) return false;
 
-  // Generate backup content
+  // Generate backup content and compress
   const backupObject = await backupService.collectAllData();
-  const backupData = JSON.stringify(backupObject);
+  const backupDataString = JSON.stringify(backupObject);
+  const compressedBlob = await compressData(backupDataString);
 
-  const fileName = `AetherScribe_FullBackup.json`;
-
-  const query = `name='${fileName}' and '${folderId}' in parents and trashed=false`;
-  const searchRes = await fetch(`${DRIVE_API_URL}?q=${encodeURIComponent(query)}&fields=files(id)`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  // File Versioning: Find existing files to rotate
+  const listQuery = `'${folderId}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'`;
+  const listRes = await fetch(`${DRIVE_API_URL}?q=${encodeURIComponent(listQuery)}&orderBy=createdTime desc&fields=files(id,name,createdTime)`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
-  
-  const searchData = await searchRes.json();
-  const existingFileId = searchData.files && searchData.files.length > 0 ? searchData.files[0].id : null;
+  const listData = await listRes.json();
+  const files = listData.files || [];
+
+  // Delete older files if we exceed MAX_BACKUPS (keep MAX_BACKUPS - 1 as we are uploading a new one)
+  if (files.length >= MAX_BACKUPS) {
+    const filesToDelete = files.slice(MAX_BACKUPS - 1);
+    for (const file of filesToDelete) {
+      await fetch(`${DRIVE_API_URL}/${file.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+    }
+  }
+
+  // Create new version
+  const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+  const fileName = `AetherScribe_Backup_${dateStr}.json.gz`;
 
   const metadata = {
     name: fileName,
-    mimeType: 'application/json',
-    ...(existingFileId ? {} : { parents: [folderId] }), 
+    mimeType: 'application/gzip',
+    parents: [folderId], 
   };
 
   const boundary = 'foo_bar_baz';
-  const delimiter = "\r\n--" + boundary + "\r\n";
-  const close_delim = "\r\n--" + boundary + "--";
+  
+  const multipartBody = new Blob([
+    `--${boundary}\r\n`,
+    `Content-Type: application/json; charset=UTF-8\r\n\r\n`,
+    `${JSON.stringify(metadata)}\r\n`,
+    `--${boundary}\r\n`,
+    `Content-Type: application/gzip\r\n\r\n`,
+    compressedBlob,
+    `\r\n--${boundary}--`
+  ], { type: `multipart/related; boundary=${boundary}` });
 
-  const multipartRequestBody =
-    delimiter +
-    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-    JSON.stringify(metadata) +
-    delimiter +
-    'Content-Type: application/json\r\n\r\n' +
-    backupData +
-    close_delim;
-
-  const url = existingFileId 
-    ? `${UPLOAD_API_URL}/${existingFileId}?uploadType=multipart`
-    : `${UPLOAD_API_URL}?uploadType=multipart`;
-
-  const method = existingFileId ? 'PATCH' : 'POST';
-
-  const uploadRes = await fetch(url, {
-    method,
+  const uploadRes = await fetch(`${UPLOAD_API_URL}?uploadType=multipart`, {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': `multipart/related; boundary=${boundary}`,
     },
-    body: multipartRequestBody,
+    body: multipartBody,
   });
 
   if (!uploadRes.ok) {
-     console.error('Failed to upload backup', await uploadRes.text());
+     console.error('Failed to upload compressed backup', await uploadRes.text());
      return false;
   }
 

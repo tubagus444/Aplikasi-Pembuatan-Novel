@@ -67,6 +67,18 @@ export const backupService = {
   },
 
   /**
+   * Helper internal: Compress string data to gzip Blob
+   */
+  async compressData(dataString: string): Promise<Blob> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(dataString);
+    const stream = new Blob([data]).stream();
+    // @ts-ignore
+    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+    return await new Response(compressedStream).blob();
+  },
+
+  /**
    * Writes the backup JSON to a file via File System Access API.
    */
   async saveToFile(data: BackupData, fileHandle: FileSystemFileHandle): Promise<void> {
@@ -76,12 +88,36 @@ export const backupService = {
   },
 
   /**
-   * Creates a new backup file in the specified directory.
+   * Creates a new backup file in the specified directory with compression and versioning.
    */
   async saveToDirectory(data: BackupData, dirHandle: FileSystemDirectoryHandle): Promise<void> {
-    const filename = `aetherscribe-autobackup-${new Date().toISOString().replace(/:/g, '-')}.json`;
+    const filename = `aetherscribe-autobackup-${new Date().toISOString().replace(/[:.]/g, '-')}.json.gz`;
     const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-    await this.saveToFile(data, fileHandle);
+    
+    // Write compressed data
+    const jsonString = JSON.stringify(data);
+    const compressedBlob = await this.compressData(jsonString);
+    const writable = await fileHandle.createWritable();
+    await writable.write(compressedBlob);
+    await writable.close();
+
+    // Rotate backups in this directory: keep only the 5 most recent backups
+    const externalBackups = [];
+    // @ts-ignore - File System Access API Async Iterable
+    for await (const entry of dirHandle.values()) {
+        if (entry.kind === 'file' && entry.name.startsWith('aetherscribe-autobackup-')) {
+            externalBackups.push(entry);
+        }
+    }
+
+    if (externalBackups.length > 5) {
+        // Sort ascending by timestamp (due to ISO format in filename)
+        externalBackups.sort((a, b) => a.name.localeCompare(b.name));
+        const toDelete = externalBackups.slice(0, externalBackups.length - 5);
+        for (const file of toDelete) {
+            await dirHandle.removeEntry(file.name);
+        }
+    }
   },
 
   /**

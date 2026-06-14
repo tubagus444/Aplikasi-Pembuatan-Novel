@@ -300,77 +300,84 @@ export function SettingsPanel() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        setIsRestoring(true);
-        const content = event.target?.result as string;
-        const backup = JSON.parse(content);
+    try {
+      setIsRestoring(true);
+      
+      let content = '';
+      if (file.name.endsWith('.gz')) {
+        const stream = file.stream();
+        // @ts-ignore
+        const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+        const decompressedBlob = await new Response(decompressedStream).blob();
+        content = await decompressedBlob.text();
+      } else {
+        content = await file.text();
+      }
+      
+      const backup = JSON.parse(content);
 
-        if (!backup.data || !backup.data.projects) {
-          throw new Error("Format file cadangan tidak valid");
-        }
+      if (!backup.data || !backup.data.projects) {
+        throw new Error("Format file cadangan tidak valid");
+      }
 
-        const confirmRestore = window.confirm(
-          "PERINGATAN: Ini akan menimpa SEMUA proyek, bab, entri kamus data, dan pengaturan Anda dengan data dari file cadangan. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?"
-        );
+      const confirmRestore = window.confirm(
+        "PERINGATAN: Ini akan menimpa SEMUA proyek, bab, entri kamus data, dan pengaturan Anda dengan data dari file cadangan. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?"
+      );
 
-        if (!confirmRestore) {
-          setIsRestoring(false);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-          return;
-        }
-
-        await db.transaction('rw', 
-          [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], 
-          async () => {
-            // Clear existing data
-            await db.projects.clear();
-            await db.chapters.clear();
-            await db.codex.clear();
-            await db.bible.clear();
-            await db.aiActions.clear();
-            await db.snapshots.clear();
-            await db.timeline.clear();
-            await db.relationships.clear();
-
-            // Restore from backup
-            if (backup.data.projects?.length) await db.projects.bulkAdd(backup.data.projects);
-            if (backup.data.chapters?.length) await db.chapters.bulkAdd(backup.data.chapters);
-            if (backup.data.codex?.length) await db.codex.bulkAdd(backup.data.codex);
-            
-            // Deduplicate bible entries before bulk adding to respect unique index
-            if (backup.data.bible?.length) {
-              const seen = new Set<string>();
-              const uniqueBible = backup.data.bible.filter((entry: any) => {
-                const compositeKey = `${entry.projectId}|${entry.key}`;
-                if (seen.has(compositeKey)) return false;
-                seen.add(compositeKey);
-                return true;
-              });
-              await db.bible.bulkAdd(uniqueBible);
-            }
-
-            if (backup.data.aiActions?.length) await db.aiActions.bulkAdd(backup.data.aiActions);
-            if (backup.data.snapshots?.length) await db.snapshots.bulkAdd(backup.data.snapshots);
-            if (backup.data.timeline?.length) await db.timeline.bulkAdd(backup.data.timeline);
-            if (backup.data.relationships?.length) await db.relationships.bulkAdd(backup.data.relationships);
-        });
-
-        alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
-        window.location.reload();
-      } catch (error) {
-        console.error('Failed to restore backup:', error);
-        alert('Gagal memulihkan dari file cadangan. Pastikan ini adalah file JSON cadangan yang valid.');
+      if (!confirmRestore) {
         setIsRestoring(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      await db.transaction('rw', 
+        [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships], 
+        async () => {
+          // Clear existing data
+          await db.projects.clear();
+          await db.chapters.clear();
+          await db.codex.clear();
+          await db.bible.clear();
+          await db.aiActions.clear();
+          await db.snapshots.clear();
+          await db.timeline.clear();
+          await db.relationships.clear();
+
+          // Restore from backup
+          if (backup.data.projects?.length) await db.projects.bulkAdd(backup.data.projects);
+          if (backup.data.chapters?.length) await db.chapters.bulkAdd(backup.data.chapters);
+          if (backup.data.codex?.length) await db.codex.bulkAdd(backup.data.codex);
+          
+          // Deduplicate bible entries before bulk adding to respect unique index
+          if (backup.data.bible?.length) {
+            const seen = new Set<string>();
+            const uniqueBible = backup.data.bible.filter((entry: any) => {
+              const compositeKey = `${entry.projectId}|${entry.key}`;
+              if (seen.has(compositeKey)) return false;
+              seen.add(compositeKey);
+              return true;
+            });
+            await db.bible.bulkAdd(uniqueBible);
+          }
+
+          if (backup.data.aiActions?.length) await db.aiActions.bulkAdd(backup.data.aiActions);
+          if (backup.data.snapshots?.length) await db.snapshots.bulkAdd(backup.data.snapshots);
+          if (backup.data.timeline?.length) await db.timeline.bulkAdd(backup.data.timeline);
+          if (backup.data.relationships?.length) await db.relationships.bulkAdd(backup.data.relationships);
+      });
+
+      alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to restore backup:', error);
+      alert('Gagal memulihkan dari file cadangan. Pastikan ini adalah file JSON (atau .json.gz) cadangan yang valid.');
+      setIsRestoring(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -798,7 +805,7 @@ export function SettingsPanel() {
 
                   <input 
                     type="file" 
-                    accept=".json" 
+                    accept=".json,.gz" 
                     ref={fileInputRef} 
                     onChange={handleFileChange} 
                     className="hidden" 
