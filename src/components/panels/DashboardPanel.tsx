@@ -42,27 +42,37 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
     const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     
     let totalTokensThisWeek = 0;
+    let promptTokensThisWeek = 0;
+    let cachedTokensThisWeek = 0;
     const modelUsage: Record<string, number> = {};
-    
+
     logs.forEach(log => {
         if (log.timestamp > oneWeekAgo) {
             totalTokensThisWeek += log.totalTokens;
+            promptTokensThisWeek += log.promptTokens || 0;
+            cachedTokensThisWeek += log.cachedTokens || 0;
         }
         // Normalize provider names somewhat
         let pName = log.provider;
         if (pName === 'google') pName = 'Gemini';
         else if (pName === 'openrouter') pName = 'OpenR';
-        
+
         const label = `${pName} (${log.model})`;
         modelUsage[label] = (modelUsage[label] || 0) + log.totalTokens;
     });
 
     const topModels = Object.entries(modelUsage).sort((a,b) => b[1] - a[1]).slice(0, 3);
+    // Rasio token input yang dilayani dari prompt cache (semakin tinggi = semakin hemat).
+    const cacheHitRate = promptTokensThisWeek > 0
+      ? Math.round((cachedTokensThisWeek / promptTokensThisWeek) * 100)
+      : 0;
 
     return {
       activeSessions: chatSessions.length,
       totalMessages: messageCount,
       totalTokensThisWeek,
+      cachedTokensThisWeek,
+      cacheHitRate,
       topModels
     };
   }, [projectId]);
@@ -218,7 +228,18 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
                </div>
                <Network size={32} className="text-fuchsia-300/50 dark:text-fuchsia-700/50 stroke-1" />
              </div>
-             
+
+             <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-4 flex justify-between items-center border border-emerald-100 dark:border-emerald-900/20">
+               <div>
+                 <div className="flex items-baseline gap-2">
+                   <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{(aiStats?.cachedTokensThisWeek || 0).toLocaleString()}</span>
+                   <span className="text-sm font-bold text-emerald-600/80 dark:text-emerald-400/80">({aiStats?.cacheHitRate ?? 0}%)</span>
+                 </div>
+                 <div className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70">Token dari Cache (Hemat Biaya Input)</div>
+               </div>
+               <Database size={32} className="text-emerald-300/50 dark:text-emerald-700/50 stroke-1" />
+             </div>
+
              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Sesi Chat</span>

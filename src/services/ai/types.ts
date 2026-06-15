@@ -17,6 +17,12 @@ export interface AIRenderParams {
   maxTokens?: number;
   signal?: AbortSignal;
   stream?: boolean;
+  /**
+   * Saat true, knowledge base (Story Bible + Codex) di system prompt ditandai
+   * sebagai blok cache (cache_control ephemeral) agar provider menyimpannya di
+   * prompt cache. Hanya diset pada "caching mode" untuk provider yang mendukung.
+   */
+  cacheable?: boolean;
   onChunk?: (chunk: string) => void;
   onRetry?: (attempt: number, error: any, provider: string) => void;
 }

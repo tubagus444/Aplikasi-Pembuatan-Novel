@@ -52,11 +52,13 @@ async function startServer() {
         url = 'https://api.anthropic.com/v1/messages';
         if (apiKey) headers['x-api-key'] = apiKey;
         headers['anthropic-version'] = '2023-06-01';
+        // Aktifkan prompt caching (cache_control ephemeral pada blok system).
+        headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
         break;
       case 'google':
         apiKey = clientApiKey || process.env.GEMINI_API_KEY || '';
         // Ensure model name is correctly formatted for the URL
-        const modelName = body.model || 'gemini-1.5-flash';
+        const modelName = body.model || 'gemini-2.5-flash';
         const sanitizedModel = modelName.includes('/') ? modelName : `models/${modelName}`;
         if (isStream) {
           url = `https://generativelanguage.googleapis.com/v1beta/${sanitizedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;

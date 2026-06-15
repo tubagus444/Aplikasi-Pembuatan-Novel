@@ -25,7 +25,11 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
   if (provider === 'claude') {
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
-    body.system = params.systemInstruction;
+    // Caching mode: tandai blok system (knowledge base statis) sebagai cache breakpoint.
+    // Anthropic mengabaikan penanda ini jika prompt di bawah ambang minimum, tanpa error.
+    body.system = params.cacheable
+      ? [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral' } }]
+      : params.systemInstruction;
     body.messages = [
       ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: historyText(h) })),
       { role: "user", content: params.userPrompt }
@@ -49,8 +53,13 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     // OpenAI Compatible (groq, openrouter, ollama)
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
+    // OpenRouter meneruskan cache_control ke provider hulu (Anthropic/Gemini) dan
+    // mengabaikannya untuk model yang tak mendukung. Groq/Ollama: kirim string biasa.
+    const systemMessage = params.cacheable && provider === 'openrouter'
+      ? { role: "system", content: [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral' } }] }
+      : { role: "system", content: params.systemInstruction };
     body.messages = [
-      { role: "system", content: params.systemInstruction },
+      systemMessage,
       ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: historyText(h) })),
       { role: "user", content: params.userPrompt }
     ];
@@ -262,11 +271,24 @@ function logUsageToDB(params: AIRenderParams, provider: string, usage: any, comp
   // Estimate tokens if usage missing
   let promptTokens = Math.ceil(params.userPrompt.length / 4) + Math.ceil(params.systemInstruction.length / 4);
   let completionTokens = Math.ceil(completeText.length / 4);
+  let cachedTokens = 0;
 
   if (usage) {
+    // Token yang dilayani DARI cache (input murah). Tiap provider menamainya beda.
+    const cacheRead =
+      usage.cache_read_input_tokens ??              // Claude native
+      usage.cachedContentTokenCount ??              // Google
+      usage.prompt_tokens_details?.cached_tokens ?? // OpenAI/OpenRouter
+      0;
+    // Token yang DITULIS ke cache (Claude saja; sekali bayar saat cache dibuat).
+    const cacheCreation = usage.cache_creation_input_tokens ?? 0;
+    cachedTokens = cacheRead;
+
     if (usage.promptTokens) promptTokens = usage.promptTokens;
-    else if (usage.prompt_tokens) promptTokens = usage.prompt_tokens;
-    else if (usage.input_tokens) promptTokens = usage.input_tokens; // Claude native
+    else if (usage.prompt_tokens) promptTokens = usage.prompt_tokens; // OpenAI/OpenRouter (sudah termasuk cached)
+    else if (usage.promptTokenCount) promptTokens = usage.promptTokenCount; // Google (sudah termasuk cached)
+    // Claude: input_tokens TIDAK termasuk token cache → jumlahkan agar total mencerminkan ukuran prompt asli.
+    else if (usage.input_tokens != null) promptTokens = usage.input_tokens + cacheRead + cacheCreation;
     else if (usage.inputTokenCount) promptTokens = usage.inputTokenCount; // Claude/Bedrock style
 
     if (usage.completionTokens) completionTokens = usage.completionTokens;
@@ -281,6 +303,7 @@ function logUsageToDB(params: AIRenderParams, provider: string, usage: any, comp
     promptTokens,
     completionTokens,
     totalTokens: promptTokens + completionTokens,
+    cachedTokens,
     provider,
     model: params.model || getModelForProvider(provider),
     actionType: params.actionType || 'other'
@@ -292,7 +315,7 @@ function getModelForProvider(provider: string) {
     case 'groq': return 'llama-3.3-70b-versatile';
     case 'openrouter': return 'meta-llama/llama-3.3-70b-instruct:free';
     case 'claude': return 'claude-3-5-sonnet-20241022';
-    case 'google': return 'gemini-2.0-flash'; // Using the recommended stable model
+    case 'google': return 'gemini-2.5-flash'; // 2.5 → implicit prompt caching otomatis (hemat token)
     case 'ollama': return 'llama3.2';
     default: return '';
   }

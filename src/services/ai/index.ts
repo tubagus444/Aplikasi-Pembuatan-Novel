@@ -383,8 +383,9 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
      textForRAG += '\n' + params.contextText;
   }
 
+  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
   let contextBlock = '';
-  if (isCacheSupported(provider) && settings.contextDepth !== 'minimal') {
+  if (useCaching) {
     // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
     contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
   } else {
@@ -402,6 +403,11 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
     userPrompt = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${userPrompt}`;
   }
 
+  // Plafon output adaptif: rewrite bisa memanjangkan teks, jadi beri ruang ~2.5x
+  // token seleksi, dengan lantai & langit-langit agar tak boros maupun terpotong.
+  const selectionTokens = Math.ceil((params.selection?.length || 0) / 4);
+  const rewriteMaxTokens = Math.min(4000, Math.max(512, Math.ceil(selectionTokens * 2.5)));
+
   const controller = new AbortController();
   registerAbort('rewrite', controller);
   try {
@@ -410,10 +416,12 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       userPrompt,
       provider: provider,
       temperature: 0.85,
+      maxTokens: rewriteMaxTokens,
       stream: params.stream,
       onChunk: params.onChunk,
       signal: controller.signal,
-      actionType: 'rewrite'
+      actionType: 'rewrite',
+      cacheable: useCaching
     });
     return res;
   } catch (error) {
@@ -454,8 +462,9 @@ export async function processChat(params: ChatParams): Promise<string> {
      textForRAG += ' ' + (params.contextText || '');
   }
 
+  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
   let contextBlock = '';
-  if (isCacheSupported(provider) && settings.contextDepth !== 'minimal') {
+  if (useCaching) {
     // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
     contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
   } else {
@@ -484,10 +493,12 @@ export async function processChat(params: ChatParams): Promise<string> {
       provider: provider,
       history: trimmedHistory,
       temperature: 0.7,
+      maxTokens: 2048,
       stream: params.stream,
       onChunk: params.onChunk,
       signal: controller.signal,
-      actionType: 'chat'
+      actionType: 'chat',
+      cacheable: useCaching
     });
     return res;
   } catch (error) {
@@ -508,7 +519,7 @@ export async function extractToCodex(
   const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
 
   try {
-    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, actionType: 'extract' });
+    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, maxTokens: 1500, actionType: 'extract' });
     return parseJsonArray(res);
   } catch (error: any) {
     console.error('Extraction Error:', error);

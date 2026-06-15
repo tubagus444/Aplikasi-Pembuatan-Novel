@@ -66,8 +66,10 @@ async function summarizeChapterBackground(chapterId: number) {
       systemInstruction,
       userPrompt,
       temperature: 0.3,
+      maxTokens: 700, // ringkasan 1-2 paragraf; plafon mencegah output liar
       model,
-      provider
+      provider,
+      actionType: 'summarize' as const
     };
 
     const summaryRes = await callProxy(provider, params, apiKey);

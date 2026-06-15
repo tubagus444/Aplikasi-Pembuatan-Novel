@@ -134,6 +134,8 @@ export interface AIUsageLog {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Bagian promptTokens yang dilayani dari prompt cache provider (input murah). */
+  cachedTokens?: number;
   provider: string;
   model: string;
   actionType: string;
