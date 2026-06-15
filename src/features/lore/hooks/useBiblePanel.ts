@@ -18,7 +18,8 @@ export function useBiblePanel(projectId: number) {
     tones: [] as string[],
     pov: '',
     pacing: '',
-    notes: ''
+    notes: '',
+    targetAudience: ''
   });
 
   const [savedField, setSavedField] = useState<string | null>(null);
@@ -54,7 +55,8 @@ export function useBiblePanel(projectId: number) {
         tones: getArr('__TONES__'),
         pov: getVal('__POV__'),
         pacing: getVal('__PACING__'),
-        notes: getVal('__AUTHOR_NOTES__')
+        notes: getVal('__AUTHOR_NOTES__'),
+        targetAudience: getVal('__TARGET_AUDIENCE__')
       });
     }
   }, [allRules, projectId]);
@@ -74,6 +76,10 @@ export function useBiblePanel(projectId: number) {
     }
   };
 
+  const resolveDbKey = (field: keyof typeof formData): string | null =>
+    DB_KEY_MAP[field as string]
+    || (field === 'genres' ? '__GENRES__' : field === 'tones' ? '__TONES__' : field === 'pov' ? '__POV__' : field === 'pacing' ? '__PACING__' : null);
+
   const handleChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -82,15 +88,24 @@ export function useBiblePanel(projectId: number) {
     handleChange(field, value);
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
-      const dbKey = DB_KEY_MAP[field as string] || (field === 'genres' ? '__GENRES__' : field === 'tones' ? '__TONES__' : field === 'pov' ? '__POV__' : field === 'pacing' ? '__PACING__' : null);
+      const dbKey = resolveDbKey(field);
       if (dbKey) saveField(dbKey, value);
     }, 800);
   };
 
   const handleBlur = (field: keyof typeof formData) => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    const dbKey = DB_KEY_MAP[field as string] || (field === 'genres' ? '__GENRES__' : field === 'tones' ? '__TONES__' : field === 'pov' ? '__POV__' : field === 'pacing' ? '__PACING__' : null);
+    const dbKey = resolveDbKey(field);
     if (dbKey) saveField(dbKey, String(formData[field]));
+  };
+
+  // Memperbarui state UI dan langsung menyimpan nilai eksplisit (tanpa menunggu
+  // debounce maupun bergantung pada formData yang mungkin masih basi).
+  const flushField = (field: keyof typeof formData, value: string) => {
+    handleChange(field, value);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    const dbKey = resolveDbKey(field);
+    if (dbKey) saveField(dbKey, value);
   };
 
   const toggleArrayItem = (field: 'genres' | 'tones', id: string, max?: number) => {
@@ -120,6 +135,7 @@ export function useBiblePanel(projectId: number) {
     progress,
     handleFieldChange,
     handleBlur,
+    flushField,
     toggleArrayItem,
     selectRadio
   };

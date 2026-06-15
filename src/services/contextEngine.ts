@@ -149,7 +149,7 @@ export async function getRelevantBibleRules(
 ): Promise<StoryBibleRule[]> {
   if (!text) {
     return allRules.filter(r => [
-      '__STORY_TITLE__', '__GENRES__', '__TONES__', '__POV__', 
+      '__STORY_TITLE__', '__STORY_TAGLINE__', '__GENRES__', '__TONES__', '__POV__',
       '__PACING__', '__THEMES__', '__TARGET_AUDIENCE__'
     ].includes(r.key));
   }

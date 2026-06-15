@@ -7,6 +7,7 @@ import { db } from '@/src/db';
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
+import { formatBibleBlock } from '@/src/lib/storyBible';
 import { pipeline, env } from '@xenova/transformers';
 import { getEncoding, encodingForModel } from 'js-tiktoken';
 
@@ -129,6 +130,7 @@ async function getSemanticEmbedding(text: string): Promise<Float32Array> {
 
 const ALWAYS_INCLUDE = [
   '__STORY_TITLE__',
+  '__STORY_TAGLINE__',
   '__GENRES__',
   '__TONES__',
   '__POV__',
@@ -507,7 +509,7 @@ self.onmessage = async (e: MessageEvent) => {
         const relevantRules = getRelevantBibleRules(text, allRules, 2500); // Example depth
         
         const codexText = relevantCodex.map(e => `[${e.name}]: ${e.description}`).join(' ');
-        const rulesText = relevantRules.map(r => `${r.key}: ${r.instruction}`).join(' ');
+        const rulesText = formatBibleBlock(relevantRules);
         
         result = {
            textTokens: countTokens(text, model),

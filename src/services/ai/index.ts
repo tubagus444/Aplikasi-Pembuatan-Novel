@@ -4,6 +4,7 @@ import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
 import { GenerateParams, ChatParams, ConsistencyParams, AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
+import { formatBibleBlock } from '@/src/lib/storyBible';
 
 export class AIError extends Error {
   code: string;
@@ -79,7 +80,7 @@ function buildCachedContextBlock(bibleRules: StoryBibleRule[], codexEntries: Cod
   const sortedRules = [...bibleRules].sort((a, b) => a.key.localeCompare(b.key));
   const sortedCodex = [...codexEntries].sort((a, b) => a.name.localeCompare(b.name));
 
-  const bibleString = sortedRules.map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`).join('\n') || 'No specific rules set.';
+  const bibleString = formatBibleBlock(sortedRules) || 'No specific rules set.';
   const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, MAX_CACHED_LORE_CHARS) || 'No specific lore.';
   const graphString = buildRelationshipGraph(relationships, codexEntries);
 
@@ -122,17 +123,12 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
   // If depth is minimal, we only include the most core rules and no lore
   if (depth === 'minimal') {
     const coreKeys = ['__STORY_TITLE__', '__GENRES__', '__POV__'];
-    const bible = rules
-      .filter(r => coreKeys.includes(r.key))
-      .map(r => `${r.key.replace(/__/g, '')}: ${r.instruction}`)
-      .join('\n');
-    
+    const bible = formatBibleBlock(rules.filter(r => coreKeys.includes(r.key)));
+
     return bible ? `CORE RULES:\n${bible}` : '';
   }
 
-  const bible = rules.length
-    ? rules.map(r => `${r.key}: ${r.instruction}`).join('\n')
-    : 'No specific rules set.';
+  const bible = formatBibleBlock(rules) || 'No specific rules set.';
 
   let lore = 'No specific lore relevant to this passage.';
   let graph = '';

@@ -8,6 +8,7 @@ import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useBiblePanel } from '@/src/features/lore/hooks/useBiblePanel';
 import { useToast } from '@/src/hooks/useToast';
+import { GENRES, TONES, POVS, PACINGS } from '@/src/lib/storyBible';
 import { 
   BookOpen, 
   Sparkles, 
@@ -37,49 +38,6 @@ import {
 interface BiblePanelProps {
   projectId: number;
 }
-
-const GENRES = [
-  { id: 'epic', label: 'Epic Fantasy', icon: '⚔️' },
-  { id: 'dark', label: 'Dark Fantasy', icon: '🌑' },
-  { id: 'urban', label: 'Urban Fantasy', icon: '🏙️' },
-  { id: 'high', label: 'High Fantasy', icon: '🏰' },
-  { id: 'low', label: 'Low Fantasy', icon: '🗡️' },
-  { id: 'mythpunk', label: 'Mythpunk', icon: '🌀' },
-  { id: 'grimdark', label: 'Grimdark', icon: '💀' },
-  { id: 'cozy', label: 'Cozy Fantasy', icon: '☕' },
-  { id: 'portal', label: 'Portal Fantasy', icon: '🚪' },
-  { id: 'flintlock', label: 'Flintlock', icon: '🔫' },
-  { id: 'progression', label: 'Progression', icon: '📈' },
-  { id: 'romantasy', label: 'Romantasy', icon: '🌹' },
-];
-
-const TONES = [
-  { id: 'epik', label: 'Epik', icon: '⚡' },
-  { id: 'gelap', label: 'Gelap', icon: '🔮' },
-  { id: 'whimsical', label: 'Whimsical', icon: '🦋' },
-  { id: 'tragis', label: 'Tragis', icon: '💔' },
-  { id: 'penuh-harap', label: 'Penuh Harap', icon: '🌅' },
-  { id: 'misterius', label: 'Misterius', icon: '📓' },
-  { id: 'humoris', label: 'Humoris', icon: '🤩' },
-  { id: 'realistis', label: 'Realistis', icon: '🌧️' },
-  { id: 'romantis', label: 'Romantis', icon: '🌹' },
-];
-
-const POVS = [
-  { id: '1st-single', label: 'Orang Pertama Tunggal', desc: '"Aku berjalan ke..."' },
-  { id: '1st-plural', label: 'Orang Pertama Jamak', desc: '"Kami berjalan ke..."' },
-  { id: '3rd-limited', label: 'Orang Ketiga Terbatas', desc: 'Mengikuti satu karakter' },
-  { id: '3rd-omniscient', label: 'Orang Ketiga Omniscient', desc: 'Semua perspektif' },
-  { id: '2nd', label: 'Orang Kedua', desc: '"Kamu berjalan ke..."' },
-  { id: 'multi', label: 'Multi-POV', desc: 'Bergantian antar karakter' },
-];
-
-const PACINGS = [
-  { id: 'slow', label: 'Slow Burn', desc: 'Membangun perlahan, kaya detail' },
-  { id: 'balanced', label: 'Seimbang', desc: 'Campuran aksi dan refleksi' },
-  { id: 'fast', label: 'Bergerak Cepat', desc: 'Aksi terus menerus' },
-  { id: 'episodic', label: 'Episodik', desc: 'Cerita dalam cerita' },
-];
 
 // Creative Writing Scaffolds to help writers overcome writer's block
 const PROMPT_SUGGESTIONS = {
@@ -111,6 +69,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
     progress,
     handleFieldChange,
     handleBlur,
+    flushField,
     toggleArrayItem,
     selectRadio
   } = useBiblePanel(projectId);
@@ -129,6 +88,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
   const safeTones = formData.tones || [];
   const safePov = formData.pov || '';
   const safePacing = formData.pacing || '';
+  const safeTargetAudience = formData.targetAudience || '';
 
   // Helpers to copy to clipboard safely
   const handleCopy = (text: string, label: string) => {
@@ -150,13 +110,11 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
     }
   };
 
-  // Helper to inject prompt text
+  // Helper to inject prompt text — simpan nilai gabungan secara eksplisit & langsung
   const handleInjectPrompt = (field: 'premise' | 'setting' | 'themes' | 'notes', text: string) => {
     const currentValue = formData[field] || '';
     const updatedValue = currentValue ? `${currentValue}\n${text}` : text;
-    handleFieldChange(field, updatedValue);
-    // Trigger auto-save immediately by blurring
-    setTimeout(() => handleBlur(field), 100);
+    flushField(field, updatedValue);
     toast.success("Inspirasi berhasil disematkan!");
   };
 
@@ -177,15 +135,15 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
         filled: (checkFilled(safeSetting) ? 1 : 0) + (checkFilled(safeThemes) ? 1 : 0)
       },
       narrative: {
-        total: 4,
-        filled: (safeGenres.length > 0 ? 1 : 0) + (safeTones.length > 0 ? 1 : 0) + (checkFilled(safePov) ? 1 : 0) + (checkFilled(safePacing) ? 1 : 0)
+        total: 5,
+        filled: (safeGenres.length > 0 ? 1 : 0) + (safeTones.length > 0 ? 1 : 0) + (checkFilled(safePov) ? 1 : 0) + (checkFilled(safePacing) ? 1 : 0) + (checkFilled(safeTargetAudience) ? 1 : 0)
       },
       notes: {
         total: 1,
         filled: checkFilled(safeNotes) ? 1 : 0
       }
     };
-  }, [safeTitle, safeTagline, safePremise, safeSetting, safeThemes, safeGenres, safeTones, safePov, safePacing, safeNotes]);
+  }, [safeTitle, safeTagline, safePremise, safeSetting, safeThemes, safeGenres, safeTones, safePov, safePacing, safeNotes, safeTargetAudience]);
 
   // Tab definitions
   const tabs = [
@@ -825,6 +783,49 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                 </motion.div>
 
               </div>
+
+              {/* TARGET AUDIENCE */}
+              <motion.div
+                variants={itemVariants}
+                className={cn(
+                  "bg-white dark:bg-slate-950 border rounded-3xl p-6 shadow-sm relative overflow-hidden group transition-all",
+                  safeTargetAudience ? "border-sky-500/10" : "border-slate-200/50 dark:border-white/5"
+                )}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                      safeTargetAudience ? "bg-sky-500 text-white" : "bg-sky-50 text-sky-500 dark:bg-sky-950/40"
+                    )}>
+                      <Target size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-widest">Target Pembaca</h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium font-sans">Untuk siapa cerita ini? Usia, selera, & buku pembanding</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleCopy(safeTargetAudience, 'Target Pembaca')}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all"
+                      title="Salin target pembaca"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  id="story-target-audience-textarea"
+                  className="w-full bg-transparent border-none p-0 text-base leading-relaxed text-slate-600 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:ring-0 min-h-[80px] resize-none transition-all outline-none"
+                  placeholder="Mis. dewasa muda penggemar fantasi epik ala Sanderson; pembaca yang menyukai politik istana & sistem sihir keras..."
+                  value={safeTargetAudience}
+                  onChange={e => handleFieldChange('targetAudience', e.target.value.substring(0, 500))}
+                  onBlur={() => handleBlur('targetAudience')}
+                />
+              </motion.div>
 
             </motion.div>
           )}

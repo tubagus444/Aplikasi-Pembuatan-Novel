@@ -74,6 +74,7 @@ Fitur konsistensi yang ditambahkan belakangan (lihat `viewMode`): **Cek Konsiste
 
 ## Konvensi & jebakan
 - **Extension TipTap dipin tepat ke `3.22.5`** di semua paket `@tiptap/*` — jaga tetap seragam saat upgrade, kalau tidak editor rusak.
+- **Story Bible: `src/lib/storyBible.ts` adalah sumber tunggal** opsi (genre/tone/POV/pacing) sekaligus pemformatannya untuk AI. Nilai disimpan sebagai slug/JSON di Dexie, tapi jangan pernah kirim slug mentah ke AI — pakai `formatBibleBlock`/`formatBibleRuleLine` (slug→label, buang baris kosong, cap per-key via `BIBLE_AI_MAX_CHARS`). Jangan duplikasi tabel label di komponen.
 - `experimentalDecorators` aktif dan `noEmit` diset (Vite/esbuild yang melakukan transpilasi sebenarnya); `tsc` hanya untuk type-check.
 - Catatan `HMR`/`DISABLE_HMR` di `vite.config.ts` untuk lingkungan host Google AI Studio (proyek ini di-scaffold sebagai applet AI Studio); biarkan apa adanya.
 - `firebase-applet-config.json` berisi nilai placeholder — sinkronisasi Firebase bersifat opt-in dan config asli berasal dari pengguna, bukan file ini.

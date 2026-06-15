@@ -42,6 +42,26 @@ tier-murah pada provider yang SAMA (key tetap satu): google→`gemini-2.5-flash-
 claude→`haiku-3.5`, groq→`llama-8b`, openrouter→llama-free. rewrite/chat/expand
 tetap model pilihan pengguna. Helper `getLightModelForProvider()` di `proxy.ts`.
 
+### ✅ #8 — Bersihkan payload Story Bible (slug→label, buang baris kosong, cap notes)
+**Masalah:** Story Bible (dikirim ke AI di semua jalur konteks) punya tiga
+inefisiensi/cacat. (1) Genre/tone/POV/pacing terkirim sebagai slug/JSON mentah
+(`POV: 3rd-limited`, `Genre: ["epic","dark"]`) → sinyal terdegradasi. (2) Field
+yang diisi-lalu-dikosongkan menyisakan baris kosong (`Tagline: `, genre `"[]"`)
+yang tetap dikirim → buang token + noise. (3) Catatan Penulis (free-text, bisa
+membengkak) selalu dikirim PENUH di mode caching → bayar penuh tiap cache bust.
+- Sumber kebenaran tunggal `src/lib/storyBible.ts`: tabel label + helper
+  `formatBibleInstruction` (slug→label), `hasBibleValue` (filter kosong, sadar
+  `"[]"`), `formatBibleBlock` (filter+format+join), cap per-key `capForAI`.
+- Diterapkan di 4 jalur: `buildCachedContextBlock`, `buildContextBlock` (RAG +
+  minimal) di `index.ts`, dan token-meter `PREVIEW_CONTEXT_TOKENS` di
+  `contextWorker.ts` (agar meter cocok dengan yang benar-benar dikirim).
+- **Cap Catatan Penulis = 2000 char**, plafon (bukan target) HANYA pada payload
+  AI; storage Dexie tetap utuh. Pemangkasan dari awal → taruh directive kritis di
+  awal atau di Premis/Tema (tak dibatasi). Konstanta `BIBLE_AI_MAX_CHARS`.
+- Bonus konsistensi: `__STORY_TAGLINE__` & `__TARGET_AUDIENCE__` kini masuk
+  `ALWAYS_INCLUDE`/fallback RAG (sebelumnya tagline tak pernah sampai ke AI, dan
+  `__TARGET_AUDIENCE__` adalah key yang dinanti engine tapi tanpa UI — kini ada).
+
 ---
 
 ## Belum dikerjakan

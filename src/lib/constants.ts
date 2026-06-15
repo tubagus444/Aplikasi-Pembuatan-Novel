@@ -9,6 +9,7 @@ export const DB_KEY_MAP: Record<string, string> = {
   setting: '__WORLD_SETTING__',
   themes: '__THEMES__',
   notes: '__AUTHOR_NOTES__',
+  targetAudience: '__TARGET_AUDIENCE__',
 };
 
 export const STATUS_COLORS: Record<ChapterStatus, string> = {
