@@ -42,7 +42,7 @@ export function SnapshotPanel({ chapterId, currentContent, onRestore }: Snapshot
   };
 
   return (
-    <div className="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 h-full flex flex-col shadow-2xl">
+    <div className="w-full bg-white dark:bg-slate-900 h-full flex flex-col">
       <header className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
         <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
           <History size={14} />

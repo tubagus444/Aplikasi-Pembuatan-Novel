@@ -14,6 +14,78 @@ interface ProseInsightsProps {
 
 type Language = 'en' | 'id';
 
+// --- Heuristik bahasa Indonesia (tanpa kamus/library) ---
+// Tujuannya presisi, bukan kelengkapan: lebih baik melewatkan beberapa daripada
+// salah menandai kata umum sebagai pasif (false positive).
+
+// Kata berawalan "di-" yang BUKAN verba pasif (nomina/adjektiva/keterangan umum).
+const DI_NON_PASSIVE = new Set([
+  'dingin', 'dinding', 'dinas', 'dini', 'diam', 'diktator', 'dilema', 'dimensi',
+  'direktur', 'diskusi', 'diskon', 'distrik', 'divisi', 'dividen', 'dialog',
+  'diagram', 'diameter', 'diare', 'diet', 'dirinya', 'diktE', 'dingklik',
+  'dinamis', 'dinosaurus', 'diploma', 'diktat', 'diksi'
+]);
+
+// Kata berawalan "ter-" yang BUKAN verba pasif (superlatif/adjektiva/keterangan).
+const TER_NON_PASSIVE = new Set([
+  // superlatif (ter- + adjektiva)
+  'terbaik', 'terbesar', 'tertinggi', 'terkecil', 'tercepat', 'terindah',
+  'terburuk', 'terkuat', 'terlemah', 'termuda', 'tertua', 'terpanjang',
+  'terpendek', 'terbanyak', 'terdekat', 'terjauh', 'termahal', 'termurah',
+  'terbaru', 'terlama', 'terdahulu', 'terhebat', 'ternama', 'terkemuka',
+  'terpenting', 'terkenal',
+  // adjektiva/keterangan umum
+  'terang', 'teratur', 'terampil', 'terlalu', 'terutama', 'tertentu',
+  'terima', 'teringat', 'teras', 'teropong', 'terompet', 'teratai',
+  'terminal', 'teritori', 'terjemah', 'teri', 'teh'
+]);
+
+// Verba pasif "di-" tanpa sufiks -kan/-i yang sering muncul dalam prosa.
+const DI_COMMON_PASSIVE = new Set([
+  'dimakan', 'diminum', 'dibaca', 'ditulis', 'dilihat', 'didengar', 'dibawa',
+  'diambil', 'dibuat', 'dikirim', 'ditemukan', 'dipakai', 'digunakan',
+  'dipukul', 'ditendang', 'dipegang', 'dibunuh', 'diserang', 'dikejar',
+  'ditangkap', 'dibuang', 'ditarik', 'didorong', 'dipanggil', 'dikenal',
+  'ditahan', 'dijaga', 'dijual', 'dibeli', 'dikunci', 'ditutup', 'dibuka'
+]);
+
+// Verba pasif/resultatif "ter-" umum (ter- sangat ambigu, jadi pakai daftar).
+const TER_COMMON_PASSIVE = new Set([
+  'terbawa', 'terjatuh', 'terlihat', 'terdengar', 'tertidur', 'terbangun',
+  'terluka', 'terlempar', 'terhempas', 'tersandung', 'tergeletak', 'terbaring',
+  'terjebak', 'terperangkap', 'tertangkap', 'terbunuh', 'tertusuk', 'terkena',
+  'tersentuh', 'terdorong', 'terangkat', 'terhapus', 'tertulis', 'terpasang',
+  'terbakar', 'tersisa', 'terpaksa', 'terhanyut', 'terseret', 'tertimpa'
+]);
+
+// Buang tanda baca di awal/akhir, pertahankan tanda hubung internal (mis. "benar-benar").
+function cleanToken(w: string): string {
+  return w.toLowerCase().replace(/^[^a-z]+|[^a-z]+$/g, '');
+}
+
+function isPassiveID(w: string): boolean {
+  if (w.length < 5) return false; // "dia", "diri", "diam", "dini" tersaring di sini
+  if (w.startsWith('di')) {
+    if (DI_NON_PASSIVE.has(w)) return false;
+    // di- + sufiks verba (-kan/-i) → hampir pasti pasif; atau verba pasif umum
+    if (/^di[a-z]{2,}(kan|i)$/.test(w)) return true;
+    return DI_COMMON_PASSIVE.has(w);
+  }
+  if (w.startsWith('ter') && w.length >= 6) {
+    if (TER_NON_PASSIVE.has(w)) return false;
+    // ter- + sufiks verba, atau verba resultatif umum (daftar)
+    return /^ter[a-z]{2,}(kan|i)$/.test(w) || TER_COMMON_PASSIVE.has(w);
+  }
+  return false;
+}
+
+const ID_ADVERBS = new Set([
+  'sangat', 'amat', 'sekali', 'agak', 'paling', 'sungguh', 'begitu', 'terlalu',
+  'cukup', 'hampir', 'selalu', 'sering', 'jarang', 'kadang', 'kadang-kadang',
+  'biasanya', 'segera', 'tiba-tiba', 'perlahan', 'diam-diam', 'benar-benar',
+  'betul-betul', 'secara', 'rupanya', 'tampaknya', 'sepertinya'
+]);
+
 export function ProseInsights({ content }: ProseInsightsProps) {
   const [language, setLanguage] = useState<Language>('id');
 
@@ -31,34 +103,24 @@ export function ProseInsights({ content }: ProseInsightsProps) {
 
     const words = text.split(/\s+/);
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    
+    const cleanWords = words.map(cleanToken).filter(Boolean);
+
     let adverbs = 0;
     let passiveCount = 0;
 
     if (language === 'en') {
       // Simple adverb detection (ending in 'ly')
-      adverbs = words.filter(w => w.toLowerCase().endsWith('ly')).length;
-      
+      adverbs = cleanWords.filter(w => w.endsWith('ly')).length;
+
       // Simple passive voice detection
       const passiveWords = ['was', 'were', 'been', 'being', 'is', 'am', 'are'];
-      passiveCount = words.filter((w, i) => 
-        passiveWords.includes(w.toLowerCase()) && 
-        words[i+1]?.toLowerCase().endsWith('ed')
+      passiveCount = cleanWords.filter((w, i) =>
+        passiveWords.includes(w) &&
+        cleanWords[i + 1]?.endsWith('ed')
       ).length;
     } else {
-      // Indonesian adverbs (kata keterangan)
-      const idAdverbs = ['sangat', 'amat', 'sekali', 'agak', 'paling', 'secara', 'dengan', 'benar-benar', 'betul-betul'];
-      adverbs = words.filter(w => idAdverbs.includes(w.toLowerCase())).length;
-
-      // Indonesian passive voice (dimakan, terbawa) - basic heuristic: starts with di/ter + word root
-      passiveCount = words.filter(w => {
-        const lower = w.toLowerCase();
-        // Exception filter for common non-passive words starting with di/ter
-        const exceptions = ['dia', 'diri', 'dari', 'disini', 'disana', 'disitu', 'terus', 'terang', 'terbang', 'terima'];
-        if (exceptions.includes(lower)) return false;
-        
-        return (lower.startsWith('di') || lower.startsWith('ter')) && lower.length > 5;
-      }).length;
+      adverbs = cleanWords.filter(w => ID_ADVERBS.has(w)).length;
+      passiveCount = cleanWords.filter(isPassiveID).length;
     }
 
     const longSentences = sentences.filter(s => s.trim().split(/\s+/).length > 25).length;
@@ -110,7 +172,7 @@ export function ProseInsights({ content }: ProseInsightsProps) {
     words: language === 'en' ? 'words' : 'kata',
     longSentences: language === 'en' ? 'Long Sentences' : 'Kalimat Panjang',
     styleAlerts: language === 'en' ? 'Style Alerts' : 'Peringatan Gaya',
-    passiveVoice: language === 'en' ? 'Passive Voice detected' : 'Kalimat Pasif Terdeteksi',
+    passiveVoice: language === 'en' ? 'Passive verbs (estimate)' : 'Kata kerja pasif (perkiraan)',
     passiveVoiceDesc: language === 'en' 
       ? 'Consider using active verbs to make your prose more punchy.' 
       : 'Pertimbangkan menggunakan kata kerja aktif agar kalimat lebih lugas.',
@@ -131,7 +193,7 @@ export function ProseInsights({ content }: ProseInsightsProps) {
   };
 
   return (
-    <div className="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 h-full flex flex-col shadow-2xl">
+    <div className="w-full bg-white dark:bg-slate-900 h-full flex flex-col">
       <header className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
         <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
           <Gauge size={14} />
