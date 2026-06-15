@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ViewMode } from '@/src/types';
@@ -14,6 +14,11 @@ interface NavigationContextType {
   setActiveChapterId: (id: number | null) => void;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  /** Teks yang harus disorot & di-scroll di editor setelah berpindah ke sana. */
+  pendingHighlight: string | null;
+  /** Pindah ke editor pada bab tertentu lalu sorot sepotong teks (mis. dari Cek Konsistensi). */
+  jumpToText: (chapterId: number, text: string) => void;
+  clearPendingHighlight: () => void;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -22,6 +27,15 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
   const { projectId } = useProject();
   const [activeChapterId, setActiveChapterId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('write');
+  const [pendingHighlight, setPendingHighlight] = useState<string | null>(null);
+
+  const jumpToText = useCallback((chapterId: number, text: string) => {
+    setActiveChapterId(chapterId);
+    setViewMode('write');
+    setPendingHighlight(text);
+  }, []);
+
+  const clearPendingHighlight = useCallback(() => setPendingHighlight(null), []);
 
   // Load first chapter when project changes
   useEffect(() => {
@@ -62,7 +76,10 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       activeChapterId,
       setActiveChapterId,
       viewMode,
-      setViewMode
+      setViewMode,
+      pendingHighlight,
+      jumpToText,
+      clearPendingHighlight
     }}>
       {children}
     </NavigationContext.Provider>

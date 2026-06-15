@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUI } from '@/src/contexts/UIContext';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 import { EditorContent } from '@tiptap/react';
 import { SelectionFloatingMenu } from '@/src/features/editor/components/SelectionFloatingMenu';
 import { EditorPanelProvider } from '@/src/contexts/EditorPanelContext';
@@ -54,6 +55,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   }, [zoomLevel]);
 
   const { isFocusMode, setIsFocusMode } = useUI();
+  const { pendingHighlight, clearPendingHighlight } = useNavigation();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,6 +120,28 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     onToggleEditorSearch: () => setIsSearchOpen(!isSearchOpen),
     isEditorSearchOpen: isSearchOpen
   });
+
+  // "Loncat ke editor" (mis. dari Cek Konsistensi): buka find bar terisi kutipan,
+  // sorot semua kecocokan, lalu pilih+scroll ke yang pertama. Retry singkat sambil
+  // konten bab selesai dimuat ke editor.
+  useEffect(() => {
+    if (!editor || !pendingHighlight || !chapter) return;
+    const term = pendingHighlight;
+    clearPendingHighlight();
+    setSearchQuery(term);
+    setIsSearchOpen(true);
+    let tries = 0;
+    const tryScroll = () => {
+      const results = (editor.storage as any).searchAndReplace?.results || [];
+      if (results.length > 0) {
+        editor.commands.nextSearchResult(); // select + scrollIntoView kecocokan pertama
+      } else if (tries++ < 12) {
+        setTimeout(tryScroll, 100);
+      }
+    };
+    const t = setTimeout(tryScroll, 80);
+    return () => clearTimeout(t);
+  }, [editor, pendingHighlight, chapter, clearPendingHighlight, setSearchQuery, setIsSearchOpen]);
 
   if (chapter === undefined || isLoading) {
     return (

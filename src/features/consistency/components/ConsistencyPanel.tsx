@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ShieldCheck, ScanSearch, Loader2, AlertTriangle, CheckCircle2, X, ChevronRight } from 'lucide-react';
+import { ShieldCheck, ScanSearch, Loader2, AlertTriangle, CheckCircle2, X, ChevronRight, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
@@ -42,7 +42,7 @@ const SEVERITY_META: Record<ConsistencyFinding['severity'], { label: string; bad
 };
 
 export function ConsistencyPanel({ projectId }: ConsistencyPanelProps) {
-  const { activeChapterId } = useNavigation();
+  const { activeChapterId, jumpToText } = useNavigation();
   const { codexEntries, bibleRules, relationships } = useProjectData(projectId);
 
   const chapters = useLiveQuery(() =>
@@ -55,6 +55,7 @@ export function ConsistencyPanel({ projectId }: ConsistencyPanelProps) {
   const [findings, setFindings] = useState<ConsistencyFinding[] | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [checkedTitle, setCheckedTitle] = useState('');
+  const [checkedChapterId, setCheckedChapterId] = useState<number | null>(null);
 
   // Default ke bab aktif begitu daftar bab termuat / bab aktif berubah.
   useEffect(() => {
@@ -82,6 +83,7 @@ export function ConsistencyPanel({ projectId }: ConsistencyPanelProps) {
     setError(null);
     setFindings(null);
     setCheckedTitle(chapter.title);
+    setCheckedChapterId(chapter.id ?? selectedChapterId);
 
     // Bangun ringkasan timeline dari data terkini agar AI bisa cek urutan waktu.
     const timelineEvents = await db.timeline.where('projectId').equals(projectId).toArray();
@@ -212,7 +214,12 @@ export function ConsistencyPanel({ projectId }: ConsistencyPanelProps) {
               </div>
               <AnimatePresence mode="popLayout">
                 {findings.map((f, idx) => (
-                  <FindingCard key={idx} finding={f} index={idx} />
+                  <FindingCard
+                    key={idx}
+                    finding={f}
+                    index={idx}
+                    onJump={checkedChapterId != null ? () => jumpToText(checkedChapterId, f.quote) : undefined}
+                  />
                 ))}
               </AnimatePresence>
               <p className="text-[11px] text-slate-400 dark:text-slate-500 italic pt-2">
@@ -226,7 +233,7 @@ export function ConsistencyPanel({ projectId }: ConsistencyPanelProps) {
   );
 }
 
-function FindingCard({ finding, index }: { finding: ConsistencyFinding; index: number }) {
+function FindingCard({ finding, index, onJump }: { finding: ConsistencyFinding; index: number; onJump?: () => void }) {
   const meta = SEVERITY_META[finding.severity];
   return (
     <motion.div
@@ -245,6 +252,15 @@ function FindingCard({ finding, index }: { finding: ConsistencyFinding; index: n
         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
           {finding.type}
         </span>
+        {onJump && (
+          <button
+            onClick={onJump}
+            title="Buka kutipan ini di editor"
+            className="ml-auto inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors active:scale-95"
+          >
+            Buka di editor <ArrowUpRight size={12} />
+          </button>
+        )}
       </div>
 
       <blockquote className="border-l-2 border-slate-300 dark:border-slate-600 pl-3 text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">
