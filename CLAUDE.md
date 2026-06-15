@@ -79,3 +79,6 @@ Berbasis fitur di bawah `src/features/{assistant,chapters,codex,editor,lore}` (m
 
 ## Audit kualitas kode
 `RENCANA-AUDIT-KODE.md` (root) adalah tracker audit bertahap: 12 area dengan prioritas, status per-item (✅/🔄/⬜), dan temuan. Item berdampak-tinggi sudah diperbaiki (P0 jantung AI, data-loss autosave, body-limit server, backup chatSessions, ketahanan DB/worker, dll). Sisa item bersifat cosmetic/opt-in/refactor besar. Cek file itu sebelum mengerjakan ulang area yang sudah diaudit, dan perbarui statusnya bila menyentuh temuan terkait.
+
+## Optimasi penggunaan AI
+`RENCANA-OPTIMASI-AI.md` (root) adalah tracker optimasi token/biaya AI (status per-item ✅/🔄/⬜): prompt caching trio + extended TTL Claude, plafon `max_tokens` per-aksi, dan routing model per-tugas sudah selesai; sisa item (cache riwayat chat, tuning `MAX_CACHED_LORE_CHARS` berbasis data Dashboard) belum. Cek file itu sebelum menyentuh jalur AI terkait token/caching/model.
