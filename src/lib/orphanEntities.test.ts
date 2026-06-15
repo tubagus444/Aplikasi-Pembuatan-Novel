@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findOrphanEntities } from '@/src/lib/orphanEntities';
+import { findOrphanEntities, gatherEntityContext } from '@/src/lib/orphanEntities';
 
 const ch = (content: string, id = 1) => ({ id, content });
 
@@ -32,6 +32,19 @@ describe('findOrphanEntities', () => {
     expect(findOrphanEntities([ch(text)], [], { ignored }).find(o => o.name === 'Mira')).toBeFalsy();
     // Tanpa ignore tapi threshold tinggi → tersaring.
     expect(findOrphanEntities([ch(text)], [], { minCount: 99 }).length).toBe(0);
+  });
+
+  it('gathers capped context snippets around a name across chapters', () => {
+    const a = 'Pagi itu Kael bangun. Kael lapar sekali hari ini.';
+    const b = 'Di pasar, Kael membeli roti.';
+    const snippets = gatherEntityContext([{ content: a }, { content: b }], 'Kael', { maxSnippets: 2, window: 40 });
+    const lines = snippets.split('\n');
+    expect(lines.length).toBe(2);              // di-cap ke 2 snippet
+    expect(lines.every(l => /Kael/.test(l))).toBe(true);
+  });
+
+  it('returns empty context when name is absent', () => {
+    expect(gatherEntityContext([{ content: 'Tidak ada siapa pun di sini.' }], 'Zylthar')).toBe('');
   });
 
   it('detects multi-word names and aggregates across chapters', () => {

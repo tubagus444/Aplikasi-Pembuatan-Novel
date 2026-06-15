@@ -7,6 +7,8 @@
  * SUDAH ada). Murni heuristik, tanpa AI — instan & lokal.
  */
 
+import { getCodexRegex } from '@/src/lib/utils';
+
 export interface OrphanCandidate {
   /** Bentuk permukaan, mis. "Kael" atau "Kael Aldheim". */
   name: string;
@@ -172,4 +174,50 @@ export function findOrphanEntities(
 
   out.sort((x, y) => (y.count - x.count) || (y.strong - x.strong) || x.name.localeCompare(y.name));
   return out;
+}
+
+/**
+ * Mengumpulkan cuplikan konteks (window di sekitar tiap kemunculan nama) dari
+ * manuskrip — untuk membekali enrichment AI dengan bukti dari teks asli.
+ * Di-cap ketat agar hemat token & terprediksi.
+ */
+export function gatherEntityContext(
+  chapters: { content: string }[],
+  name: string,
+  options?: { maxSnippets?: number; window?: number; maxChars?: number }
+): string {
+  const maxSnippets = options?.maxSnippets ?? 6;
+  const window = options?.window ?? 180;
+  const maxChars = options?.maxChars ?? 1500;
+
+  let re: RegExp;
+  try {
+    re = getCodexRegex(name);
+  } catch {
+    return '';
+  }
+
+  const snippets: string[] = [];
+  let total = 0;
+
+  for (const ch of chapters) {
+    const text = ch.content || '';
+    if (!text) continue;
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const idx = m.index;
+      const start = Math.max(0, idx - Math.floor(window / 2));
+      const end = Math.min(text.length, idx + m[0].length + Math.floor(window / 2));
+      let s = text.slice(start, end).replace(/\s+/g, ' ').trim();
+      if (start > 0) s = '…' + s;
+      if (end < text.length) s = s + '…';
+      snippets.push(s);
+      total += s.length;
+      if (m.index === re.lastIndex) re.lastIndex++; // jaga-jaga match nol-panjang
+      if (snippets.length >= maxSnippets || total >= maxChars) return snippets.join('\n');
+    }
+  }
+
+  return snippets.join('\n');
 }

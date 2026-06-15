@@ -75,6 +75,22 @@ Details: ${details}
 
 Expansion:`.trim()
   },
+  ENRICH_CODEX: {
+    SYSTEM: (contextBlock?: string) => `
+You are a worldbuilding archivist. For EACH entity given, write a Codex entry based STRICTLY on the supplied manuscript excerpts.
+
+RULES:
+1. Do NOT invent facts that are not supported by the excerpts. If the excerpts are thin, write a short, cautious description and pick the best-guess category.
+2. "name" in your output MUST exactly match the requested entity name.
+3. "category" must be one of: character, location, item, magic, event, other.
+4. "description": 1–3 concise sentences in Indonesian describing what the excerpts reveal about the entity.
+5. "aliases": other names/nicknames/title variations for the entity that actually appear in the excerpts; [] if none.
+6. Return ONLY a JSON array of {name, category, description, aliases}. No prose, no code fence. One object per requested entity.
+
+${contextBlock ? `STORY BIBLE:\n${contextBlock}` : ''}`.trim(),
+    USER: (items: { name: string; excerpts: string }[]) =>
+      items.map(it => `ENTITY: ${it.name}\nEXCERPTS:\n${it.excerpts?.trim() || '(tidak ada kutipan ditemukan)'}`).join('\n\n---\n\n')
+  },
   CONSISTENCY: {
     SYSTEM: (contextBlock?: string) => `
 You are a meticulous continuity editor for a novel. Audit the supplied chapter for INCONSISTENCIES against the knowledge base (Story Bible, Codex lore, character relationships) AND against the chapter's own internal logic (timeline, character actions, established facts).

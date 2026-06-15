@@ -3,18 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { UserSearch, ScanSearch, Plus, EyeOff, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { UserSearch, ScanSearch, Plus, EyeOff, Loader2, Sparkles, CheckCircle2, Wand2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProjectData } from '@/src/hooks/useProjectData';
-import { findOrphanEntities, OrphanCandidate } from '@/src/lib/orphanEntities';
+import { findOrphanEntities, gatherEntityContext, OrphanCandidate } from '@/src/lib/orphanEntities';
+import { enrichEntities } from '@/src/services/ai';
 import { CodexCategory } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 
 interface OrphanScanPanelProps {
   projectId: number;
+}
+
+interface Enrichment {
+  category: CodexCategory;
+  description: string;
+  aliases: string[];
 }
 
 const CATEGORY_OPTIONS: { value: CodexCategory; label: string }[] = [
@@ -25,6 +32,9 @@ const CATEGORY_OPTIONS: { value: CodexCategory; label: string }[] = [
   { value: 'event', label: 'Peristiwa' },
   { value: 'other', label: 'Lainnya' }
 ];
+
+// Batas wajar untuk satu panggilan batch (jaga token & kualitas output).
+const MAX_BATCH = 25;
 
 const ignoredKey = (projectId: number) => `codex_orphan_ignored_${projectId}`;
 
@@ -43,7 +53,7 @@ function saveIgnored(projectId: number, set: Set<string>) {
 }
 
 export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
-  const { codexEntries } = useProjectData(projectId);
+  const { codexEntries, bibleRules } = useProjectData(projectId);
 
   const chapters = useLiveQuery(() =>
     db.chapters.where('projectId').equals(projectId).toArray()
@@ -53,17 +63,27 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
   const [scanning, setScanning] = useState(false);
   const [results, setResults] = useState<OrphanCandidate[] | null>(null);
   const [categories, setCategories] = useState<Record<string, CodexCategory>>({});
+  const [enriched, setEnriched] = useState<Record<string, Enrichment>>({});
+  const [enrichingNames, setEnrichingNames] = useState<Set<string>>(new Set());
+  const [enrichingAll, setEnrichingAll] = useState(false);
+  const [enrichError, setEnrichError] = useState<string | null>(null);
+
+  // Teks bab polos disimpan saat scan agar enrichment bisa mengumpulkan konteks
+  // tanpa men-strip ulang HTML.
+  const plainChaptersRef = useRef<{ id?: number; content: string }[]>([]);
 
   const scan = useCallback(async () => {
     if (!chapters) return;
     setScanning(true);
     setResults(null);
-    // Yield agar overlay loading sempat render sebelum kerja sinkron.
-    await new Promise(r => setTimeout(r, 0));
+    setEnriched({});
+    setEnrichError(null);
+    await new Promise(r => setTimeout(r, 0)); // yield agar overlay loading render
     const plainChapters = chapters.map(c => ({
       id: c.id,
       content: (c.content || '').replace(/<[^>]*>/g, ' ')
     }));
+    plainChaptersRef.current = plainChapters;
     const found = findOrphanEntities(plainChapters, codexEntries, {
       minCount,
       ignored: loadIgnored(projectId)
@@ -72,14 +92,61 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
     setScanning(false);
   }, [chapters, codexEntries, minCount, projectId]);
 
+  const applyEnrichment = (list: { name: string; category: CodexCategory; description: string; aliases: string[] }[]) => {
+    setEnriched(prev => {
+      const next = { ...prev };
+      for (const e of list) next[e.name] = { category: e.category, description: e.description, aliases: e.aliases };
+      return next;
+    });
+    setCategories(prev => {
+      const next = { ...prev };
+      for (const e of list) next[e.name] = e.category;
+      return next;
+    });
+  };
+
+  const enrichOne = async (cand: OrphanCandidate) => {
+    setEnrichError(null);
+    setEnrichingNames(prev => new Set(prev).add(cand.name));
+    try {
+      const excerpts = gatherEntityContext(plainChaptersRef.current, cand.name, { maxSnippets: 6, window: 180, maxChars: 1500 });
+      const res = await enrichEntities([{ name: cand.name, excerpts }], bibleRules);
+      applyEnrichment(res.map(e => ({ name: e.name, category: e.category as CodexCategory, description: e.description, aliases: e.aliases })));
+    } catch (e: any) {
+      setEnrichError(e?.message || 'Gagal melengkapi entitas dengan AI.');
+    } finally {
+      setEnrichingNames(prev => { const n = new Set(prev); n.delete(cand.name); return n; });
+    }
+  };
+
+  const enrichAll = async () => {
+    if (!results || results.length === 0) return;
+    setEnrichError(null);
+    setEnrichingAll(true);
+    try {
+      const batch = results.slice(0, MAX_BATCH);
+      const items = batch.map(c => ({
+        name: c.name,
+        excerpts: gatherEntityContext(plainChaptersRef.current, c.name, { maxSnippets: 3, window: 160, maxChars: 700 })
+      }));
+      const res = await enrichEntities(items, bibleRules);
+      applyEnrichment(res.map(e => ({ name: e.name, category: e.category as CodexCategory, description: e.description, aliases: e.aliases })));
+    } catch (e: any) {
+      setEnrichError(e?.message || 'Gagal melengkapi entitas dengan AI.');
+    } finally {
+      setEnrichingAll(false);
+    }
+  };
+
   const addToCodex = async (cand: OrphanCandidate) => {
-    const category = categories[cand.name] || 'character';
+    const enr = enriched[cand.name];
+    const category = categories[cand.name] || enr?.category || 'character';
     await db.codex.add({
       projectId,
       name: cand.name,
-      aliases: [],
+      aliases: enr?.aliases || [],
       category,
-      description: '',
+      description: enr?.description || '',
       tags: []
     });
     setResults(prev => prev ? prev.filter(c => c.name !== cand.name) : prev);
@@ -106,7 +173,7 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
           Entitas Yatim
         </h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-2xl leading-relaxed">
-          Memindai manuskrip untuk nama-diri yang sering muncul tetapi belum ada di Kamus Data. Tambahkan sekali klik agar AI selalu punya konteks lengkap dan konsistensi terjaga.
+          Memindai manuskrip untuk nama-diri yang sering muncul tetapi belum ada di Kamus Data. Tambahkan sekali klik, atau biarkan AI mengisi kategori &amp; deskripsi berdasarkan teks aslinya.
         </p>
       </header>
 
@@ -137,6 +204,13 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
         </p>
       </div>
 
+      {enrichError && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400">
+          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+          <p className="text-sm leading-relaxed">{enrichError}</p>
+        </div>
+      )}
+
       {/* Hasil */}
       {results !== null && (
         results.length === 0 ? (
@@ -151,16 +225,30 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">
-              {results.length} kandidat ditemukan
-            </h2>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                {results.length} kandidat ditemukan
+              </h2>
+              <button
+                onClick={enrichAll}
+                disabled={enrichingAll}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50 rounded-xl text-xs font-semibold hover:bg-violet-100 dark:hover:bg-violet-900/50 disabled:opacity-50 transition-all active:scale-95"
+                title="Isi kategori & deskripsi semua kandidat dengan AI (satu panggilan)"
+              >
+                {enrichingAll ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                {enrichingAll ? 'Melengkapi…' : `Lengkapi semua dengan AI${results.length > MAX_BATCH ? ` (${MAX_BATCH} teratas)` : ''}`}
+              </button>
+            </div>
             <AnimatePresence mode="popLayout">
               {results.map(cand => (
                 <CandidateCard
                   key={cand.name}
                   cand={cand}
-                  category={categories[cand.name] || 'character'}
+                  category={categories[cand.name] || enriched[cand.name]?.category || 'character'}
+                  enrichment={enriched[cand.name]}
+                  isEnriching={enrichingNames.has(cand.name) || enrichingAll}
                   onCategory={(c) => setCategories(prev => ({ ...prev, [cand.name]: c }))}
+                  onEnrich={() => enrichOne(cand)}
                   onAdd={() => addToCodex(cand)}
                   onIgnore={() => ignore(cand)}
                 />
@@ -186,11 +274,14 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
 }
 
 function CandidateCard({
-  cand, category, onCategory, onAdd, onIgnore
+  cand, category, enrichment, isEnriching, onCategory, onEnrich, onAdd, onIgnore
 }: {
   cand: OrphanCandidate;
   category: CodexCategory;
+  enrichment?: Enrichment;
+  isEnriching: boolean;
   onCategory: (c: CodexCategory) => void;
+  onEnrich: () => void;
   onAdd: () => void;
   onIgnore: () => void;
 }) {
@@ -200,47 +291,81 @@ function CandidateCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4"
+      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3"
     >
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100 break-words">{cand.name}</h3>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50">
-            {cand.count}×
-          </span>
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">
-            di {cand.chapterIds.length} bab
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100 break-words">{cand.name}</h3>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50">
+              {cand.count}×
+            </span>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500">
+              di {cand.chapterIds.length} bab
+            </span>
+          </div>
+          {cand.sample && !enrichment && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed break-words">{cand.sample}</p>
+          )}
         </div>
-        {cand.sample && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed break-words">{cand.sample}</p>
-        )}
+
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            aria-label={`Kategori untuk ${cand.name}`}
+            value={category}
+            onChange={(e) => onCategory(e.target.value as CodexCategory)}
+            className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-indigo-400"
+          >
+            {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <button
+            onClick={onEnrich}
+            disabled={isEnriching}
+            title="Lengkapi kategori & deskripsi dengan AI"
+            className="flex items-center justify-center w-9 h-9 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-50 transition-colors"
+          >
+            {isEnriching ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
+          </button>
+          <button
+            onClick={onAdd}
+            title="Tambah ke Codex"
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-all active:scale-95"
+          >
+            <Plus size={14} /> Tambah
+          </button>
+          <button
+            onClick={onIgnore}
+            title="Abaikan kandidat ini"
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <EyeOff size={15} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <select
-          aria-label={`Kategori untuk ${cand.name}`}
-          value={category}
-          onChange={(e) => onCategory(e.target.value as CodexCategory)}
-          className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-indigo-400"
-        >
-          {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <button
-          onClick={onAdd}
-          title="Tambah ke Codex"
-          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-all active:scale-95"
-        >
-          <Plus size={14} /> Tambah
-        </button>
-        <button
-          onClick={onIgnore}
-          title="Abaikan kandidat ini"
-          className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          <EyeOff size={15} />
-        </button>
-      </div>
+      {/* Hasil enrichment AI */}
+      {enrichment && (
+        <div className="rounded-xl bg-violet-50/50 dark:bg-violet-900/15 border border-violet-100 dark:border-violet-800/40 p-3 space-y-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+            <Wand2 size={12} /> Disusun AI dari manuskrip
+          </div>
+          {enrichment.description ? (
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words">{enrichment.description}</p>
+          ) : (
+            <p className="text-xs text-slate-400 italic">AI tidak menemukan cukup konteks untuk deskripsi.</p>
+          )}
+          {enrichment.aliases.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">Alias:</span>
+              {enrichment.aliases.map((a, i) => (
+                <span key={i} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                  {a}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

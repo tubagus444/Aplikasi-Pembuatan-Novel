@@ -616,6 +616,59 @@ export async function checkConsistency(params: ConsistencyParams): Promise<{ fin
   }
 }
 
+const ENRICH_CATEGORIES = new Set(['character', 'location', 'item', 'magic', 'event', 'other']);
+
+export interface EnrichedEntity {
+  name: string;
+  category: string;
+  description: string;
+  aliases: string[];
+}
+
+/**
+ * Enrichment Codex berbasis manuskrip (grounded): diberi daftar entitas + cuplikan
+ * konteksnya, AI mengembalikan kategori + deskripsi + alias yang SETIA pada teks.
+ * Dirutekan ke model murah (actionType 'extract') dan dipakai on-demand saja.
+ * Mode batch (banyak entitas sekaligus) mengamortisasi system prompt → hemat token.
+ */
+export async function enrichEntities(
+  items: { name: string; excerpts: string }[],
+  bibleRules: StoryBibleRule[]
+): Promise<EnrichedEntity[]> {
+  if (!items || items.length === 0) return [];
+  const settings = getSettings();
+  const contextBlock = buildContextBlock(bibleRules, [], [], settings.contextDepth);
+  const systemInstruction = AI_PROMPTS.ENRICH_CODEX.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.ENRICH_CODEX.USER(items);
+  // Plafon output skala jumlah entitas (jaring pengaman), dengan lantai & langit.
+  const maxTokens = Math.min(4000, Math.max(600, items.length * 220 + 400));
+
+  // Cocokkan nama hasil ke nama yang diminta (case-insensitive) agar key konsisten.
+  const requestedByLower = new Map(items.map(it => [it.name.toLowerCase(), it.name]));
+
+  try {
+    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, maxTokens, actionType: 'extract' });
+    const arr = parseJsonArray(res);
+    const out: EnrichedEntity[] = [];
+    for (const raw of arr) {
+      if (!raw || typeof raw !== 'object') continue;
+      const rawName = typeof raw.name === 'string' ? raw.name.trim() : '';
+      if (!rawName) continue;
+      const name = requestedByLower.get(rawName.toLowerCase()) || rawName;
+      const category = ENRICH_CATEGORIES.has(raw.category) ? raw.category : 'other';
+      const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, 1000) : '';
+      const aliases = Array.isArray(raw.aliases)
+        ? raw.aliases.filter((a: any) => typeof a === 'string' && a.trim()).map((a: string) => a.trim()).slice(0, 10)
+        : [];
+      out.push({ name, category, description, aliases });
+    }
+    return out;
+  } catch (error: any) {
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'Enrichment entitas gagal.', 'API_ERROR');
+  }
+}
+
 export async function expandCodexEntry(
   name: string,
   category: string,
