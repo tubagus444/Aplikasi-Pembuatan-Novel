@@ -347,12 +347,6 @@ async function callAI(params: AIRenderParams): Promise<string> {
   }
 }
 
-function extractCandidateSentences(text: string): string {
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  const candidates = sentences.filter(s => /\b[A-Z][a-z]{2,}/.test(s));
-  return candidates.slice(0, 60).join(' ');
-}
-
 /** Mengupas respons model (yang kerap dibungkus code fence/prosa) menjadi array JSON. */
 function parseJsonArray(raw: string): any[] {
   let text = raw.trim();
@@ -515,31 +509,6 @@ export async function processChat(params: ChatParams): Promise<string> {
     throw new AIError(error instanceof Error ? error.message : 'AI chat failed.', "API_ERROR");
   } finally {
     unregisterAbort('chat', controller);
-  }
-}
-
-export async function extractToCodex(
-  text: string,
-  bibleRules: StoryBibleRule[]
-  ): Promise<{name: string, category: string, description: string, aliases: string[]}[]> {
-  const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], [], settings.contextDepth);
-  const systemInstruction = AI_PROMPTS.EXTRACT_CODEX.SYSTEM(contextBlock);
-  const userPrompt = AI_PROMPTS.EXTRACT_CODEX.USER(extractCandidateSentences(text));
-
-  try {
-    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, maxTokens: 1500, actionType: 'extract' });
-    return parseJsonArray(res);
-  } catch (error: any) {
-    console.error('Extraction Error:', error);
-    if (error instanceof AIError) throw error;
-    ErrorService.log({
-      message: 'Failed to extract codex entries: ' + (error instanceof Error ? error.message : String(error)),
-      type: 'error',
-      source: 'AI-Service (Extract)',
-      metadata: { text: text.substring(0, 100) }
-    });
-    throw new AIError('Failed to extract codex entries.', 'API_ERROR');
   }
 }
 

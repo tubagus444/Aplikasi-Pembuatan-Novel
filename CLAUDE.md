@@ -40,7 +40,7 @@ npm run clean    # rm -rf dist
 Kode fitur tidak pernah memanggil provider secara langsung. Jalurnya:
 
 ```
-fitur → src/services/ai/index.ts (facade: processRewrite / processChat / extractToCodex / expandCodexEntry / checkConsistency / enrichEntities)
+fitur → src/services/ai/index.ts (facade: processRewrite / processChat / expandCodexEntry / checkConsistency / enrichEntities)
       → callAI() ……… ketahanan: circuit breaker per-provider + exponential backoff + fallback otomatis
       → callProxy() (src/services/ai/proxy.ts)
       → POST /api/ai/proxy  (server.ts)

@@ -48,17 +48,6 @@ ${contextBlock ? `LORE:\n${contextBlock}` : ''}`.trim();
     USER: (message: string, draftSnippet?: string) => `
 ${draftSnippet ? `DRAFT:\n"""\n${draftSnippet}\n"""\n\n` : ''}USER MESSAGE: ${message}`.trim()
   },
-  EXTRACT_CODEX: {
-    SYSTEM: (contextBlock?: string) => `
-Extract character/location/lore from text as JSON.
-
-RULES:
-Format: Array of {name, category, description, aliases}.
-Categories: character, location, magic, item, other.
-
-${contextBlock ? `KNOWLEDGE BASE RULES:\n${contextBlock}` : ''}`.trim(),
-    USER: (candidates: string) => `Extract: ${candidates}`.trim()
-  },
   EXPAND_CODEX: {
     SYSTEM: (contextBlock?: string) => `
 Worldbuilder assistant. Expand lore concisely.
