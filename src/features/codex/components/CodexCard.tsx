@@ -5,6 +5,7 @@ import { CodexEntry, Relationship } from '@/src/types';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
+import { RELATIONSHIP_TYPES, getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
 
 interface CodexCardProps {
   entry: CodexEntry;
@@ -101,14 +102,9 @@ export function CodexCard({
                     value={linkingType}
                     onChange={e => onSetLinkingType(e.target.value)}
                   >
-                    <option value="Friend">Teman</option>
-                    <option value="Enemy">Musuh</option>
-                    <option value="Family">Keluarga</option>
-                    <option value="Lover">Kekasih</option>
-                    <option value="Ally">Sekutu</option>
-                    <option value="Resides In">Tinggal di</option>
-                    <option value="Owns">Memiliki</option>
-                    <option value="Other">Lainnya</option>
+                    {RELATIONSHIP_TYPES.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                   </select>
                   <select
                     className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none max-w-[120px]"
@@ -159,6 +155,16 @@ export function CodexCard({
           </div>
         )}
 
+        {(entry.tags?.length ?? 0) > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {entry.tags!.map(t => (
+              <span key={t} className="text-[10px] font-semibold text-indigo-500 dark:text-indigo-400">
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+
         {relationships && relationships.filter(r => r.sourceId === entry.id || r.targetId === entry.id).length > 0 && (
           <div className="mt-3 pt-3 flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500">
@@ -171,7 +177,7 @@ export function CodexCard({
               if (!otherEntry) return null;
               return (
                 <span key={r.id} className="group/bond text-[11px] font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  {r.type} <span className="opacity-50">dengan</span> {otherEntry.name}
+                  {getRelationshipLabel(r.type, isSource)} <span className="opacity-50">dengan</span> {otherEntry.name}
                   <button onClick={(e) => { e.stopPropagation(); onDeleteRelationship(r.id!); }} className="opacity-0 group-hover/bond:opacity-100 text-indigo-400 hover:text-red-500 transition ml-1 shrink-0">
                     <X size={10} />
                   </button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Edit2, Plus, X, Wand2, Check } from 'lucide-react';
+import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle } from 'lucide-react';
 import { CodexEntry, CodexCategory } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { expandCodexEntry } from '@/src/services/ai';
@@ -11,11 +11,12 @@ interface CodexFormProps {
   initialData?: Partial<CodexEntry>;
   editingId: number | null;
   bibleRules: any[];
+  existingEntries?: CodexEntry[];
   onSave: (data: Partial<CodexEntry>) => Promise<void>;
   onCancel: () => void;
 }
 
-export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel }: CodexFormProps) {
+export function CodexForm({ initialData, editingId, bibleRules, existingEntries = [], onSave, onCancel }: CodexFormProps) {
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
   const [formData, setFormData] = useState<Partial<CodexEntry>>({
@@ -27,6 +28,9 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
     ...initialData
   });
   const [isExpanding, setIsExpanding] = useState(false);
+  // Deskripsi sebelum di-overwrite AI; menyimpannya memungkinkan "Urungkan"
+  // tanpa risiko kehilangan tulisan pengguna. null = tidak ada yang bisa diurungkan.
+  const [prevDescription, setPrevDescription] = useState<string | null>(null);
 
   useEffect(() => {
     setFormData({
@@ -37,7 +41,13 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
       tags: [],
       ...initialData
     });
+    setPrevDescription(null);
   }, [initialData]);
+
+  const trimmedName = formData.name?.trim().toLowerCase() ?? '';
+  const isDuplicateName = trimmedName.length > 0 && existingEntries.some(
+    e => e.id !== editingId && e.name.trim().toLowerCase() === trimmedName
+  );
 
   const handleExpand = async () => {
     if (!formData.name) return;
@@ -49,6 +59,7 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
         formData.description || '',
         bibleRules || []
       );
+      setPrevDescription(formData.description || '');
       setFormData(prev => ({ ...prev, description: expandedDesc }));
     } catch (e: any) {
       if (e.code === 'INVALID_KEY' || e.code === 'QUOTA_EXCEEDED') {
@@ -64,6 +75,12 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
     } finally {
       setIsExpanding(false);
     }
+  };
+
+  const handleUndoExpand = () => {
+    if (prevDescription === null) return;
+    setFormData(prev => ({ ...prev, description: prevDescription }));
+    setPrevDescription(null);
   };
 
   return (
@@ -96,6 +113,12 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
               />
+              {isDuplicateName && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-500">
+                  <AlertTriangle size={12} className="shrink-0" />
+                  Sudah ada entri dengan nama ini — nama ganda bisa membingungkan injeksi konteks AI.
+                </p>
+              )}
             </div>
             
             <div>
@@ -109,17 +132,28 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
                 <option value="location">Lokasi</option>
                 <option value="magic">Sistem Sihir</option>
                 <option value="item">Item/Artefak</option>
+                <option value="event">Peristiwa</option>
                 <option value="other">Lore Lainnya</option>
               </select>
             </div>
             
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Alias</label>
-              <input 
+              <input
                 className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100"
                 placeholder="Pisahkan dengan koma (misal: Budi, Pak Budi)"
                 value={formData.aliases?.join(', ')}
                 onChange={e => setFormData({...formData, aliases: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Tag</label>
+              <input
+                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100"
+                placeholder="Pisahkan dengan koma (misal: protagonis, bangsawan)"
+                value={formData.tags?.join(', ')}
+                onChange={e => setFormData({...formData, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})}
               />
             </div>
           </div>
@@ -127,26 +161,43 @@ export function CodexForm({ initialData, editingId, bibleRules, onSave, onCancel
           <div className="md:col-span-2 flex flex-col h-full">
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Deskripsi (Mendukung Markdown) *</label>
-              <button
-                onClick={handleExpand}
-                disabled={isExpanding || !formData.name}
-                className={cn(
-                  "flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full transition-all border",
-                  isExpanding 
-                    ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent animate-pulse" 
-                    : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              <div className="flex items-center gap-2">
+                {prevDescription !== null && !isExpanding && (
+                  <button
+                    type="button"
+                    onClick={handleUndoExpand}
+                    className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full transition-all border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    title="Kembalikan deskripsi sebelum dikembangkan AI"
+                  >
+                    <Undo2 size={12} />
+                    Urungkan
+                  </button>
                 )}
-                title={!formData.name ? "Masukkan nama terlebih dahulu" : "Buat lore detail menggunakan AI berdasarkan Nama dan Kategori"}
-              >
-                <Wand2 size={12} className={isExpanding ? "animate-spin" : ""} />
-                {isExpanding ? "Mengembangkan..." : "Kembangkan dengan AI"}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleExpand}
+                  disabled={isExpanding || !formData.name}
+                  className={cn(
+                    "flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full transition-all border",
+                    isExpanding
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent animate-pulse"
+                      : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                  title={!formData.name ? "Masukkan nama terlebih dahulu" : "Buat lore detail menggunakan AI berdasarkan Nama dan Kategori"}
+                >
+                  <Wand2 size={12} className={isExpanding ? "animate-spin" : ""} />
+                  {isExpanding ? "Mengembangkan..." : "Kembangkan dengan AI"}
+                </button>
+              </div>
             </div>
             <textarea 
               className="w-full flex-1 min-h-[160px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-100 resize-y font-serif leading-relaxed"
               placeholder="Deskripsikan sejarah atau sifat unik untuk memberi konteks pada AI..."
               value={formData.description}
-              onChange={e => setFormData({...formData, description: e.target.value})}
+              onChange={e => {
+                setFormData({...formData, description: e.target.value});
+                if (prevDescription !== null) setPrevDescription(null);
+              }}
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Plus, Search, MessageSquareText, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScribbleAssistantPanel } from '@/src/features/assistant/components/ScribbleAssistantPanel';
@@ -13,13 +13,24 @@ interface CodexPanelProps {
   projectId: number;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  character: 'Karakter',
+  location: 'Lokasi',
+  magic: 'Sistem Sihir',
+  item: 'Item',
+  event: 'Peristiwa',
+  other: 'Lainnya',
+};
+
 export function CodexPanel({ projectId }: CodexPanelProps) {
   const {
     entries,
     filteredEntries,
     bibleRules,
     relationships,
-    
+    allTags,
+    stats,
+
     isAdding,
     editingId,
     selectedEntry,
@@ -28,6 +39,10 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     setSearchQuery,
     filterCategory,
     setFilterCategory,
+    filterTag,
+    setFilterTag,
+    sortBy,
+    setSortBy,
     isAssistantOpen,
     setIsAssistantOpen,
     
@@ -52,6 +67,15 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     handleToggleLinking
   } = useCodexPanel(projectId);
 
+  useEffect(() => {
+    if (confirmDeleteId === null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setConfirmDeleteId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [confirmDeleteId, setConfirmDeleteId]);
+
   return (
     <div className="max-w-5xl mx-auto h-[calc(100vh-8rem)] flex flex-col pt-1">
       <div className="shrink-0">
@@ -59,6 +83,15 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
           <div>
             <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 italic">Kamus Data (Codex)</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium tracking-wide">Data pembangunan dunia untuk injeksi konteks AI.</p>
+            {stats.total > 0 && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 font-medium">
+                <span className="font-bold text-slate-600 dark:text-slate-300">{stats.total} entri</span>
+                {Object.entries(stats.byCategory)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([cat, n]) => ` · ${n} ${CATEGORY_LABELS[cat] ?? cat}`)
+                  .join('')}
+              </p>
+            )}
           </div>
           {!isAdding && (
             <button 
@@ -76,7 +109,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="text"
-                placeholder="Cari entri Codex berdasarkan nama, alias, atau deskripsi..."
+                placeholder="Cari entri Codex berdasarkan nama, alias, tag, atau deskripsi..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow dark:text-slate-200 placeholder:text-slate-400"
@@ -85,14 +118,41 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             <select
                value={filterCategory}
                onChange={(e) => setFilterCategory(e.target.value as any)}
-               className="w-full sm:w-48 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
+               title="Filter berdasarkan kategori"
+               className="w-full sm:w-44 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
             >
               <option value="all">Semua Kategori</option>
               <option value="character">Karakter</option>
               <option value="location">Lokasi</option>
               <option value="magic">Sistem Sihir</option>
               <option value="item">Item & Artefak</option>
+              <option value="event">Peristiwa</option>
               <option value="other">Lore Lainnya</option>
+            </select>
+            {allTags.length > 0 && (
+              <select
+                 value={filterTag}
+                 onChange={(e) => setFilterTag(e.target.value)}
+                 title="Filter berdasarkan tag"
+                 className="w-full sm:w-40 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
+              >
+                <option value="all">Semua Tag</option>
+                {allTags.map(t => (
+                  <option key={t} value={t}>#{t}</option>
+                ))}
+              </select>
+            )}
+            <select
+               value={sortBy}
+               onChange={(e) => setSortBy(e.target.value as any)}
+               title="Urutkan entri"
+               className="w-full sm:w-44 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
+            >
+              <option value="name-asc">Nama (A–Z)</option>
+              <option value="name-desc">Nama (Z–A)</option>
+              <option value="category">Kategori</option>
+              <option value="recent">Terbaru</option>
+              <option value="oldest">Terlama</option>
             </select>
           </div>
         )}
@@ -102,10 +162,11 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
         <AnimatePresence>
           {isAdding && (
             <div className="w-full pb-10 overflow-y-auto h-full px-2" data-codex-form>
-              <CodexForm 
+              <CodexForm
                 initialData={initialData}
                 editingId={editingId}
                 bibleRules={bibleRules || []}
+                existingEntries={entries || []}
                 onSave={handleSaveEntry}
                 onCancel={cancelEdit}
               />
@@ -174,7 +235,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             <Search size={32} className="mx-auto mb-4 opacity-50" />
             <p>Tidak ada entri yang cocok dengan kriteria pencarian Anda.</p>
             <button 
-              onClick={() => { setSearchQuery(''); setFilterCategory('all'); }}
+              onClick={() => { setSearchQuery(''); setFilterCategory('all'); setFilterTag('all'); }}
               className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-semibold"
             >
               Cari Ulang

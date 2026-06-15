@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Tag, Link2, X, Edit2, Trash2 } from 'lucide-react';
 import { CodexEntry, Relationship } from '@/src/types';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
+import { getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
 
 interface CodexDetailModalProps {
   entry: CodexEntry;
@@ -28,6 +29,14 @@ export function CodexDetailModal({
   const entryRelationships = relationships.filter(
     r => r.sourceId === entry.id || r.targetId === entry.id
   );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   return (
     <div 
@@ -96,6 +105,17 @@ export function CodexDetailModal({
             </div>
           )}
 
+          {/* Tags */}
+          {(entry.tags?.length ?? 0) > 0 && (
+            <div className="mb-8 flex flex-wrap gap-2 items-center">
+              {entry.tags!.map(t => (
+                <span key={t} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Description */}
           <div className="prose prose-slate dark:prose-invert max-w-none font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-lg mb-10">
             {entry.description ? (
@@ -121,7 +141,7 @@ export function CodexDetailModal({
                     return (
                       <div key={r.id} className="flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-900/20 px-4 py-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-indigo-700 dark:text-indigo-400 text-sm">{r.type}</span>
+                          <span className="font-semibold text-indigo-700 dark:text-indigo-400 text-sm">{getRelationshipLabel(r.type, isSource)}</span>
                           <span className="text-indigo-400 dark:text-indigo-600 text-sm">dengan</span>
                           <span className="font-bold text-slate-900 dark:text-slate-100">{otherEntry.name}</span>
                         </div>

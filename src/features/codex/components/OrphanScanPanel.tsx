@@ -10,6 +10,7 @@ import { UserSearch, ScanSearch, Plus, EyeOff, Loader2, Sparkles, CheckCircle2, 
 import { motion, AnimatePresence } from 'motion/react';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { findOrphanEntities, gatherEntityContext, OrphanCandidate } from '@/src/lib/orphanEntities';
+import { invalidateContextCache } from '@/src/services/contextEngine';
 import { enrichEntities } from '@/src/services/ai';
 import { CodexCategory } from '@/src/types';
 import { cn } from '@/src/lib/utils';
@@ -149,6 +150,8 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
       description: enr?.description || '',
       tags: []
     });
+    // Entri baru harus segera masuk konteks AI (selaras dengan jalur simpan Codex).
+    await invalidateContextCache();
     setResults(prev => prev ? prev.filter(c => c.name !== cand.name) : prev);
   };
 
