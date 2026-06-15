@@ -1,6 +1,6 @@
 import { StoryBibleRule, CodexEntry, ContextDepth, Relationship } from '@/src/types';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
-import { callProxy } from '@/src/services/ai/proxy';
+import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
 import { GenerateParams, ChatParams, AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
@@ -185,6 +185,10 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
 const MAX_RETRIES = 3;
 const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq']; // Ordered preference for fallback
 
+// Tugas mekanis (bukan penulisan kreatif) dirutekan ke model tier-murah provider
+// yang sama. rewrite/chat/expand tetap memakai model pilihan pengguna demi kualitas.
+const LIGHT_TASK_ACTIONS = new Set(['extract', 'summarize']);
+
 // Basic circuit breaker implementation
 const circuitBreaker = new Map<string, { failures: number, resetTime: number, halfOpenInFlight?: boolean }>();
 const CIRCUIT_OPEN_THRESHOLD = 3; // 3 consecutive failures to open circuit
@@ -232,7 +236,12 @@ async function callAIWithBackoff(
 ): Promise<string> {
   let attempt = 1;
   // Hindari mutasi objek params milik pemanggil; resolusi model & key dilakukan lokal.
-  const model = params.model || settings.models[provider as keyof typeof settings.models];
+  let model = params.model || settings.models[provider as keyof typeof settings.models];
+  // Routing per-tugas: tugas mekanis pakai model murah provider yang sama (kecuali
+  // pemanggil sudah memaksa model tertentu lewat params.model).
+  if (!params.model && params.actionType && LIGHT_TASK_ACTIONS.has(params.actionType)) {
+    model = getLightModelForProvider(provider) || model;
+  }
   const apiKey = settings.keys[provider as keyof typeof settings.keys];
 
   while (attempt <= MAX_RETRIES) {

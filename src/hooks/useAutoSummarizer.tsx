@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { db } from '@/src/db';
-import { callProxy } from '@/src/services/ai/proxy';
+import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
 
 // We should have a debouncer or background tracking.
 // We don't want to block the UI, and we want to allow failures without crashing.
@@ -55,7 +55,9 @@ async function summarizeChapterBackground(chapterId: number) {
     const apiKey = loadKey(provider);
     if (!apiKey) return; // No key, can't summarize in background implicitly
 
-    const model = localStorage.getItem(`ai_model_${provider}`) || undefined;
+    // Tugas mekanis: pakai model tier-murah provider yang sama; jatuh ke pilihan pengguna.
+    const userModel = localStorage.getItem(`ai_model_${provider}`) || undefined;
+    const model = getLightModelForProvider(provider) || userModel;
 
     const systemInstruction = 
       "Kamu adalah asisten editor novel profesional. Tugasmu adalah merangkum cerita bab yang diberikan ke dalam 1-2 paragraf singkat namun padat informasi. Fokus pada plot utama, karakter yang muncul, dan perubahan status quo. Format jawaban langsung ringkasan tanpa basa-basi.";

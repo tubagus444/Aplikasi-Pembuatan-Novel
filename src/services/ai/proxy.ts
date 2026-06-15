@@ -312,6 +312,24 @@ function logUsageToDB(params: AIRenderParams, provider: string, usage: any, comp
   }).catch(console.error);
 }
 
+// Model tier-murah/cepat per provider untuk tugas MEKANIS (extract/summarize).
+// BYOK: tetap di provider yang sama → memakai key yang sudah ada, tak butuh key lain.
+const LIGHT_MODELS: Record<string, string> = {
+  google: 'gemini-2.5-flash-lite',
+  claude: 'claude-3-5-haiku-20241022',
+  groq: 'llama-3.1-8b-instant',
+  openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+};
+
+/**
+ * Model "ringan" untuk tugas mekanis pada provider yang sama. Mengembalikan
+ * undefined bila provider tak punya tier murah (mis. ollama) → pemanggil jatuh
+ * ke model pilihan pengguna.
+ */
+export function getLightModelForProvider(provider: string): string | undefined {
+  return provider ? LIGHT_MODELS[provider.toLowerCase()] : undefined;
+}
+
 function getModelForProvider(provider: string) {
   switch (provider) {
     case 'groq': return 'llama-3.3-70b-versatile';
