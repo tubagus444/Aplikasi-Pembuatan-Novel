@@ -25,6 +25,7 @@ const AIAssistantPanel = lazy(() => import('@/src/features/assistant/components/
 const DashboardPanel = lazy(() => import('@/src/components/panels/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const ConsistencyPanel = lazy(() => import('@/src/features/consistency/components/ConsistencyPanel').then(m => ({ default: m.ConsistencyPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
+const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
 
 function LoadingFallback() {
   return (
@@ -156,6 +157,14 @@ export function MainView() {
             <ViewContainer key="timeline" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <TimelinePanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'orphans' && projectId && (
+            <ViewContainer key="orphans" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <OrphanScanPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -65,11 +65,17 @@ export function Sidebar() {
                 icon={<LayoutList size={14} />} 
                 label="Papan Rencana" 
               />
-              <NavItem 
-                active={viewMode === 'codex'} 
-                onClick={() => handleViewChange('codex')} 
-                icon={<Database size={14} />} 
-                label="Kamus Data" 
+              <NavItem
+                active={viewMode === 'codex'}
+                onClick={() => handleViewChange('codex')}
+                icon={<Database size={14} />}
+                label="Kamus Data"
+              />
+              <NavItem
+                active={viewMode === 'orphans'}
+                onClick={() => handleViewChange('orphans')}
+                icon={<UserSearch size={14} />}
+                label="Saran Entitas"
               />
               <NavItem 
                 active={viewMode === 'bible'} 
