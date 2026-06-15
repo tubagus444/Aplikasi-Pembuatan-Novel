@@ -26,9 +26,11 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
     // Caching mode: tandai blok system (knowledge base statis) sebagai cache breakpoint.
-    // Anthropic mengabaikan penanda ini jika prompt di bawah ambang minimum, tanpa error.
+    // TTL 1 jam dipilih agar cache bertahan melewati jeda berpikir/mengetik dalam satu
+    // sesi menulis (default ephemeral hanya 5 menit). Anthropic mengabaikan penanda ini
+    // jika prompt di bawah ambang minimum, tanpa error.
     body.system = params.cacheable
-      ? [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral' } }]
+      ? [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral', ttl: '1h' } }]
       : params.systemInstruction;
     body.messages = [
       ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: historyText(h) })),

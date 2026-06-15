@@ -52,8 +52,8 @@ async function startServer() {
         url = 'https://api.anthropic.com/v1/messages';
         if (apiKey) headers['x-api-key'] = apiKey;
         headers['anthropic-version'] = '2023-06-01';
-        // Aktifkan prompt caching (cache_control ephemeral pada blok system).
-        headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
+        // Aktifkan prompt caching + TTL diperpanjang (cache_control ttl '1h' pada blok system).
+        headers['anthropic-beta'] = 'prompt-caching-2024-07-31,extended-cache-ttl-2025-04-11';
         break;
       case 'google':
         apiKey = clientApiKey || process.env.GEMINI_API_KEY || '';
