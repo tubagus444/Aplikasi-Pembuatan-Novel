@@ -1,7 +1,7 @@
-import { StoryBibleRule, CodexEntry, ContextDepth, Relationship } from '@/src/types';
+import { StoryBibleRule, CodexEntry, ContextDepth, Relationship, ConsistencyFinding } from '@/src/types';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
 import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
-import { GenerateParams, ChatParams, AIRenderParams } from '@/src/services/ai/types';
+import { GenerateParams, ChatParams, ConsistencyParams, AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
 
@@ -540,6 +540,79 @@ export async function extractToCodex(
       metadata: { text: text.substring(0, 100) }
     });
     throw new AIError('Failed to extract codex entries.', 'API_ERROR');
+  }
+}
+
+// Plafon teks bab yang dikirim untuk pengecekan konsistensi (~12k token).
+// Bab lebih panjang dipotong; UI memberi tahu pengguna bila terjadi pemotongan.
+const MAX_CONSISTENCY_CHARS = 48000;
+
+/** Membersihkan & memvalidasi satu temuan mentah dari model menjadi ConsistencyFinding. */
+function sanitizeFinding(raw: any): ConsistencyFinding | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const quote = typeof raw.quote === 'string' ? raw.quote.trim() : '';
+  const explanation = typeof raw.explanation === 'string' ? raw.explanation.trim() : '';
+  // Butuh minimal kutipan + penjelasan agar temuan bermakna & bisa dilacak penulis.
+  if (!quote || !explanation) return null;
+
+  const severity = ['high', 'medium', 'low'].includes(raw.severity) ? raw.severity : 'medium';
+  return {
+    severity,
+    type: typeof raw.type === 'string' && raw.type.trim() ? raw.type.trim() : 'Lainnya',
+    quote: quote.slice(0, 500),
+    conflictsWith: typeof raw.conflictsWith === 'string' ? raw.conflictsWith.trim().slice(0, 500) : '',
+    explanation: explanation.slice(0, 1000),
+    suggestion: typeof raw.suggestion === 'string' ? raw.suggestion.trim().slice(0, 1000) : ''
+  };
+}
+
+/**
+ * Memeriksa satu bab terhadap knowledge base (Story Bible + Codex + relasi) dan
+ * logika internalnya, lalu mengembalikan daftar temuan inkonsistensi terstruktur.
+ * Selalu mengirim knowledge base penuh (bukan RAG-filtered) karena pengecekan
+ * harus melihat seluruh entri untuk menangkap kontradiksi.
+ */
+export async function checkConsistency(params: ConsistencyParams): Promise<{ findings: ConsistencyFinding[]; truncated: boolean }> {
+  const settings = getSettings();
+  const provider = params.provider || settings.provider;
+
+  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
+  let contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
+  // Timeline membantu AI menangkap pelanggaran urutan waktu (peristiwa di luar kronologi).
+  if (params.timelineSummary && params.timelineSummary.trim()) {
+    contextBlock += `\n\nSTORY TIMELINE (urutan kronologis peristiwa cerita):\n${params.timelineSummary.trim()}`;
+  }
+
+  const fullText = params.chapterText || '';
+  const truncated = fullText.length > MAX_CONSISTENCY_CHARS;
+  const chapterText = truncated ? fullText.slice(0, MAX_CONSISTENCY_CHARS) : fullText;
+
+  const systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM(contextBlock);
+  const userPrompt = AI_PROMPTS.CONSISTENCY.USER(params.chapterTitle || '', chapterText);
+
+  const controller = new AbortController();
+  registerAbort('consistency', controller);
+  try {
+    const res = await callAI({
+      systemInstruction,
+      userPrompt,
+      provider,
+      temperature: 0.2, // analitis: minim kreativitas, maksimal konsistensi
+      maxTokens: 2048,
+      signal: controller.signal,
+      actionType: 'consistency',
+      cacheable: useCaching,
+      onRetry: params.onRetry
+    });
+    const findings = parseJsonArray(res)
+      .map(sanitizeFinding)
+      .filter((f): f is ConsistencyFinding => f !== null);
+    return { findings, truncated };
+  } catch (error) {
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'Pengecekan konsistensi gagal.', 'API_ERROR');
+  } finally {
+    unregisterAbort('consistency', controller);
   }
 }
 

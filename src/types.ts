@@ -19,13 +19,25 @@ export interface Snapshot {
   timestamp: number;
 }
 
-export interface StoryBeat {
+export type TimelineEventType = 'plot' | 'character' | 'world' | 'subplot' | 'reveal' | 'other';
+
+/**
+ * Satu peristiwa pada timeline cerita (tabel `timeline`). Dipakai untuk menyusun
+ * kronologi anti-plot-hole. `eventDate` adalah label waktu in-world bebas
+ * (mis. "Hari 3", "Tahun 1024"); `chapterId` opsional menautkan ke bab.
+ */
+export interface TimelineEvent {
   id?: number;
-  chapterId: number;
   projectId: number;
+  chapterId?: number;
   title: string;
   description: string;
-  type: 'action' | 'dialogue' | 'twist' | 'climax' | 'setup';
+  /** Label waktu in-world bebas, mis. "Hari 3, Pagi" atau "Musim Dingin Tahun 1024". */
+  eventDate?: string;
+  type: TimelineEventType;
+  /** ID entri Codex (karakter/entitas) yang terlibat di peristiwa ini. */
+  characterIds?: number[];
+  /** Urutan manual pada timeline. */
   order: number;
 }
 
@@ -50,7 +62,27 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline';
+
+/**
+ * Satu temuan dari pengecek konsistensi: sebuah bagian bab yang berpotensi
+ * bertentangan dengan Story Bible / Codex / relasi, atau dengan logika internal
+ * cerita. Hasil bersifat ephemeral (tidak dipersist) untuk v1.
+ */
+export interface ConsistencyFinding {
+  /** Tingkat keparahan: high = kontradiksi nyata, low = kemungkinan/gaya. */
+  severity: 'high' | 'medium' | 'low';
+  /** Kategori temuan, mis. "Karakter", "Lore", "Timeline", "Plot", "Gaya". */
+  type: string;
+  /** Kutipan verbatim dari bab yang bermasalah. */
+  quote: string;
+  /** Apa yang dilanggar (entri Codex/aturan Bible/peristiwa sebelumnya). */
+  conflictsWith: string;
+  /** Penjelasan singkat mengapa ini inkonsisten. */
+  explanation: string;
+  /** Saran perbaikan. */
+  suggestion: string;
+}
 
 export type SessionMode = 'prose-review' | 'plot-check' | 'brainstorm';
 

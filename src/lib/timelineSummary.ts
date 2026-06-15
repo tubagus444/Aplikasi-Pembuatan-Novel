@@ -1,0 +1,40 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { TimelineEvent } from '@/src/types';
+
+const MAX_SUMMARY_CHARS = 6000; // batasi agar tak membengkak token konteks
+
+/**
+ * Membangun ringkasan kronologis timeline (urut berdasarkan `order`) sebagai teks
+ * untuk disuntikkan ke konteks pengecek konsistensi. Menautkan judul bab & nama
+ * karakter agar AI bisa mendeteksi pelanggaran urutan waktu.
+ */
+export function buildTimelineSummary(
+  events: TimelineEvent[],
+  chapters: { id?: number; title: string }[],
+  codex: { id?: number; name: string }[]
+): string {
+  if (!events || events.length === 0) return '';
+
+  const chapterTitle = new Map<number, string>();
+  chapters.forEach(c => c.id != null && chapterTitle.set(c.id, c.title));
+  const codexName = new Map<number, string>();
+  codex.forEach(c => c.id != null && codexName.set(c.id, c.name));
+
+  const sorted = [...events].sort((a, b) => (a.order - b.order) || ((a.id || 0) - (b.id || 0)));
+
+  return sorted.map((e, i) => {
+    const date = e.eventDate ? `[${e.eventDate}] ` : '';
+    const chap = e.chapterId != null && chapterTitle.has(e.chapterId)
+      ? ` (Bab: ${chapterTitle.get(e.chapterId)})` : '';
+    const chars = (e.characterIds || [])
+      .map(id => codexName.get(id))
+      .filter((n): n is string => !!n);
+    const who = chars.length ? ` [Tokoh: ${chars.join(', ')}]` : '';
+    const desc = e.description ? ` — ${e.description}` : '';
+    return `${i + 1}. ${date}${e.title}${chap}${who}${desc}`;
+  }).join('\n').slice(0, MAX_SUMMARY_CHARS);
+}

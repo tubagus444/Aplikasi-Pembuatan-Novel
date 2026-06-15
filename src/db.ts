@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, StoryBeat, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog } from '@/src/types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -13,7 +13,7 @@ export class AetherScribeDB extends Dexie {
   bible!: Table<StoryBibleRule>;
   aiActions!: Table<AIAction>;
   snapshots!: Table<Snapshot>;
-  timeline!: Table<StoryBeat>;
+  timeline!: Table<TimelineEvent>;
   relationships!: Table<Relationship>;
   errors!: Table<AppError>;
   backups!: Table<BackupRecord>;

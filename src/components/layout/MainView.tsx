@@ -23,6 +23,8 @@ const GuidePanel = lazy(() => import('@/src/components/panels/GuidePanel').then(
 const ErrorLogPanel = lazy(() => import('@/src/components/panels/ErrorLogPanel').then(m => ({ default: m.ErrorLogPanel })));
 const AIAssistantPanel = lazy(() => import('@/src/features/assistant/components/AIAssistantPanel').then(m => ({ default: m.AIAssistantPanel })));
 const DashboardPanel = lazy(() => import('@/src/components/panels/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
+const ConsistencyPanel = lazy(() => import('@/src/features/consistency/components/ConsistencyPanel').then(m => ({ default: m.ConsistencyPanel })));
+const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 
 function LoadingFallback() {
   return (
@@ -146,6 +148,22 @@ export function MainView() {
             <ViewContainer key="dashboard" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <DashboardPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'timeline' && projectId && (
+            <ViewContainer key="timeline" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <TimelinePanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'consistency' && projectId && (
+            <ViewContainer key="consistency" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <ConsistencyPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

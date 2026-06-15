@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2 } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -77,11 +77,23 @@ export function Sidebar() {
                 icon={<Book size={14} />} 
                 label="Buku Cerita" 
               />
-              <NavItem 
-                active={viewMode === 'relationships'} 
-                onClick={() => handleViewChange('relationships')} 
-                icon={<Share2 size={14} />} 
-                label="Relasi Karakter" 
+              <NavItem
+                active={viewMode === 'relationships'}
+                onClick={() => handleViewChange('relationships')}
+                icon={<Share2 size={14} />}
+                label="Relasi Karakter"
+              />
+              <NavItem
+                active={viewMode === 'timeline'}
+                onClick={() => handleViewChange('timeline')}
+                icon={<CalendarClock size={14} />}
+                label="Timeline Cerita"
+              />
+              <NavItem
+                active={viewMode === 'consistency'}
+                onClick={() => handleViewChange('consistency')}
+                icon={<ShieldCheck size={14} />}
+                label="Cek Konsistensi"
               />
               <NavItem 
                 active={viewMode === 'actions'} 

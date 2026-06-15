@@ -9,7 +9,7 @@ export interface AIProviderConfig {
 export interface AIRenderParams {
   systemInstruction: string;
   userPrompt: string;
-  actionType?: 'chat' | 'summarize' | 'rewrite' | 'extract' | 'expand' | 'other';
+  actionType?: 'chat' | 'summarize' | 'rewrite' | 'extract' | 'expand' | 'consistency' | 'other';
   provider?: string;
   model?: string;
   history?: { role: 'user' | 'model', parts: { text: string }[] }[];
@@ -40,6 +40,22 @@ export interface GenerateParams {
   ragContextText?: string;
   stream?: boolean;
   onChunk?: (chunk: string) => void;
+  onRetry?: (attempt: number, error: any, provider: string) => void;
+}
+
+export interface ConsistencyParams {
+  /** Teks bab (plain text, sudah di-strip HTML) yang akan diperiksa. */
+  chapterText: string;
+  chapterTitle?: string;
+  bibleRules: StoryBibleRule[];
+  codexEntries: CodexEntry[];
+  relationships?: import('@/src/types').Relationship[];
+  /**
+   * Ringkasan kronologi timeline (sudah diformat) untuk membantu AI menangkap
+   * pelanggaran urutan waktu. Dibangun di pemanggil (punya akses bab & codex).
+   */
+  timelineSummary?: string;
+  provider?: string;
   onRetry?: (attempt: number, error: any, provider: string) => void;
 }
 

@@ -75,6 +75,40 @@ Details: ${details}
 
 Expansion:`.trim()
   },
+  CONSISTENCY: {
+    SYSTEM: (contextBlock?: string) => `
+You are a meticulous continuity editor for a novel. Audit the supplied chapter for INCONSISTENCIES against the knowledge base (Story Bible, Codex lore, character relationships) AND against the chapter's own internal logic (timeline, character actions, established facts).
+
+WHAT COUNTS AS AN INCONSISTENCY:
+- A detail that contradicts a Codex entry (e.g. eye color, role, origin, abilities).
+- A detail that violates a Story Bible rule (POV, tense, tone, world rules).
+- A relationship that contradicts the relationship graph.
+- An event whose order/timing contradicts the STORY TIMELINE (if provided): e.g. a character references something that, per the timeline, has not happened yet; an event placed out of its chronological order.
+- Internal contradictions within the chapter (a character in two places, an object that appears after being destroyed, broken timeline/cause-effect).
+
+RULES:
+1. Report ONLY genuine inconsistencies. If something is merely vague or a stylistic choice, do NOT report it. Quality over quantity — no nitpicking.
+2. "quote" MUST be copied verbatim from the chapter (a short phrase/sentence), so the writer can locate it.
+3. Do NOT invent facts. If the knowledge base says nothing about a detail, it is NOT an inconsistency.
+4. Write "type", "conflictsWith", "explanation", and "suggestion" in Indonesian.
+5. Return ONLY a JSON array, no prose, no code fence. Empty array [] if no issues found.
+
+OUTPUT FORMAT (array of):
+{"severity":"high|medium|low","type":"Karakter|Lore|Timeline|Plot|Relasi|Gaya","quote":"<verbatim>","conflictsWith":"<entri/aturan/fakta yang dilanggar>","explanation":"<kenapa>","suggestion":"<saran perbaikan>"}
+
+severity: high = kontradiksi fakta yang jelas; medium = kemungkinan besar salah; low = perlu dicek penulis.
+
+${contextBlock ? `KNOWLEDGE BASE:\n${contextBlock}` : ''}`.trim(),
+    USER: (chapterTitle: string, chapterText: string) => `
+Periksa konsistensi bab berikut${chapterTitle ? ` ("${chapterTitle}")` : ''}.
+
+CHAPTER:
+"""
+${chapterText}
+"""
+
+JSON array temuan:`.trim()
+  },
   TEST_CONNECTION: {
     SYSTEM: () => "Connectivity tester. Reply 'OK' only.",
     USER: () => "Hi"
