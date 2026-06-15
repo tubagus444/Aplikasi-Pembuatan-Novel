@@ -27,6 +27,7 @@ import { EditorLayout } from '@/src/features/editor/components/EditorLayout';
 import { EditorToolbar } from '@/src/features/editor/components/EditorToolbar';
 import { AiProcessingOverlay } from '@/src/features/editor/components/AiProcessingOverlay';
 import { NovelPanels } from '@/src/features/editor/components/NovelPanels';
+import { EditorActivityRail } from '@/src/features/editor/components/EditorActivityRail';
 import { SearchReplaceBar } from '@/src/features/editor/components/SearchReplaceBar';
 
 interface NovelEditorProps {
@@ -181,15 +182,16 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
         />
       }
       panels={
-        <NovelPanels 
-          projectId={projectId} 
-          chapterId={chapterId} 
-          editor={editor} 
-          codexEntries={codexEntries || []} 
-          bibleRules={bibleRules || []} 
+        <NovelPanels
+          projectId={projectId}
+          chapterId={chapterId}
+          editor={editor}
+          codexEntries={codexEntries || []}
+          bibleRules={bibleRules || []}
           relationships={relationships || []}
         />
       }
+      rail={<EditorActivityRail />}
     >
       <div className="relative w-full">
         <AnimatePresence>

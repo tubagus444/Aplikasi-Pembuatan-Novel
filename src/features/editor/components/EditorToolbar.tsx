@@ -27,64 +27,68 @@ interface EditorToolbarProps {
   editor: Editor | null;
 }
 
+// Didefinisikan di scope modul (bukan di dalam render) agar React tidak
+// meng-unmount/mount ulang seluruh tombol — dan membuang/membuat ulang instance
+// tippy — setiap kali toolbar render.
+function ToolbarButton({
+  onClick,
+  isActive = false,
+  disabled = false,
+  children,
+  title
+}: {
+  onClick: () => void;
+  isActive?: boolean;
+  disabled?: boolean;
+  children: React.ReactNode;
+  title: string;
+}) {
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    let instance: any;
+    if (btnRef.current) {
+      instance = tippy(btnRef.current, {
+        content: title,
+        placement: 'top',
+        arrow: true,
+        delay: [300, 0],
+        theme: 'light',
+        duration: 150,
+      });
+    }
+    return () => {
+      if (instance) instance.destroy();
+    };
+  }, [title]);
+
+  return (
+    <button
+      ref={btnRef}
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      disabled={disabled}
+      className={cn(
+        "p-2 rounded-md transition-colors flex items-center justify-center",
+        "hover:bg-slate-200 dark:hover:bg-slate-700",
+        isActive ? "bg-slate-200 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-slate-300",
+        disabled && "opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+const Divider = () => (
+  <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+);
+
 export function EditorToolbar({ editor }: EditorToolbarProps) {
   if (!editor) return null;
-
-  const ToolbarButton = ({ 
-    onClick, 
-    isActive = false, 
-    disabled = false,
-    children, 
-    title
-  }: { 
-    onClick: () => void; 
-    isActive?: boolean; 
-    disabled?: boolean;
-    children: React.ReactNode; 
-    title: string 
-  }) => {
-    const btnRef = React.useRef<HTMLButtonElement>(null);
-
-    React.useEffect(() => {
-      let instance: any;
-      if (btnRef.current) {
-        instance = tippy(btnRef.current, {
-          content: title,
-          placement: 'top',
-          arrow: true,
-          delay: [300, 0],
-          theme: 'light',
-          duration: 150,
-        });
-      }
-      return () => {
-        if (instance) instance.destroy();
-      };
-    }, [title]);
-
-    return (
-      <button
-        ref={btnRef}
-        onClick={(e) => {
-          e.preventDefault();
-          onClick();
-        }}
-        disabled={disabled}
-        className={cn(
-          "p-2 rounded-md transition-colors flex items-center justify-center",
-          "hover:bg-slate-200 dark:hover:bg-slate-700",
-          isActive ? "bg-slate-200 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400" : "text-slate-600 dark:text-slate-300",
-          disabled && "opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent"
-        )}
-      >
-        {children}
-      </button>
-    );
-  };
-
-  const Divider = () => (
-    <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
-  );
 
   return (
     <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 rounded-t-sm sticky top-0 z-[40]">

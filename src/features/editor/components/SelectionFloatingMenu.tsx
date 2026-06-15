@@ -1,23 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Bold, 
-  Italic, 
-  Sparkles, 
-  Check, 
-  X, 
-  CornerDownRight, 
-  Send, 
-  Info, 
-  ArrowLeft, 
+import {
+  Sparkles,
+  Check,
+  X,
+  CornerDownRight,
+  Send,
+  Info,
   Wand2,
   Loader2,
   Eye,
   Flame,
   Pin,
-  PinOff,
-  Minimize2,
-  Maximize2,
-  Search
+  PinOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -67,10 +61,7 @@ export function SelectionFloatingMenu({
     }
   });
 
-  // Keep menu collapsed in a small bubble to avoid blockages
-  const [isMini, setIsMini] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     try {
@@ -116,7 +107,6 @@ export function SelectionFloatingMenu({
       setShow(false);
       setSelectedText('');
       setIsCustomOpen(false);
-      setIsMini(false);
       return;
     }
 
@@ -197,7 +187,6 @@ export function SelectionFloatingMenu({
       timeoutId = setTimeout(() => {
         setIsCustomOpen(false);
         setShowAiMenu(false);
-        setSearchQuery('');
         setCustomPromptText('');
       }, 200); // delay to let exit animations play out
     }
@@ -242,8 +231,6 @@ export function SelectionFloatingMenu({
     { id: "Intensify", label: "Intensify", icon: Flame, desc: "Tingkatkan ketegangan dramatis" }
   ];
 
-  const filteredBuiltIn = builtInActions.filter(a => a.label.toLowerCase().includes(searchQuery.toLowerCase()));
-  const filteredCustom = customActions.filter(a => a.label.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <AnimatePresence>
@@ -256,14 +243,12 @@ export function SelectionFloatingMenu({
           className={cn(
             "fixed z-[100] transition-colors duration-200 flex",
             placement === 'top' ? "flex-col-reverse items-center" : "flex-col items-center",
-            (rewritePreview || isMini || isAiProcessing) ? "bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl border max-w-[95vw]" : "",
-            rewritePreview 
+            (rewritePreview || isAiProcessing) ? "bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl border max-w-[95vw]" : "",
+            rewritePreview
               ? "rounded-2xl p-4 w-[480px] border-slate-200 dark:border-slate-800"
-              : isMini
-                ? "rounded-full p-1 border-indigo-200 dark:border-indigo-800/80 ring-2 ring-indigo-500/20"
-                : isAiProcessing
-                  ? "rounded-full p-2 border-slate-200/50 dark:border-slate-700/50"
-                  : ""
+              : isAiProcessing
+                ? "rounded-full p-2 border-slate-200/50 dark:border-slate-700/50"
+                : ""
           )}
           style={isDocked ? { 
             position: 'fixed',
@@ -278,20 +263,7 @@ export function SelectionFloatingMenu({
           }}
           id="selection-floating-menu"
         >
-          {isMini && !rewritePreview ? (
-            /* --- COLLAPSED MINI TRIGGER STATE --- */
-            <div className="flex items-center p-0.5" id="mini-container">
-              <button
-                type="button"
-                onClick={() => setIsMini(false)}
-                className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Buka Menu AI (Bantu Menulis)"
-              >
-                <Sparkles size={11} className="animate-pulse text-indigo-200 whitespace-nowrap" />
-                <span className="whitespace-nowrap">Asisten Menulis AI</span>
-              </button>
-            </div>
-          ) : rewritePreview ? (
+          {rewritePreview ? (
             /* --- REWRITE COMPARISON / PREVIEW STATE --- */
             <div className="flex flex-col gap-3 text-slate-800 dark:text-slate-100" id="preview-container">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/80">
@@ -387,43 +359,13 @@ export function SelectionFloatingMenu({
             <>
               {/* LAYER 1: Core Actions Pill */}
               <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 p-1.5 rounded-full flex items-center gap-1 shadow-xl">
-                {/* Formatting */}
-                <div className="flex gap-0.5 px-0.5 shrink-0">
-                  <button 
-                    onClick={() => editor.chain().focus().toggleBold().run()}
-                    className={cn(
-                      "p-1.5 rounded-full transition-colors flex items-center justify-center", 
-                      editor.isActive('bold') 
-                        ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 font-bold" 
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
-                    )}
-                    title="Tebalkan (Bold)"
-                  >
-                    <Bold size={14} />
-                  </button>
-                  <button 
-                    onClick={() => editor.chain().focus().toggleItalic().run()}
-                    className={cn(
-                      "p-1.5 rounded-full transition-colors flex items-center justify-center", 
-                      editor.isActive('italic') 
-                        ? "text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 italic" 
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
-                    )}
-                    title="Miringkan (Italic)"
-                  >
-                    <Italic size={14} />
-                  </button>
-                </div>
-
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
-
                 {/* AI Trigger */}
                 <button
                   type="button"
                   onClick={() => setShowAiMenu(!showAiMenu)}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 font-semibold text-xs rounded-full transition-all shrink-0",
-                    showAiMenu 
+                    showAiMenu
                       ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
                       : "bg-indigo-50 hover:bg-indigo-100/70 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
                   )}
@@ -436,30 +378,20 @@ export function SelectionFloatingMenu({
 
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
 
-                {/* Dock/Min Controls */}
-                <div className="flex gap-0.5 px-0.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsDocked(!isDocked)}
-                    className={cn(
-                      "p-1.5 rounded-full transition-all flex items-center justify-center",
-                      isDocked 
-                        ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
-                    )}
-                    title={isDocked ? "Beralih ke Melayang (Float)" : "Sematkan di Bawah Layar agar Tidak Menghalangi (Dock to Bottom)"}
-                  >
-                    {isDocked ? <PinOff size={14} /> : <Pin size={14} />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsMini(true)}
-                    className="p-1.5 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all"
-                    title="Sembunyikan menu/Kecilkan (Minimize)"
-                  >
-                    <Minimize2 size={14} />
-                  </button>
-                </div>
+                {/* Dock toggle: pindahkan menu ke bawah layar agar tak menghalangi teks */}
+                <button
+                  type="button"
+                  onClick={() => setIsDocked(!isDocked)}
+                  className={cn(
+                    "p-1.5 rounded-full transition-all flex items-center justify-center shrink-0",
+                    isDocked
+                      ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50"
+                  )}
+                  title={isDocked ? "Beralih ke Melayang (Float)" : "Sematkan di Bawah Layar agar Tidak Menghalangi (Dock to Bottom)"}
+                >
+                  {isDocked ? <PinOff size={14} /> : <Pin size={14} />}
+                </button>
               </div>
 
               {/* LAYER 2: AI Menu Overlay */}
@@ -530,29 +462,17 @@ export function SelectionFloatingMenu({
                               <Send size={14} />
                             </button>
                           </form>
-
-                          {/* Action Search Bar */}
-                          <div className="relative mt-2">
-                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-                             <input
-                               type="text"
-                               value={searchQuery}
-                               onChange={(e) => setSearchQuery(e.target.value)}
-                               placeholder="Cari aksi (cth: Senses, Intensify)..."
-                               className="w-full bg-transparent border border-slate-200 dark:border-slate-700 rounded text-[11px] px-7 py-1.5 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:focus:border-indigo-600 transition-colors"
-                             />
-                          </div>
                         </div>
 
                         {/* Action Categories */}
                         <div className="overflow-y-auto w-full flex-1 p-2 no-scrollbar space-y-3">
-                           {filteredBuiltIn.length > 0 && (
+                           {builtInActions.length > 0 && (
                              <div>
                                 <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
                                    Built-in
                                 </div>
                                 <div className="flex flex-col gap-0.5">
-                                   {filteredBuiltIn.map((action) => (
+                                   {builtInActions.map((action) => (
                                      <button
                                         key={action.id}
                                         onClick={() => onAiAction(action.id, selectedProvider)}
@@ -571,13 +491,13 @@ export function SelectionFloatingMenu({
                              </div>
                            )}
 
-                           {filteredCustom.length > 0 && (
+                           {customActions.length > 0 && (
                              <div>
                                 <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 py-1 mt-1 flex items-center gap-1.5">
                                    Kustom (Personal)
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 px-2">
-                                  {filteredCustom.map((action) => (
+                                  {customActions.map((action) => (
                                     <button 
                                       key={action.id || action.prompt}
                                       onClick={() => onAiAction(action.prompt, selectedProvider)} 
@@ -587,12 +507,6 @@ export function SelectionFloatingMenu({
                                     </button>
                                   ))}
                                 </div>
-                             </div>
-                           )}
-
-                           {filteredBuiltIn.length === 0 && filteredCustom.length === 0 && (
-                             <div className="py-6 text-center text-xs text-slate-400">
-                               Aksi tidak ditemukan.
                              </div>
                            )}
                         </div>

@@ -14,16 +14,18 @@ interface EditorLayoutProps {
   toolbar?: React.ReactNode;
   footer: React.ReactNode;
   panels: React.ReactNode;
+  rail?: React.ReactNode;
 }
 
-export function EditorLayout({ 
-  isFocusMode, 
-  containerRef, 
-  children, 
+export function EditorLayout({
+  isFocusMode,
+  containerRef,
+  children,
   header,
   toolbar,
-  footer, 
-  panels 
+  footer,
+  panels,
+  rail
 }: EditorLayoutProps) {
   return (
     <div className="flex h-full relative overflow-hidden bg-slate-50 dark:bg-[#0A0D14]">
@@ -56,6 +58,9 @@ export function EditorLayout({
 
       {/* Right Panels Column */}
       {!isFocusMode && panels}
+
+      {/* Right Activity Rail */}
+      {!isFocusMode && rail}
     </div>
   );
 }
