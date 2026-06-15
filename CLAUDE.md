@@ -21,7 +21,7 @@ npm run clean    # rm -rf dist
 
 - **Menjalankan satu test:** `npx vitest run src/lib/ahoCorasick.test.ts` atau filter berdasarkan nama `npx vitest run -t "pola"`.
 - **Tidak ada config vitest terpisah**; Vitest membaca `vite.config.ts`, jadi alias `@` juga berlaku di test.
-- Test diletakkan berdampingan sebagai `*.test.ts` di sebelah unit yang diuji (saat ini hanya di `src/lib/`: ahoCorasick, chunkEngine, loreUtils, utils).
+- Test diletakkan berdampingan sebagai `*.test.ts` di sebelah unit yang diuji (saat ini di `src/lib/`: ahoCorasick, chunkEngine, loreUtils, utils, orphanEntities, timelineSummary).
 - **`npm run dev` TIDAK menjalankan `vite` langsung** — ia menjalankan `server.ts`, yang memasang Vite sebagai middleware sehingga proxy API dan SPA berbagi port 3000. Mengubah frontend saja? Tetap lewat `npm run dev`.
 
 ## Alias import (gampang keliru)
@@ -40,7 +40,7 @@ npm run clean    # rm -rf dist
 Kode fitur tidak pernah memanggil provider secara langsung. Jalurnya:
 
 ```
-fitur → src/services/ai/index.ts (facade: processRewrite / processChat / extractToCodex / expandCodexEntry / checkConsistency)
+fitur → src/services/ai/index.ts (facade: processRewrite / processChat / extractToCodex / expandCodexEntry / checkConsistency / enrichEntities)
       → callAI() ……… ketahanan: circuit breaker per-provider + exponential backoff + fallback otomatis
       → callProxy() (src/services/ai/proxy.ts)
       → POST /api/ai/proxy  (server.ts)
@@ -68,7 +68,9 @@ TipTap 3 (`src/features/editor/`). Extension kustom di `extensions/`: `PassiveCo
 - `cleanupAILogs()` dan pengecekan kuota penyimpanan berjalan saat mount.
 
 ### Organisasi kode
-Berbasis fitur di bawah `src/features/{assistant,chapters,codex,editor,lore}` (masing-masing punya `components/` + `hooks/`); UI lintas-fitur di `src/components/{layout,panels,modals,common}`; logika murni dan algoritma di `src/lib/`; integrasi/service di `src/services/`.
+Berbasis fitur di bawah `src/features/{assistant,chapters,codex,consistency,editor,lore,timeline}` (masing-masing punya `components/` + `hooks/`); UI lintas-fitur di `src/components/{layout,panels,modals,common}`; logika murni dan algoritma di `src/lib/`; integrasi/service di `src/services/`.
+
+Fitur konsistensi yang ditambahkan belakangan (lihat `viewMode`): **Cek Konsistensi** (`checkConsistency` — audit satu bab vs Codex+Bible+relasi+timeline), **Timeline Cerita** (mengaktifkan tabel `timeline`/`TimelineEvent` untuk kronologi anti-plot-hole), dan **Saran Entitas** (`src/lib/orphanEntities.ts` — deteksi nama-diri yang sering muncul tapi belum di Codex, kebalikan Aho-Corasick; enrichment opsional via `enrichEntities`).
 
 ## Konvensi & jebakan
 - **Extension TipTap dipin tepat ke `3.22.5`** di semua paket `@tiptap/*` — jaga tetap seragam saat upgrade, kalau tidak editor rusak.
