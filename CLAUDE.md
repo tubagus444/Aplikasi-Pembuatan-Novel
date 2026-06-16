@@ -31,7 +31,7 @@ npm run clean    # rm -rf dist
 ## Arsitektur
 
 ### Data & state
-- **Penyimpanan:** Dexie (`src/db.ts`), nama DB `AetherScribeDB`, saat ini **skema versi 17**. Skema bersifat append-only — untuk mengubah tabel, tambahkan blok `this.version(N).stores({...})` baru dengan migrasi `.upgrade()`; **jangan** mengedit versi yang sudah ada. Tabel: projects, chapters, codex, bible, aiActions, snapshots, timeline, relationships, errors, backups, chatSessions, embeddings, aiUsageLogs.
+- **Penyimpanan:** Dexie (`src/db.ts`), nama DB `AetherScribeDB`, saat ini **skema versi 18**. Skema bersifat append-only — untuk mengubah tabel, tambahkan blok `this.version(N).stores({...})` baru dengan migrasi `.upgrade()`; **jangan** mengedit versi yang sudah ada. Tabel: projects, chapters, codex, bible, aiActions, snapshots, timeline, relationships, errors, backups, chatSessions, embeddings, aiUsageLogs.
 - **State:** React Context (`src/contexts/`: Project, Navigation, UI, EditorPanel) + **Dexie live query** (`dexie-react-hooks` `useLiveQuery`, dibungkus di `src/hooks/useOptimizedLiveQuery.ts` / `useProjectData.ts`). Tidak ada Redux/Zustand.
 - **Routing tampilan** berupa string `viewMode` di `NavigationContext`. `src/components/layout/MainView.tsx` berpindah panel berdasarkan nilai itu; semua panel di-`React.lazy` kecuali editor. Editor di-mount **hanya** saat `viewMode === 'write'` (disengaja, untuk menghemat RAM) dan di-key dengan `activeChapterId`.
 - Susunan provider tetap di `src/main.tsx` (Project → Navigation → UI → Toast → Backup → ErrorBoundary). `oramaSync.setupHooks()` serta handler global `error`/`unhandledrejection` juga dipasang di sana.
@@ -79,6 +79,8 @@ Fitur konsistensi yang ditambahkan belakangan (lihat `viewMode`): **Cek Konsiste
 - Catatan `HMR`/`DISABLE_HMR` di `vite.config.ts` untuk lingkungan host Google AI Studio (proyek ini di-scaffold sebagai applet AI Studio); biarkan apa adanya.
 - `firebase-applet-config.json` berisi nilai placeholder — sinkronisasi Firebase bersifat opt-in dan config asli berasal dari pengguna, bukan file ini.
 - Ini **aplikasi pribadi, satu pengguna**; sesuai keputusan pemilik, pengerasan keamanan proxy (auth, rate limiting, base URL Ollama yang dikontrol klien / permukaan SSRF di `server.ts`) sengaja di luar cakupan kecuali diangkat secara eksplisit.
+- **Dua jenis sesi asisten berbagi tabel `chatSessions`.** Studio Asisten (`AIAssistantPanel`, workspace penuh) dan Scribble (`ScribbleAssistantPanel`, panel inline samping editor/codex) sama-sama menulis ke `chatSessions`, dibedakan oleh field `kind: 'studio' | 'scribble'`. Saat membuat sesi baru **wajib set `kind`**, dan daftar riwayat Studio harus memfilter `kind !== 'scribble'` (lihat query di `AIAssistantPanel`) agar sesi Scribble tak mencemari. Sesi lama tanpa `kind` di-backfill di migrasi v18.
+- **`MAX_CACHED_LORE_CHARS` diduplikasi** di `src/services/ai/index.ts` dan `src/services/contextWorker.ts` (worker tak bisa impor facade AI). Meter token (`previewContextTokens`) mencerminkan mode caching vs RAG; bila mengubah nilai cap ini, ubah di kedua tempat.
 
 ## Audit kualitas kode
 `RENCANA-AUDIT-KODE.md` (root) adalah tracker audit bertahap: 12 area dengan prioritas, status per-item (✅/🔄/⬜), dan temuan. Item berdampak-tinggi sudah diperbaiki (P0 jantung AI, data-loss autosave, body-limit server, backup chatSessions, ketahanan DB/worker, dll). Sisa item bersifat cosmetic/opt-in/refactor besar. Cek file itu sebelum mengerjakan ulang area yang sudah diaudit, dan perbarui statusnya bila menyentuh temuan terkait.

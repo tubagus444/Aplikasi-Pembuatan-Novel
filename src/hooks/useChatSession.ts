@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, CodexEntry, StoryBibleRule } from '@/src/types';
 import { processChat, cancelAI } from '@/src/services/ai';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
-import { resolveLoreTags } from '@/src/lib/loreUtils';
+import { resolveLoreTags, stripLoreTags } from '@/src/lib/loreUtils';
 
 import { SessionMode } from '@/src/types';
 
@@ -40,6 +40,7 @@ export function useChatSession({
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const messagesRef = useRef(messages);
   const isLoadingRef = useRef(false);
+  const manualStopRef = useRef(false);
 
   const streamBufferRef = useRef<string>('');
   const isStreamingRef = useRef<boolean>(false);
@@ -78,23 +79,28 @@ export function useChatSession({
     setRetryStatus(null);
     isLoadingRef.current = true;
 
+    // Diangkat ke luar try agar catch/finally bisa memfinalisasi teks parsial saat dihentikan manual.
+    const assistantMsgId = Date.now().toString() + "_assistant";
+    let flushInterval: ReturnType<typeof setInterval> | null = null;
+
     try {
       // 0. Resolve lore tags for AI consumption
       const resolvedText = resolveLoreTags(text, codexEntries, bibleRules);
 
-      // 1. Prepare history for AI
+      // 1. Prepare history for AI. Tag lore di-strip jadi nama polos (lore lengkap
+      // sudah ada di system prompt) agar model tak melihat token "@codex:..." mentah,
+      // tanpa membengkakkan token seperti ekspansi penuh.
       const history = newMessages
         .slice(-10) // Limit history to last 10 messages for performance
         .map(m => ({
           role: m.role,
-          parts: [{ text: m.content }]
+          parts: [{ text: stripLoreTags(m.content) }]
         }));
 
       // 2. Process chat (RAG logic handled inside processChat)
       streamBufferRef.current = "";
       isStreamingRef.current = true;
-      const assistantMsgId = Date.now().toString() + "_assistant";
-      
+
       const flushBuffer = () => {
         if (!isStreamingRef.current) return;
         const streamMsg: ChatMessage = {
@@ -107,8 +113,8 @@ export function useChatSession({
         setMessages(streamMessages);
         messagesRef.current = streamMessages;
       };
-      
-      const flushInterval = setInterval(flushBuffer, 50);
+
+      flushInterval = setInterval(flushBuffer, 50);
 
       const reply = await processChat({
         message: resolvedText,
@@ -130,33 +136,47 @@ export function useChatSession({
       });
 
       isStreamingRef.current = false;
-      clearInterval(flushInterval);
-      
+
       // Final flush to ensure no text is truncated at the end
       const finalReply = streamBufferRef.current || reply;
-      const assistantMsg: ChatMessage = { 
+      const assistantMsg: ChatMessage = {
         id: assistantMsgId,
-        role: 'model', 
-        content: finalReply, 
-        timestamp: Date.now() 
+        role: 'model',
+        content: finalReply,
+        timestamp: Date.now()
       };
-      
+
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
       messagesRef.current = finalMessages; // Update ref to latest state
       onMessageAdded?.(finalMessages);
       onResponseReceived?.(reply);
-      
+
       return reply;
     } catch (err: any) {
+      isStreamingRef.current = false;
+      // Pembatalan manual (tombol Hentikan): simpan teks parsial yang sudah ter-stream, bukan tampilkan error.
+      if (manualStopRef.current) {
+        const partial = streamBufferRef.current.trim();
+        const stoppedMessages = partial
+          ? [...newMessages, { id: assistantMsgId, role: 'model' as const, content: partial, timestamp: Date.now() }]
+          : newMessages;
+        setMessages(stoppedMessages);
+        messagesRef.current = stoppedMessages;
+        onMessageAdded?.(stoppedMessages);
+        return partial;
+      }
       console.error('Chat error:', err);
       const errorMessage = err.message || 'Maaf, terjadi kesalahan pada layanan AI.';
       onError?.(errorMessage);
       throw err;
     } finally {
+      if (flushInterval) clearInterval(flushInterval);
+      isStreamingRef.current = false;
       setIsLoading(false);
       setRetryStatus(null);
       isLoadingRef.current = false;
+      manualStopRef.current = false;
     }
   }, [
     projectId, 
@@ -176,12 +196,38 @@ export function useChatSession({
     onMessageAdded?.([]);
   }, [onMessageAdded]);
 
+  /** Menghentikan generasi yang sedang berjalan; teks yang sudah ter-stream dipertahankan. */
+  const stop = useCallback(() => {
+    if (!isLoadingRef.current) return;
+    manualStopRef.current = true;
+    cancelAI('chat');
+  }, []);
+
+  /** Membuang balasan terakhir lalu mengirim ulang pesan pengguna terakhir. */
+  const regenerate = useCallback(async (customContext?: string) => {
+    if (isLoadingRef.current) return;
+    const msgs = messagesRef.current;
+    let lastUserIdx = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx === -1) return;
+    const userText = msgs[lastUserIdx].content;
+    // Buang pesan user terakhir + balasan setelahnya; sendMessage akan menambah ulang pesan user-nya.
+    const trimmed = msgs.slice(0, lastUserIdx);
+    setMessages(trimmed);
+    messagesRef.current = trimmed;
+    await sendMessage(userText, customContext);
+  }, [sendMessage]);
+
   return {
     messages,
     setMessages,
     isLoading,
     retryStatus,
     sendMessage,
-    clearMessages
+    clearMessages,
+    stop,
+    regenerate
   };
 }

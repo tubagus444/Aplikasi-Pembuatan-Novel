@@ -165,6 +165,6 @@ export async function estimateContextTokens(text: string, codexText: string, rul
   return sendToWorker('ESTIMATE_CONTEXT_TOKENS', { text, codexText, rulesText, model });
 }
 
-export async function previewContextTokens(text: string, allCodex: CodexEntry[], allRules: StoryBibleRule[], model?: string): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
-  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, model });
+export async function previewContextTokens(text: string, allCodex: CodexEntry[], allRules: StoryBibleRule[], model?: string, fullContext?: boolean): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
+  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, model, fullContext });
 }

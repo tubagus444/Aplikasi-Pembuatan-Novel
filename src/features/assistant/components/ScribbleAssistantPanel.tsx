@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash, Trash2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash, Trash2, Square, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '@/src/lib/constants';
 import { cn } from '@/src/lib/utils';
@@ -51,10 +51,13 @@ export function ScribbleAssistantPanel({
     messagesEndRef,
     inputRef,
     hasReceivedReply,
+    canRegenerate,
     suggestedPrompts,
     handleCopy,
     handleClear,
     handleSend,
+    handleRegenerate,
+    handleStop,
   } = useScribbleAssistantPanel({
     projectId,
     chapterId,
@@ -213,6 +216,17 @@ export function ScribbleAssistantPanel({
              </div>
           </div>
         )}
+        {canRegenerate && (
+          <div className="flex justify-start pl-10">
+            <button
+              onClick={handleRegenerate}
+              title="Buat ulang respons terakhir"
+              className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-lg px-2.5 py-1 transition-all bg-white dark:bg-slate-900"
+            >
+              <RefreshCw size={12} /> Regenerasi
+            </button>
+          </div>
+        )}
         <div ref={messagesEndRef} className="h-2" />
       </div>
 
@@ -264,13 +278,24 @@ export function ScribbleAssistantPanel({
             placeholder="Tanyakan apa saja tentang lore-mu..."
             className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 resize-none h-24 placeholder:text-slate-400 dark:text-slate-500 text-slate-800 dark:text-slate-200"
           />
-          <button
-            onClick={() => handleSend()}
-            disabled={isLoading || !input.trim()}
-            className="absolute right-2 bottom-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-400 transition-all shadow-sm active:scale-95"
-          >
-            <Send size={16} />
-          </button>
+          {isLoading ? (
+            <button
+              onClick={handleStop}
+              title="Hentikan generasi"
+              className="absolute right-2 bottom-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-sm active:scale-95"
+            >
+              <Square size={16} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSend()}
+              disabled={!input.trim()}
+              aria-label="Kirim pesan"
+              className="absolute right-2 bottom-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-400 transition-all shadow-sm active:scale-95"
+            >
+              <Send size={16} />
+            </button>
+          )}
         </div>
         <div className="flex justify-between items-center mt-3 px-1">
           <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em] flex items-center gap-1">

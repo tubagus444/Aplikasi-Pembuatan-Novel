@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Bot, User, Loader2, Sparkles, Hash } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import { Loader2, Sparkles, Hash, RefreshCw, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage } from '@/src/types';
 import { cn } from '@/src/lib/utils';
@@ -10,10 +10,30 @@ interface AssistantMessageListProps {
   isLoading: boolean;
   retryStatus?: string | null;
   onSelectPrompt?: (prompt: string) => void;
+  onRegenerate?: () => void;
+  onRetry?: () => void;
 }
 
-export function AssistantMessageList({ messages, isLoading, retryStatus, onSelectPrompt }: AssistantMessageListProps) {
+export function AssistantMessageList({ messages, isLoading, retryStatus, onSelectPrompt, onRegenerate, onRetry }: AssistantMessageListProps) {
+  const lastMessage = messages[messages.length - 1];
+  const canRegenerate = !isLoading && !!onRegenerate && lastMessage?.role === 'model' && !lastMessage.isError;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopy = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
+  useEffect(() => () => { if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current); }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,7 +72,7 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
         )}
 
         {messages.map((m, i) => (
-          <div key={i} className={cn(
+          <div key={m.id ?? i} className={cn(
             "flex gap-3 md:gap-4 animate-in fade-in slide-in-from-bottom-2",
             m.role === 'user' ? "flex-row-reverse" : "flex-row"
           )}>
@@ -75,16 +95,18 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
               
               <div className={cn(
                 "text-[15px] leading-relaxed shadow-sm",
-                m.role === 'user' 
-                  ? "bg-indigo-600 text-white px-5 py-3.5 rounded-3xl rounded-tr-sm" 
-                  : "bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-5 md:px-6 py-4 md:py-5 rounded-3xl rounded-tl-sm dark:text-slate-200 w-full"
+                m.role === 'user'
+                  ? "bg-indigo-600 text-white px-5 py-3.5 rounded-3xl rounded-tr-sm"
+                  : m.isError
+                    ? "bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 px-5 md:px-6 py-4 md:py-5 rounded-3xl rounded-tl-sm w-full"
+                    : "bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-5 md:px-6 py-4 md:py-5 rounded-3xl rounded-tl-sm dark:text-slate-200 w-full"
               )}>
                 {m.role === 'user' ? (
                   <div className="whitespace-pre-wrap font-medium">
                     {parseMentionTags(m.content).map((segment, i) => (
                       segment.isMention ? (
-                        <span 
-                          key={i} 
+                        <span
+                          key={i}
                           className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold mx-1 shadow-sm bg-white/20 text-white whitespace-nowrap not-italic border border-white/10"
                         >
                           {segment.type === 'rule' ? <Hash size={12} /> : <Sparkles size={12} />}
@@ -101,6 +123,31 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
                   </div>
                 )}
               </div>
+
+              {m.role === 'model' && m.isError && onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="mt-2 flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors px-1"
+                >
+                  <RefreshCw size={13} /> Coba Lagi
+                </button>
+              )}
+
+              {m.role === 'model' && !m.isError && m.content && (
+                <button
+                  type="button"
+                  onClick={() => handleCopy(m.id ?? String(i), m.content)}
+                  className="mt-2 flex items-center gap-1.5 text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors px-1"
+                  title="Salin teks"
+                >
+                  {copiedId === (m.id ?? String(i)) ? (
+                    <><Check size={13} className="text-emerald-500" /> <span className="text-emerald-600 dark:text-emerald-400">Tersalin</span></>
+                  ) : (
+                    <><Copy size={13} /> Salin</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -125,6 +172,18 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {canRegenerate && (
+          <div className="flex justify-start pl-11 md:pl-14 animate-in fade-in">
+            <button
+              onClick={onRegenerate}
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-lg px-3 py-1.5 transition-all bg-white/50 dark:bg-slate-900/50"
+              title="Buat ulang respons terakhir"
+            >
+              <RefreshCw size={13} /> Regenerasi
+            </button>
           </div>
         )}
         <div ref={messagesEndRef} className="h-6" />

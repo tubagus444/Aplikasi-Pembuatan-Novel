@@ -504,13 +504,27 @@ self.onmessage = async (e: MessageEvent) => {
         };
         break;
       case 'PREVIEW_CONTEXT_TOKENS': {
-        const { text, allCodex, allRules, model } = payload;
-        const relevantCodex = await getRelevantContext(text, allCodex);
-        const relevantRules = getRelevantBibleRules(text, allRules, 2500); // Example depth
-        
-        const codexText = relevantCodex.map(e => `[${e.name}]: ${e.description}`).join(' ');
-        const rulesText = formatBibleBlock(relevantRules);
-        
+        const { text, allCodex, allRules, model, fullContext } = payload;
+
+        let codexText: string;
+        let rulesText: string;
+
+        if (fullContext) {
+          // Mode caching: SELURUH Story Bible + Codex dikirim statis (lihat
+          // buildCachedContextBlock di services/ai/index.ts). Cerminkan itu di meter.
+          const MAX_CACHED_LORE_CHARS = 50000; // sinkron dengan index.ts
+          const sortedRules = [...allRules].sort((a: StoryBibleRule, b: StoryBibleRule) => a.key.localeCompare(b.key));
+          const sortedCodex = [...allCodex].sort((a: CodexEntry, b: CodexEntry) => a.name.localeCompare(b.name));
+          rulesText = formatBibleBlock(sortedRules);
+          codexText = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, MAX_CACHED_LORE_CHARS);
+        } else {
+          // Mode RAG legacy: hanya lore/aturan relevan yang dikirim.
+          const relevantCodex = await getRelevantContext(text, allCodex);
+          const relevantRules = getRelevantBibleRules(text, allRules, 2500); // Example depth
+          codexText = relevantCodex.map(e => `[${e.name}]: ${e.description}`).join(' ');
+          rulesText = formatBibleBlock(relevantRules);
+        }
+
         result = {
            textTokens: countTokens(text, model),
            codexTokens: countTokens(codexText, model),

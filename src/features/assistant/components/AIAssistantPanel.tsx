@@ -10,6 +10,7 @@ import { SessionModeSelector } from '@/src/components/common/SessionModeSelector
 import { useAssistantChunkEngine } from '@/src/features/assistant/hooks/useAssistantChunkEngine';
 import { useAssistantSession } from '@/src/features/assistant/hooks/useAssistantSession';
 import { useMentionAutocomplete } from '@/src/hooks/useMentionAutocomplete';
+import { useAvailableProviders } from '@/src/hooks/useAvailableProviders';
 
 // New Sub-components
 import { AssistantSidebar } from '@/src/features/assistant/components/AssistantSidebar';
@@ -20,7 +21,8 @@ import { AssistantInputArea } from '@/src/features/assistant/components/Assistan
 export function AIAssistantPanel() {
   const { projectId } = useProject();
   const { activeChapterId } = useNavigation();
-  
+  const { availableProviders, selectedProvider, setSelectedProvider } = useAvailableProviders();
+
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [input, setInput] = useState('');
 
@@ -50,8 +52,8 @@ export function AIAssistantPanel() {
     selectMention
   } = useMentionAutocomplete(codexEntries || [], bibleRules || []);
 
-  const sessions = useLiveQuery(() => 
-    projectId ? db.chatSessions.where('projectId').equals(projectId).reverse().sortBy('lastMessageAt').then(arr => arr.slice(0, 50)) : []
+  const sessions = useLiveQuery(() =>
+    projectId ? db.chatSessions.where('projectId').equals(projectId).reverse().sortBy('lastMessageAt').then(arr => arr.filter(s => s.kind !== 'scribble').slice(0, 50)) : []
   , [projectId]);
 
   const activeSession = useLiveQuery(() => 
@@ -83,7 +85,9 @@ export function AIAssistantPanel() {
     handleSend,
     messages,
     isLoading,
-    retryStatus
+    retryStatus,
+    stop,
+    handleRegenerate
   } = useAssistantSession({
     projectId,
     activeChapterId,
@@ -95,7 +99,8 @@ export function AIAssistantPanel() {
     relationships: relationships || [],
     input,
     setInput,
-    chapterContext
+    chapterContext,
+    provider: selectedProvider
   });
 
   return (
@@ -134,6 +139,9 @@ export function AIAssistantPanel() {
               activeSession={activeSession}
               onBack={() => setActiveSessionId(null)}
               onSessionDeleted={() => setActiveSessionId(null)}
+              availableProviders={availableProviders}
+              selectedProvider={selectedProvider}
+              onSelectProvider={setSelectedProvider}
             />
 
             <AssistantMessageList
@@ -141,6 +149,8 @@ export function AIAssistantPanel() {
               isLoading={isLoading}
               retryStatus={retryStatus}
               onSelectPrompt={(prompt) => setInput(prompt)}
+              onRegenerate={handleRegenerate}
+              onRetry={handleRegenerate}
             />
 
             <AssistantInputArea
@@ -149,6 +159,9 @@ export function AIAssistantPanel() {
               setInput={setInput}
               isLoading={isLoading}
               handleSend={handleSend}
+              onStop={stop}
+              provider={selectedProvider}
+              messages={messages}
               sessionChapterId={sessionChapterId}
               chapters={chapters}
               sceneMetadata={sceneMetadata}

@@ -106,6 +106,8 @@ export interface ChatSession {
   mode?: SessionMode;
   smartAutoEnabled?: boolean;
   activeChapterId?: number;
+  /** Membedakan sesi workspace Studio dari sesi Scribble inline. undefined = legacy (diperlakukan sebagai 'studio'). */
+  kind?: 'studio' | 'scribble';
 }
 
 export interface Chapter {

@@ -56,8 +56,23 @@ export function cancelAI(type?: string) {
 const CACHE_SUPPORTED_PROVIDERS = ['google', 'claude', 'openrouter'];
 const MAX_CACHED_LORE_CHARS = 50000;
 
-function isCacheSupported(provider: string): boolean {
+export function isCacheSupported(provider: string): boolean {
   return CACHE_SUPPORTED_PROVIDERS.includes(provider.toLowerCase());
+}
+
+// Perkiraan jendela konteks (token) per provider — dipakai meter konteks sebagai
+// denominator headroom. Nilai konservatif; model spesifik bisa berbeda, tapi cukup
+// sebagai indikator visual "seberapa penuh konteks".
+const PROVIDER_CONTEXT_WINDOW: Record<string, number> = {
+  google: 1_000_000,
+  claude: 200_000,
+  openrouter: 128_000,
+  groq: 32_000,
+  ollama: 8_192,
+};
+
+export function getContextWindow(provider: string): number {
+  return PROVIDER_CONTEXT_WINDOW[provider?.toLowerCase()] ?? 8_192;
 }
 
 /** Membangun blok "RELATIONSHIP GRAPH" (Graph-RAG) dari relasi yang diberikan. */

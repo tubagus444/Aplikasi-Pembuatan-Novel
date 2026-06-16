@@ -54,6 +54,17 @@ export function resolveLoreTags(
   return resolved;
 }
 
+/**
+ * Versi ringan: ganti tag mention jadi nama polos saja (tanpa mengekspansi deskripsi
+ * lore). Dipakai untuk riwayat percakapan yang dikirim ke AI — lore lengkap sudah
+ * ada di system prompt, jadi cukup nama agar model paham acuan tanpa membengkakkan token.
+ */
+export function stripLoreTags(input: string): string {
+  return input
+    .replace(/@rule:(\S+)/g, (_m, key) => key.replace(/_/g, ' '))
+    .replace(/@codex:(\S+)/g, (_m, name) => name.replace(/_/g, ' '));
+}
+
 export interface MentionSegment {
   text: string;
   isMention: boolean;

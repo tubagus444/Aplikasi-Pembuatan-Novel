@@ -51,7 +51,9 @@ export function useScribbleAssistantPanel({
     messages,
     setMessages,
     isLoading,
-    sendMessage
+    sendMessage,
+    stop,
+    regenerate
   } = useChatSession({
     projectId,
     chapterId,
@@ -102,7 +104,8 @@ export function useScribbleAssistantPanel({
               chapterId,
               title: chapterId ? `Chapter ${chapterId} Scribble` : 'Global Scribble',
               lastMessageAt: Date.now(),
-              messages: [welcomeMsg]
+              messages: [welcomeMsg],
+              kind: 'scribble'
             });
             
             return { id: newId, messages: [welcomeMsg] };
@@ -142,6 +145,9 @@ export function useScribbleAssistantPanel({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasReceivedReply = messages.some(m => m.role === 'model' && !m.isWelcome);
+
+  const lastMessage = messages[messages.length - 1];
+  const canRegenerate = !isLoading && !!lastMessage && lastMessage.role === 'model' && !lastMessage.isWelcome && !lastMessage.isError;
 
   useEffect(() => {
     return () => {
@@ -216,6 +222,71 @@ export function useScribbleAssistantPanel({
     }
   };
 
+  // Jendela teks di sekitar kursor (atau awal draf) sebagai konteks dinamis untuk AI.
+  const computeFocusedContext = () => {
+    const cursorPosition = editor
+      ? editor.state.doc.textBetween(0, editor.state.selection.from, ' ').length
+      : 0;
+    return editor
+      ? getActiveWindowText(currentText, cursorPosition, 1500)
+      : currentText.substring(0, 1500);
+  };
+
+  // Tandai balasan model terakhir sebagai actionable (Salin/Sisipkan) lalu persist —
+  // setMessages langsung tidak memicu onMessageAdded.
+  const markLastMessageActionable = () => {
+    const activeId = sessionIdRef.current;
+    if (!activeId) return;
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === 'model') {
+        const updated = [...prev];
+        updated[updated.length - 1] = { ...last, isActionable: true, id: Date.now().toString() };
+        db.chatSessions.update(activeId, {
+          messages: updated,
+          lastMessageAt: Date.now()
+        }).catch(err => console.error('Failed to update actionable state in DB:', err));
+        return updated;
+      }
+      return prev;
+    });
+  };
+
+  const reportError = (err: any) => {
+    const errorMessage = err.message || 'Maaf, saya mengalami kesalahan saat memerinci lore Anda.';
+
+    if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
+      toast.error(errorMessage, {
+        action: {
+          label: 'Buka Pengaturan',
+          onClick: () => setViewMode('settings')
+        }
+      });
+    } else {
+      toast.error(errorMessage);
+    }
+
+    setMessages(prev => {
+      const updated: ChatMessage[] = [...prev, {
+        id: Date.now().toString(),
+        role: 'model' as const,
+        content: `**Error:** ${errorMessage}`,
+        isError: true,
+        timestamp: Date.now()
+      }];
+
+      const activeId = sessionIdRef.current;
+      if (activeId) {
+        db.chatSessions.update(activeId, {
+          messages: updated,
+          lastMessageAt: Date.now()
+        }).catch(e => console.error('Failed to update error log in DB:', e));
+      }
+
+      return updated;
+    });
+  };
+
   const handleSend = async (textToProcess?: string) => {
     const textToSend = textToProcess || input;
     if (!textToSend.trim() || isLoading) return;
@@ -223,72 +294,24 @@ export function useScribbleAssistantPanel({
     if (!textToProcess) setInput('');
 
     try {
-      const cursorPosition = editor 
-        ? editor.state.doc.textBetween(0, editor.state.selection.from, ' ').length
-        : 0;
-      const focusedContext = editor 
-        ? getActiveWindowText(currentText, cursorPosition, 1500)
-        : currentText.substring(0, 1500);
-
-      await sendMessage(textToSend, focusedContext);
-      
-      // Update the last message to be actionable and persist
-      const activeId = sessionIdRef.current;
-      if (activeId) {
-        setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === 'model') {
-             const updated = [...prev];
-             const updatedMessage = { ...last, isActionable: true, id: Date.now().toString() };
-             updated[updated.length - 1] = updatedMessage;
-             
-             // Persist to Dexie DB since setMessages directly doesn't trigger onMessageAdded
-             db.chatSessions.update(activeId, {
-               messages: updated,
-               lastMessageAt: Date.now()
-             }).catch(err => console.error('Failed to update actionable state in DB:', err));
-             
-             return updated;
-          }
-          return prev;
-        });
-      }
+      await sendMessage(textToSend, computeFocusedContext());
+      markLastMessageActionable();
     } catch (err: any) {
-      const errorMessage = err.message || 'Maaf, saya mengalami kesalahan saat memerinci lore Anda.';
-      
-      if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
-        toast.error(errorMessage, {
-          action: {
-            label: 'Buka Pengaturan',
-            onClick: () => setViewMode('settings')
-          }
-        });
-      } else {
-        toast.error(errorMessage);
-      }
-
-      setMessages(prev => {
-        const updated: ChatMessage[] = [...prev, { 
-          id: Date.now().toString(), 
-          role: 'model' as const, 
-          content: `**Error:** ${errorMessage}`, 
-          isError: true, 
-          timestamp: Date.now() 
-        }];
-        
-        // Persist error messages to Dexie DB as well
-        const activeId = sessionIdRef.current;
-        if (activeId) {
-          db.chatSessions.update(activeId, {
-            messages: updated,
-            lastMessageAt: Date.now()
-          }).catch(e => console.error('Failed to update error log in DB:', e));
-        }
-        
-        return updated;
-      });
+      reportError(err);
     }
   };
+
+  const handleRegenerate = async () => {
+    if (isLoading) return;
+    try {
+      await regenerate(computeFocusedContext());
+      markLastMessageActionable();
+    } catch (err: any) {
+      reportError(err);
+    }
+  };
+
+  const handleStop = () => stop();
 
   return {
     availableProviders,
@@ -303,9 +326,12 @@ export function useScribbleAssistantPanel({
     messagesEndRef,
     inputRef,
     hasReceivedReply,
+    canRegenerate,
     suggestedPrompts,
     handleCopy,
     handleClear,
     handleSend,
+    handleRegenerate,
+    handleStop,
   };
 }

@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, X, ChevronDown, BookOpen, Check, Activity } from 'lucide-react';
+import { Send, Plus, X, ChevronDown, BookOpen, Check, Activity, Square } from 'lucide-react';
 import { db } from '@/src/db';
-import { Chapter, CodexEntry, StoryBibleRule } from '@/src/types';
+import { Chapter, CodexEntry, StoryBibleRule, ChatMessage } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { MentionDropdown } from '@/src/components/common/MentionDropdown';
 import { previewContextTokens } from '@/src/services/contextEngine';
+import { isCacheSupported, getContextWindow } from '@/src/services/ai';
+import { stripLoreTags } from '@/src/lib/loreUtils';
+
+const providerLabel = (p: string) => (p === 'google' ? 'Gemini' : p.charAt(0).toUpperCase() + p.slice(1));
 
 interface AssistantInputAreaProps {
   activeSessionId: number;
@@ -12,6 +16,9 @@ interface AssistantInputAreaProps {
   setInput: React.Dispatch<React.SetStateAction<string>>;
   isLoading: boolean;
   handleSend: () => void;
+  onStop: () => void;
+  provider: string;
+  messages: ChatMessage[];
   // Context & Metadata
   sessionChapterId: number | undefined;
   chapters: Chapter[] | undefined;
@@ -39,6 +46,9 @@ export function AssistantInputArea({
   setInput,
   isLoading,
   handleSend,
+  onStop,
+  provider,
+  messages,
   sessionChapterId,
   chapters,
   sceneMetadata,
@@ -67,6 +77,13 @@ export function AssistantInputArea({
   const [tokenStats, setTokenStats] = useState({ total: 0, text: 0, codex: 0, rules: 0 });
   const [isCalculatingTokens, setIsCalculatingTokens] = useState(false);
 
+  // Mode caching mengirim SELURUH Bible+Codex statis (bukan RAG-filtered), jadi meter
+  // harus menghitung lore penuh agar tidak menyesatkan. Cocokkan keputusan di processChat:
+  // isCacheSupported(provider) && contextDepth !== 'minimal'.
+  const contextDepth = localStorage.getItem('ai_context_depth') || 'balanced';
+  const isCachingMode = isCacheSupported(provider) && contextDepth !== 'minimal';
+  const model = localStorage.getItem(`ai_model_${provider}`) || undefined;
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (loreMenuRef.current && !loreMenuRef.current.contains(event.target as Node)) {
@@ -85,14 +102,18 @@ export function AssistantInputArea({
     const timer = setTimeout(() => {
       let combinedText = input;
       if (chapterContext) combinedText += '\n\n' + chapterContext;
-      
+      // Riwayat percakapan (10 pesan terakhir, sama seperti yang dikirim useChatSession)
+      // ikut dihitung agar meter mencerminkan total konteks, bukan hanya pesan baru.
+      const historyText = (messages || []).slice(-10).map(m => stripLoreTags(m.content)).join('\n');
+      if (historyText) combinedText += '\n\n' + historyText;
+
       if (!combinedText.trim()) {
         setTokenStats({ total: 0, text: 0, codex: 0, rules: 0 });
         return;
       }
 
       setIsCalculatingTokens(true);
-      previewContextTokens(combinedText, codexEntries || [], bibleRules || []).then(stats => {
+      previewContextTokens(combinedText, codexEntries || [], bibleRules || [], model, isCachingMode).then(stats => {
         setTokenStats({
           total: stats.totalTokens,
           text: stats.textTokens,
@@ -107,9 +128,10 @@ export function AssistantInputArea({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [input, chapterContext, codexEntries, bibleRules]);
+  }, [input, chapterContext, codexEntries, bibleRules, model, isCachingMode, messages]);
 
-  const MAX_TOKENS = 8192; // Typical standard context window limit warning indicator
+  // Jendela konteks provider sebagai denominator headroom (mis. Gemini ~1jt, Claude 200rb).
+  const MAX_TOKENS = getContextWindow(provider);
   const tokenPercentage = Math.min((tokenStats.total / MAX_TOKENS) * 100, 100);
   const getProgressColor = () => {
     if (tokenPercentage < 50) return 'text-emerald-500';
@@ -395,14 +417,14 @@ export function AssistantInputArea({
                   </div>
 
                   {/* Tooltip for Token Breakdown */}
-                  <div className="absolute bottom-full left-0 mb-3 w-48 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl opacity-0 group-hover/meter:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="absolute bottom-full left-0 mb-3 w-56 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl opacity-0 group-hover/meter:opacity-100 transition-opacity pointer-events-none z-50">
                     <div className="font-bold text-white text-xs mb-2 border-b border-slate-700 pb-1">Token Usage Breakdown</div>
                     <div className="flex justify-between text-xs text-slate-300 mb-1">
                       <span>Prompt/Text:</span>
                       <span className="tabular-nums font-medium">{tokenStats.text.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-300 mb-1">
-                      <span>Memori Lore:</span>
+                      <span>Memori Lore{isCachingMode ? ' (penuh)' : ' (relevan)'}:</span>
                       <span className="tabular-nums font-medium">{tokenStats.codex.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-300 mb-2">
@@ -413,17 +435,32 @@ export function AssistantInputArea({
                       <span>Total:</span>
                       <span className="tabular-nums">{tokenStats.total.toLocaleString()}</span>
                     </div>
+                    <div className="mt-2 pt-1.5 border-t border-slate-700 text-[10px] text-slate-400 leading-relaxed">
+                      Mode: <span className="font-bold text-slate-200">{isCachingMode ? 'Caching (lore penuh)' : 'RAG (lore terpilih)'}</span>
+                      <br />
+                      Jendela {providerLabel(provider)}: <span className="tabular-nums">{MAX_TOKENS.toLocaleString()}</span> tk
+                    </div>
                     <div className="absolute bottom-[-5px] left-4 w-2 h-2 bg-slate-900 border-b border-r border-slate-700 transform rotate-45"></div>
                   </div>
                 </div>
             </div>
-            <button
-              onClick={handleSend}
-              disabled={isLoading || !input.trim()}
-              className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:bg-slate-400 transition-all flex items-center gap-2"
-            >
-              Kirim Ide <Send size={16} />
-            </button>
+            {isLoading ? (
+              <button
+                onClick={onStop}
+                className="px-5 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition-all flex items-center gap-2"
+                title="Hentikan generasi"
+              >
+                Hentikan <Square size={14} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!input.trim()}
+                className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:bg-slate-400 transition-all flex items-center gap-2"
+              >
+                Kirim Ide <Send size={16} />
+              </button>
+            )}
           </div>
         </div>
       </div>

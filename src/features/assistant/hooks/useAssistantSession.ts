@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { db } from '@/src/db';
 import { useToast } from '@/src/hooks/useToast';
 import { useChatSession } from '@/src/hooks/useChatSession';
-import { SessionMode, CodexEntry, StoryBibleRule } from '@/src/types';
+import { SessionMode, CodexEntry, StoryBibleRule, ChatMessage } from '@/src/types';
 
 export function useAssistantSession({
   projectId,
@@ -16,6 +16,7 @@ export function useAssistantSession({
   input,
   setInput,
   chapterContext,
+  provider,
 }: {
   projectId: number | null;
   activeChapterId: number | null;
@@ -28,6 +29,7 @@ export function useAssistantSession({
   input: string;
   setInput: (val: string) => void;
   chapterContext: string;
+  provider: string;
 }) {
   const { toast } = useToast();
   
@@ -44,7 +46,9 @@ export function useAssistantSession({
     setMessages,
     isLoading,
     retryStatus,
-    sendMessage
+    sendMessage,
+    stop,
+    regenerate
   } = useChatSession({
     projectId: projectId || 0,
     chapterId: activeChapterId || undefined,
@@ -52,7 +56,7 @@ export function useAssistantSession({
     bibleRules: bibleRules || [],
     relationships: relationships || [],
     sessionMode: activeSession?.mode,
-    provider: localStorage.getItem('ai_provider') || 'google',
+    provider,
     initialMessages: activeSession?.messages || [],
     onMessageAdded: async (newMessages) => {
       if (activeSessionIdRef.current) {
@@ -90,7 +94,8 @@ export function useAssistantSession({
       messages: [],
       mode,
       smartAutoEnabled: smartAuto,
-      activeChapterId: activeChapterId || undefined
+      activeChapterId: activeChapterId || undefined,
+      kind: 'studio'
     });
     setActiveSessionId(newId);
     activeSessionIdRef.current = newId; // Update ref immediately
@@ -136,12 +141,41 @@ export function useAssistantSession({
     } catch (err: any) {
       console.error(err);
       const errorMessage = err.message || 'Gagal mengirim pesan ke AI.';
-      
+
       if (err.code === 'INVALID_KEY' || err.code === 'QUOTA_EXCEEDED') {
         toast.error(`${errorMessage} (Cek Pengaturan API)`);
       } else {
         toast.error(errorMessage);
       }
+
+      // Bubble error inline (sejajar perilaku Scribble) supaya kegagalan terlihat &
+      // bisa dipulihkan via tombol "Coba Lagi", bukan sekadar toast yang lekas hilang.
+      const errorBubble: ChatMessage = {
+        id: Date.now().toString() + '_error',
+        role: 'model',
+        content: `**Error:** ${errorMessage}`,
+        isError: true,
+        timestamp: Date.now()
+      };
+      setMessages(prev => {
+        const updated = [...prev, errorBubble];
+        const activeId = activeSessionIdRef.current;
+        if (activeId) {
+          db.chatSessions.update(activeId, { messages: updated, lastMessageAt: Date.now() })
+            .catch(e => console.error('Failed to persist error message:', e));
+        }
+        return updated;
+      });
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (isLoading || !activeSessionId) return;
+    try {
+      await regenerate(chapterContext);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Gagal meregenerasi respons.');
     }
   };
 
@@ -153,6 +187,8 @@ export function useAssistantSession({
     handleSend,
     messages,
     isLoading,
-    retryStatus
+    retryStatus,
+    stop,
+    handleRegenerate
   };
 }

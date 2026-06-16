@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrainCircuit, Plus, Search, MessageSquare, Check, Trash2, History } from 'lucide-react';
+import { BrainCircuit, Plus, Search, MessageSquare, Check, Trash2, History, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { db } from '@/src/db';
 import { ChatSession } from '@/src/types';
@@ -137,7 +137,17 @@ export function AssistantSidebar({
                     </button>
                 </div>
               ) : (
-                <p className="text-sm font-medium truncate pr-8">{session.title}</p>
+                <p
+                  className="text-sm font-medium truncate pr-14"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditingSidebarId(session.id!);
+                    setEditTitleValue(session.title);
+                  }}
+                  title="Klik dua kali untuk ganti nama"
+                >
+                  {session.title}
+                </p>
               )}
               <p className="text-[10px] opacity-60 mt-0.5">
                 {format(session.lastMessageAt, 'dd MMM, HH:mm')}
@@ -161,14 +171,23 @@ export function AssistantSidebar({
                   </button>
                 </div>
               </div>
-            ) : (
-              <button 
-                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(session.id!); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 rounded-lg transition-all z-20"
-                title="Hapus"
-              >
-                <Trash2 size={14} />
-              </button>
+            ) : editingSidebarId !== session.id && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all z-20">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingSidebarId(session.id!); setEditTitleValue(session.title); }}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-indigo-600 rounded-lg transition-all"
+                  title="Ganti nama"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(session.id!); }}
+                  className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 rounded-lg transition-all"
+                  title="Hapus"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             )}
           </div>
         ))}

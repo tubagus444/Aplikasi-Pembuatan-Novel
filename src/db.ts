@@ -150,6 +150,39 @@ export class AetherScribeDB extends Dexie {
       embeddings: 'id, projectId, codexId',
       aiUsageLogs: '++id, timestamp, provider, actionType'
     });
+
+    // v18: skema identik dengan v17 (field `kind` tidak diindeks). Upgrade hanya
+    // backfill: men-tag sesi Scribble lama yang dibuat sebelum field `kind` ada,
+    // agar tidak lagi mencemari daftar riwayat Studio. Diskriminasi via pola judul
+    // auto-generate Scribble ("Global Scribble" / "Chapter N Scribble") — sesi
+    // Studio bertajuk prompt pengguna / "Percakapan Baru".
+    this.version(18).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType'
+    }).upgrade(async (tx) => {
+      const sessions = await tx.table('chatSessions').toArray();
+      let scribbleCount = 0;
+      await Promise.all(sessions.map((s: ChatSession) => {
+        if (s.kind) return Promise.resolve(); // sesi baru sudah ter-tag
+        const isScribble = /Scribble$/.test(s.title);
+        if (isScribble) scribbleCount++;
+        return tx.table('chatSessions').update(s.id, { kind: isScribble ? 'scribble' : 'studio' });
+      }));
+      if (scribbleCount > 0) {
+        console.log(`Tagged ${scribbleCount} legacy Scribble session(s) as kind:'scribble'.`);
+      }
+    });
   }
 }
 
