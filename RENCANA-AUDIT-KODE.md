@@ -382,6 +382,17 @@ Verifikasi: `tsc` 0 error, vitest 21/21.
 
 ---
 
+## Temuan lanjutan (di luar 12 area awal)
+
+### [A1] Regenerasi chat memakai konteks bab yang bisa berbeda dari kiriman aslinya — `useAssistantSession.ts`, `useAssistantChunkEngine.ts`
+**Status:** ⬜ Ditunda (sengaja). · **Prioritas:** P2 · **Confidence:** 🔴 terkonfirmasi
+
+- **Temuan.** Di Studio, `chapterContext` (Smart Auto) dihitung dari `input` saat ini lewat chunk engine. Saat **Regenerasi/Coba Lagi**, `input` sudah kosong → chunk engine jatuh ke fallback "scene terakhir", jadi konteks bab yang dipakai regen bisa **berbeda** dari yang dikirim saat pesan asli dibuat. Hasil regen tetap koheren, hanya tak dijamin setara konteksnya. (Tag lore di history kini sudah di-`stripLoreTags`, jadi bukan bagian masalah ini.)
+- **Tindakan (bila dikerjakan).** Simpan `chapterContext` yang dipakai **per pesan** saat dikirim (mis. field pada `ChatMessage`/sesi), lalu putar ulang nilai itu persis saat regenerasi — alih-alih menghitung ulang dari `input` kosong. Perubahan struktural kecil pada penyimpanan pesan.
+- **Alasan ditunda.** Nilai kecil vs biaya perubahan struktur penyimpanan; ditunda sampai benar-benar terasa mengganggu. Konteks: bagian dari rangkaian perbaikan panel asisten (Stop/Regenerate, error inline, meter token akurat) — lihat commit `6c9bfbe`.
+
+---
+
 ## Catatan
 
 - Temuan bertanda 🟡 adalah **indikasi awal**, belum diverifikasi mendalam — jangan langsung dianggap bug sampai dikonfirmasi.

@@ -92,10 +92,14 @@ function buildRelationshipGraph(relationships: Relationship[], codex: CodexEntry
 }
 
 /**
- * Mode caching: seluruh Story Bible + Codex diurutkan deterministik agar system
- * prompt benar-benar statis (memaksimalkan cache prompt provider).
+ * Mode caching: Story Bible + Codex diurutkan deterministik menjadi SEGMEN ber-tier
+ * (stabil→volatil) agar system prompt statis & cache-able. Segmen 0 = Story Bible
+ * (jarang berubah), segmen 1 = Codex lore + relationship graph (sering diedit). Proxy
+ * memberi tiap segmen cache breakpoint sendiri sehingga edit satu entri Codex hanya
+ * membatalkan segmen volatil; prefix Bible tetap hit (#P3). Join('\n\n') memulihkan blok
+ * tunggal lama (dipakai jalur non-caching). Segmen byte-identik antar-aksi & antar-panggilan.
  */
-function buildCachedContextBlock(bibleRules: StoryBibleRule[], codexEntries: CodexEntry[], relationships: Relationship[] = []): string {
+function buildCachedContextSegments(bibleRules: StoryBibleRule[], codexEntries: CodexEntry[], relationships: Relationship[] = []): string[] {
   const sortedRules = [...bibleRules].sort((a, b) => a.key.localeCompare(b.key));
   const sortedCodex = [...codexEntries].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -103,7 +107,10 @@ function buildCachedContextBlock(bibleRules: StoryBibleRule[], codexEntries: Cod
   const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, getMaxCachedLoreChars()) || 'No specific lore.';
   const graphString = buildRelationshipGraph(relationships, codexEntries);
 
-  return `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
+  return [
+    `STORY BIBLE:\n${bibleString}`,
+    `CODEX LORE:\n${loreString}${graphString}`,
+  ];
 }
 
 function getSettings() {
@@ -412,19 +419,23 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   }
 
   const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  let contextBlock = '';
+  // P0: di caching mode, KB statis dipisah ke cachedContext (blok cache PERTAMA yang
+  // identik lintas-aksi) agar rewrite/chat/consistency berbagi satu cache prefix;
+  // systemInstruction menyisakan instruksi aksi saja. Non-caching: gabung seperti biasa.
+  let cachedContext: string[] | undefined;
+  let systemInstruction: string;
   if (useCaching) {
     // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
-    contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
+    cachedContext = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
+    systemInstruction = AI_PROMPTS.REWRITE.SYSTEM();
   } else {
     // LEGACY RAG MODE: Filter dynamically
     const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
     const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
-    contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
+    const contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
+    systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
   }
 
-  const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
-  
   // User Prompt must contain the dynamic scene context to keep the System instruction perfectly static for caching
   let userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
   if (relevantScenesText) {
@@ -441,6 +452,7 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   try {
     const res = await callAI({
       systemInstruction,
+      cachedContext,
       userPrompt,
       provider: provider,
       temperature: 0.85,
@@ -499,35 +511,37 @@ export async function processChat(params: ChatParams): Promise<string> {
   }
 
   const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  let contextBlock = '';
+  // P0: KB statis dipisah ke cachedContext (blok cache PERTAMA, identik lintas-aksi).
+  // Instruksi mode (prose-review/plot-check/brainstorm) tetap di systemInstruction →
+  // blok KB pun dibagi antar-mode chat, bukan cuma antar-aksi.
+  let cachedContext: string[] | undefined;
+  let systemInstruction: string;
   if (useCaching) {
     // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
-    contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
+    cachedContext = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
+    systemInstruction = AI_PROMPTS.CHAT.SYSTEM(undefined, params.sessionMode);
   } else {
     // LEGACY RAG MODE: Filter dynamically
     const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
     const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
-    contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
+    const contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
+    systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
   }
-
-  const systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
   const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, draftSnippet);
 
-  // SMART PRUNING: Keep only the most recent part of history to save tokens
-  // A turn is 2 messages (user + model). 10 messages = 5 turns.
-  const MAX_HISTORY_MESSAGES = 10;
-  const trimmedHistory = params.history && params.history.length > MAX_HISTORY_MESSAGES
-    ? params.history.slice(-MAX_HISTORY_MESSAGES)
-    : params.history;
+  // Pemangkasan riwayat dilakukan SATU kali di proxy (MAX_PROXY_HISTORY) sebagai gerbang
+  // akhir, sekaligus titik breakpoint cache riwayat — jadi jangan memangkas ulang di sini
+  // (trim ganda dulu menyesatkan: tampak menyimpan 10, padahal proxy memotong ke 8).
 
   const controller = new AbortController();
   registerAbort('chat', controller);
   try {
     const res = await callAI({
       systemInstruction,
+      cachedContext,
       userPrompt: userPromptWithContext,
       provider: provider,
-      history: trimmedHistory,
+      history: params.history,
       temperature: 0.7,
       maxTokens: 2048,
       stream: params.stream,
@@ -579,17 +593,29 @@ export async function checkConsistency(params: ConsistencyParams): Promise<{ fin
   const provider = params.provider || settings.provider;
 
   const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  let contextBlock = buildCachedContextBlock(params.bibleRules, params.codexEntries, params.relationships || []);
+  const kbSegments = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
   // Timeline membantu AI menangkap pelanggaran urutan waktu (peristiwa di luar kronologi).
-  if (params.timelineSummary && params.timelineSummary.trim()) {
-    contextBlock += `\n\nSTORY TIMELINE (urutan kronologis peristiwa cerita):\n${params.timelineSummary.trim()}`;
+  // P0/P1: timeline TIDAK dimasukkan ke cachedContext agar segmen KB tetap byte-identik
+  // dengan rewrite/chat → cache KB dibagi lintas-aksi DAN antar-bab (cek 5 bab beruntun =
+  // 1 tulis + 4 baca, bukan 5 tulis cache buangan). Timeline menyusul di blok instruksi
+  // (kecil; story-wide sehingga sering sama antar pemeriksaan bab dalam satu sesi).
+  const timelineBlock = params.timelineSummary && params.timelineSummary.trim()
+    ? `\n\nSTORY TIMELINE (urutan kronologis peristiwa cerita):\n${params.timelineSummary.trim()}`
+    : '';
+
+  let cachedContext: string[] | undefined;
+  let systemInstruction: string;
+  if (useCaching) {
+    cachedContext = kbSegments;
+    systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM() + timelineBlock;
+  } else {
+    systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM(kbSegments.join('\n\n') + timelineBlock);
   }
 
   const fullText = params.chapterText || '';
   const truncated = fullText.length > MAX_CONSISTENCY_CHARS;
   const chapterText = truncated ? fullText.slice(0, MAX_CONSISTENCY_CHARS) : fullText;
 
-  const systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM(contextBlock);
   const userPrompt = AI_PROMPTS.CONSISTENCY.USER(params.chapterTitle || '', chapterText);
 
   const controller = new AbortController();
@@ -597,6 +623,7 @@ export async function checkConsistency(params: ConsistencyParams): Promise<{ fin
   try {
     const res = await callAI({
       systemInstruction,
+      cachedContext,
       userPrompt,
       provider,
       temperature: 0.2, // analitis: minim kreativitas, maksimal konsistensi

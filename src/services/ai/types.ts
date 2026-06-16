@@ -8,6 +8,18 @@ export interface AIProviderConfig {
 
 export interface AIRenderParams {
   systemInstruction: string;
+  /**
+   * Knowledge base statis (Story Bible + Codex + relationship graph) yang DIPISAH dari
+   * systemInstruction, sebagai SEGMEN ber-tier terurut stabil→volatil (mis.
+   * [Story Bible, Codex+graph]). Bila ada, proxy menempatkan tiap segmen sebagai blok
+   * system di DEPAN instruksi, masing-masing dengan cache_control sendiri (saat cacheable).
+   * Karena segmen identik lintas-aksi (rewrite/chat/consistency memakai output
+   * buildCachedContextSegments yang sama), cache prefix-nya dibagi → aksi berikutnya
+   * MEMBACA cache alih-alih menulis ulang ~14k token (#P0). Tier per-segmen membuat edit
+   * satu entri Codex hanya membatalkan segmen volatil; prefix Bible tetap hit (#P3).
+   * Hanya diisi di caching mode. Lihat RENCANA-OPTIMASI-AI.md (#9).
+   */
+  cachedContext?: string[];
   userPrompt: string;
   actionType?: 'chat' | 'summarize' | 'rewrite' | 'extract' | 'expand' | 'consistency' | 'other';
   provider?: string;

@@ -15,7 +15,7 @@ import { OpenRouterModelSelect } from '@/src/components/common/OpenRouterModelSe
 import { OllamaModelSelect } from '@/src/components/common/OllamaModelSelect';
 import { useDriveSync } from '@/src/hooks/useDriveSync';
 import { getDefaultLightModelForProvider } from '@/src/services/ai/proxy';
-import { DEFAULT_MAX_CACHED_LORE_CHARS } from '@/src/lib/aiTuning';
+import { DEFAULT_MAX_CACHED_LORE_CHARS, DEFAULT_CLAUDE_CACHE_TTL } from '@/src/lib/aiTuning';
 
 export function SettingsPanel() {
   const [activeTab, setActiveTab] = useState<'ai' | 'backup'>('ai');
@@ -96,6 +96,7 @@ export function SettingsPanel() {
     openrouter: '',
     claude: ''
   });
+  const [cacheTtl, setCacheTtl] = useState<string>(DEFAULT_CLAUDE_CACHE_TTL);
   const [isSaved, setIsSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -203,6 +204,7 @@ export function SettingsPanel() {
       openrouter: localStorage.getItem('ai_light_model_openrouter') || '',
       claude: localStorage.getItem('ai_light_model_claude') || ''
     });
+    setCacheTtl(localStorage.getItem('ai_claude_cache_ttl') === '5m' ? '5m' : DEFAULT_CLAUDE_CACHE_TTL);
   }, []);
 
   const handleSave = () => {
@@ -211,6 +213,7 @@ export function SettingsPanel() {
     localStorage.setItem('ollama_base_url', ollamaBaseUrl);
     localStorage.setItem('ollama_enabled', ollamaEnabled.toString());
     localStorage.setItem('ai_max_cached_lore_chars', maxLoreChars);
+    localStorage.setItem('ai_claude_cache_ttl', cacheTtl);
 
     // Override model tugas-ringan per provider; kosong = pakai default hardcoded.
     (['google', 'groq', 'openrouter', 'claude'] as const).forEach((p) => {
@@ -517,6 +520,25 @@ export function SettingsPanel() {
                       className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
                     />
                   )}
+                </div>
+
+                {/* #P5 — masa hidup (TTL) cache Claude */}
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+                  <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                    Masa Hidup Cache (Claude)
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+                    Hanya untuk Claude langsung. <strong>1 jam</strong> menjaga cache hangat melewati jeda berpikir/mengetik (optimal untuk sesi menulis panjang yang banyak baca cache); <strong>5 menit</strong> menekan premi tulis bila kamu hanya sesekali memanggil AI. OpenRouter/Google tak terpengaruh.
+                  </p>
+                  <select
+                    aria-label="Masa Hidup Cache Claude"
+                    value={cacheTtl}
+                    onChange={(e) => setCacheTtl(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                  >
+                    <option value="1h">1 jam — default (sesi menulis panjang)</option>
+                    <option value="5m">5 menit — pemakaian jarang / burst pendek</option>
+                  </select>
                 </div>
               </div>
             </section>

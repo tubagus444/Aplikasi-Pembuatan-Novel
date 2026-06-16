@@ -1,6 +1,7 @@
 import { AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
 import { classifyError, getErrorMessage } from '@/src/services/ai/errors';
+import { getClaudeCacheTtl } from '@/src/lib/aiTuning';
 import { db } from '@/src/db';
 
 const MAX_PROXY_HISTORY = 8;
@@ -25,13 +26,33 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
   if (provider === 'claude') {
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
-    // Caching mode: tandai blok system (knowledge base statis) sebagai cache breakpoint.
-    // TTL 1 jam dipilih agar cache bertahan melewati jeda berpikir/mengetik dalam satu
-    // sesi menulis (default ephemeral hanya 5 menit). Anthropic mengabaikan penanda ini
-    // jika prompt di bawah ambang minimum, tanpa error.
-    body.system = params.cacheable
-      ? [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral', ttl: '1h' } }]
-      : params.systemInstruction;
+    // P0/P3: tiap segmen KB statis (params.cachedContext, stabil→volatil) jadi blok system
+    // di DEPAN instruksi, masing-masing dengan cache breakpoint sendiri. Karena segmen
+    // identik lintas-aksi (rewrite/chat/consistency memakai buildCachedContextSegments yang
+    // sama), cache prefix-nya dibagi → aksi berikutnya MEMBACA cache (~0.1x) alih-alih
+    // menulis ulang ~14k token. Tier per-segmen: edit satu entri Codex hanya membatalkan
+    // segmen volatil; prefix Bible tetap hit. Separator '\n\n' di awal segmen ke-2+ &
+    // instruksi agar segmen byte-identik. cache_control hanya saat cacheable. Anthropic
+    // mengabaikan penanda untuk blok di bawah ambang minimum, tanpa error.
+    // P5: TTL cache bisa diatur pengguna (Settings → Optimasi AI Lanjutan). 5 menit = premi
+    // tulis 1.25× (hemat untuk pemakaian jarang); 1 jam = 2× tapi cache bertahan melewati
+    // jeda berpikir/mengetik (default, optimal untuk sesi panjang yang banyak baca cache).
+    const claudeCacheControl: any = getClaudeCacheTtl() === '5m'
+      ? { type: 'ephemeral' }
+      : { type: 'ephemeral', ttl: '1h' };
+    if (params.cachedContext?.length) {
+      const blocks: any[] = params.cachedContext.map((text, i) => {
+        const b: any = { type: 'text', text: i === 0 ? text : `\n\n${text}` };
+        if (params.cacheable) b.cache_control = { ...claudeCacheControl };
+        return b;
+      });
+      blocks.push({ type: 'text', text: `\n\n${params.systemInstruction}` });
+      body.system = blocks;
+    } else if (params.cacheable) {
+      body.system = [{ type: 'text', text: params.systemInstruction, cache_control: { ...claudeCacheControl } }];
+    } else {
+      body.system = params.systemInstruction;
+    }
     const claudeHistory: any[] = history.map(h => ({
       role: h.role === 'model' ? 'assistant' : 'user',
       content: historyText(h)
@@ -45,15 +66,21 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     // prefix berubah → cache riwayat miss (system tetap hit); keterbatasan inheren.
     if (params.cacheable && claudeHistory.length > 0) {
       const last = claudeHistory[claudeHistory.length - 1];
-      last.content = [{ type: 'text', text: last.content, cache_control: { type: 'ephemeral', ttl: '1h' } }];
+      last.content = [{ type: 'text', text: last.content, cache_control: { ...claudeCacheControl } }];
     }
     body.messages = [
       ...claudeHistory,
       { role: "user", content: params.userPrompt }
     ];
   } else if (provider === 'google') {
+    // P0: KB statis di DEPAN systemInstruction → prefix request identik lintas-aksi
+    // sehingga implicit caching seri Gemini 2.5 lebih sering hit (urutan: KB → instruksi).
+    // Google tak punya breakpoint eksplisit → segmen digabung jadi satu string.
+    const googleSystem = params.cachedContext?.length
+      ? `${params.cachedContext.join('\n\n')}\n\n${params.systemInstruction}`
+      : params.systemInstruction;
     body.systemInstruction = {
-      parts: [{ text: params.systemInstruction }]
+      parts: [{ text: googleSystem }]
     };
     body.contents = [
       ...history.map(h => ({
@@ -70,14 +97,39 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     // OpenAI Compatible (groq, openrouter, ollama)
     body.temperature = params.temperature || 0.7;
     body.max_tokens = params.maxTokens || 4000;
-    // OpenRouter meneruskan cache_control ke provider hulu (Anthropic/Gemini) dan
-    // mengabaikannya untuk model yang tak mendukung. Groq/Ollama: kirim string biasa.
-    const systemMessage = params.cacheable && provider === 'openrouter'
-      ? { role: "system", content: [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral' } }] }
-      : { role: "system", content: params.systemInstruction };
+    // P0/P3: tiap segmen KB statis (cachedContext) jadi bagian PERTAMA system. Untuk
+    // OpenRouter, kirim multipart dengan cache_control per-segmen (diteruskan ke provider
+    // hulu Anthropic/Gemini; diabaikan untuk model yang tak mendukung) → segmen identik
+    // lintas-aksi dibagi, dan tier per-segmen menjaga prefix Bible hit saat Codex diedit.
+    // Groq/Ollama tak mendukung caching → gabung string biasa (KB → instruksi).
+    let systemMessage: any;
+    if (params.cachedContext?.length && params.cacheable && provider === 'openrouter') {
+      const parts: any[] = params.cachedContext.map((text, i) => ({
+        type: 'text', text: i === 0 ? text : `\n\n${text}`, cache_control: { type: 'ephemeral' }
+      }));
+      parts.push({ type: 'text', text: `\n\n${params.systemInstruction}` });
+      systemMessage = { role: "system", content: parts };
+    } else if (params.cacheable && provider === 'openrouter') {
+      systemMessage = { role: "system", content: [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral' } }] };
+    } else {
+      const sysText = params.cachedContext?.length
+        ? `${params.cachedContext.join('\n\n')}\n\n${params.systemInstruction}`
+        : params.systemInstruction;
+      systemMessage = { role: "system", content: sysText };
+    }
+    // P2: cache prefix percakapan untuk OpenRouter (diteruskan ke Anthropic hulu) — tandai
+    // pesan riwayat TERAKHIR dengan cache_control; giliran berikut hanya bayar pesan baru.
+    // Analog breakpoint riwayat Claude native (#4). Gemini hulu mengabaikan penanda ini.
+    // Keterbatasan inheren sama: begitu riwayat melewati jendela geser, prefix berubah →
+    // cache riwayat miss (system tetap hit).
+    const histMsgs: any[] = history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: historyText(h) as any }));
+    if (params.cacheable && provider === 'openrouter' && histMsgs.length > 0) {
+      const last = histMsgs[histMsgs.length - 1];
+      last.content = [{ type: 'text', text: last.content, cache_control: { type: 'ephemeral' } }];
+    }
     body.messages = [
       systemMessage,
-      ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: historyText(h) })),
+      ...histMsgs,
       { role: "user", content: params.userPrompt }
     ];
     if (params.stream) {
@@ -285,8 +337,15 @@ function extractErrorMessage(errorText: string): string {
 }
 
 function logUsageToDB(params: AIRenderParams, provider: string, usage: any, completeText: string) {
-  // Estimate tokens if usage missing
-  let promptTokens = Math.ceil(params.userPrompt.length / 4) + Math.ceil(params.systemInstruction.length / 4);
+  // Estimate tokens if usage missing. Sertakan cachedContext (KB, dipisah dari
+  // systemInstruction di P0) DAN riwayat chat agar estimasi fallback tak meremehkan
+  // ukuran prompt (#P4). Riwayat dihitung dari MAX_PROXY_HISTORY pesan terakhir — persis
+  // yang dikirim callProxy — agar estimasi cocok dengan payload sebenarnya.
+  const cachedLen = params.cachedContext?.reduce((n, s) => n + s.length, 0) || 0;
+  const historyLen = (params.history || [])
+    .slice(-MAX_PROXY_HISTORY)
+    .reduce((n, h) => n + historyText(h).length, 0);
+  let promptTokens = Math.ceil((params.userPrompt.length + params.systemInstruction.length + cachedLen + historyLen) / 4);
   let completionTokens = Math.ceil(completeText.length / 4);
   let cachedTokens = 0;
 

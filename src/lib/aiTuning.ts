@@ -27,3 +27,25 @@ export function getMaxCachedLoreChars(): number {
     return DEFAULT_MAX_CACHED_LORE_CHARS;
   }
 }
+
+const CLAUDE_CACHE_TTL_KEY = 'ai_claude_cache_ttl';
+export type ClaudeCacheTtl = '5m' | '1h';
+export const DEFAULT_CLAUDE_CACHE_TTL: ClaudeCacheTtl = '1h';
+
+/**
+ * Masa hidup (TTL) prompt cache Claude langsung (RENCANA-OPTIMASI-AI #P5). Anthropic
+ * menagih premi TULIS cache: 1.25× untuk 5 menit, 2× untuk 1 jam (baca tetap 0.1×). Maka:
+ * - **1 jam (default):** cache bertahan melewati jeda berpikir/mengetik → optimal untuk
+ *   sesi menulis panjang yang banyak membaca cache (apalagi setelah KB dibagi lintas-aksi).
+ * - **5 menit:** premi tulis lebih murah → lebih hemat untuk pola "colek sesekali lalu
+ *   tutup" di mana cache jarang sempat dibaca ulang.
+ * Hanya berlaku untuk provider `claude` langsung (OpenRouter tetap 5 menit; Google pakai
+ * TTL implicit-nya sendiri). Nilai tak dikenal → default 1 jam.
+ */
+export function getClaudeCacheTtl(): ClaudeCacheTtl {
+  try {
+    return localStorage.getItem(CLAUDE_CACHE_TTL_KEY) === '5m' ? '5m' : '1h';
+  } catch {
+    return DEFAULT_CLAUDE_CACHE_TTL;
+  }
+}
