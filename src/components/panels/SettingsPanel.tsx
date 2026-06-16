@@ -14,6 +14,8 @@ import { ContextDepth } from '@/src/types';
 import { OpenRouterModelSelect } from '@/src/components/common/OpenRouterModelSelect';
 import { OllamaModelSelect } from '@/src/components/common/OllamaModelSelect';
 import { useDriveSync } from '@/src/hooks/useDriveSync';
+import { getDefaultLightModelForProvider } from '@/src/services/ai/proxy';
+import { DEFAULT_MAX_CACHED_LORE_CHARS } from '@/src/lib/aiTuning';
 
 export function SettingsPanel() {
   const [activeTab, setActiveTab] = useState<'ai' | 'backup'>('ai');
@@ -86,6 +88,14 @@ export function SettingsPanel() {
   });
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState('');
   const [ollamaEnabled, setOllamaEnabled] = useState(false);
+  // Optimasi AI lanjutan (RENCANA-OPTIMASI-AI #5 & #7)
+  const [maxLoreChars, setMaxLoreChars] = useState(String(DEFAULT_MAX_CACHED_LORE_CHARS));
+  const [lightModels, setLightModels] = useState<Record<string, string>>({
+    google: '',
+    groq: '',
+    openrouter: '',
+    claude: ''
+  });
   const [isSaved, setIsSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -186,6 +196,13 @@ export function SettingsPanel() {
     });
     setOllamaBaseUrl(localStorage.getItem('ollama_base_url') || 'http://localhost:11434');
     setOllamaEnabled(localStorage.getItem('ollama_enabled') === 'true');
+    setMaxLoreChars(localStorage.getItem('ai_max_cached_lore_chars') || String(DEFAULT_MAX_CACHED_LORE_CHARS));
+    setLightModels({
+      google: localStorage.getItem('ai_light_model_google') || '',
+      groq: localStorage.getItem('ai_light_model_groq') || '',
+      openrouter: localStorage.getItem('ai_light_model_openrouter') || '',
+      claude: localStorage.getItem('ai_light_model_claude') || ''
+    });
   }, []);
 
   const handleSave = () => {
@@ -193,6 +210,14 @@ export function SettingsPanel() {
     localStorage.setItem('ai_context_depth', contextDepth);
     localStorage.setItem('ollama_base_url', ollamaBaseUrl);
     localStorage.setItem('ollama_enabled', ollamaEnabled.toString());
+    localStorage.setItem('ai_max_cached_lore_chars', maxLoreChars);
+
+    // Override model tugas-ringan per provider; kosong = pakai default hardcoded.
+    (['google', 'groq', 'openrouter', 'claude'] as const).forEach((p) => {
+      const val = lightModels[p]?.trim();
+      if (val) localStorage.setItem(`ai_light_model_${p}`, val);
+      else localStorage.removeItem(`ai_light_model_${p}`);
+    });
     
     const saveKey = (name: string, value: string) => {
       const trimmedValue = value.trim();
@@ -437,6 +462,61 @@ export function SettingsPanel() {
                     <option value="balanced">Seimbang (Direkomendasikan)</option>
                     <option value="deep">Mendalam (Detail Terkaya)</option>
                   </select>
+                </div>
+              </div>
+            </section>
+
+            {/* Advanced AI Optimization (#5 cap lore cache, #7 override model ringan) */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <BrainCircuit size={18} className="text-indigo-500" />
+                <div>
+                  <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Optimasi AI Lanjutan</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Penyetelan token & biaya untuk pengguna mahir. Default sudah aman dibiarkan.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* #5 — cap lore di cache */}
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+                  <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                    Maks. Lore di Cache
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+                    Batas karakter Codex pada prompt statis (mode caching). Lebih kecil = cache lebih murah ditulis ulang bila sering edit lore di tengah sesi; lebih besar = lebih banyak lore sampai ke AI. Pantau <em>cache hit rate</em> di Dashboard.
+                  </p>
+                  <select
+                    value={maxLoreChars}
+                    onChange={(e) => setMaxLoreChars(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                  >
+                    <option value="25000">25.000 karakter (~6k token) — paling hemat</option>
+                    <option value="50000">50.000 karakter (~12,5k token) — default</option>
+                    <option value="75000">75.000 karakter (~19k token)</option>
+                    <option value="100000">100.000 karakter (~25k token) — lore terkaya</option>
+                  </select>
+                </div>
+
+                {/* #7 — override model tugas ringan untuk provider default terpilih */}
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+                  <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                    Model Tugas Ringan
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+                    Model untuk tugas mekanis (rangkum, ekstraksi entitas) pada penyedia <strong>{provider}</strong>. Kosongkan untuk pakai default. Tugas berat (tulis ulang, chat) tetap pakai model utama.
+                  </p>
+                  {provider === 'ollama' ? (
+                    <p className="text-xs italic text-slate-400 dark:text-slate-500 py-2">
+                      Ollama tak punya tier model ringan terpisah — tugas ringan memakai model utama.
+                    </p>
+                  ) : (
+                    <input
+                      type="text"
+                      value={lightModels[provider] ?? ''}
+                      onChange={(e) => setLightModels({ ...lightModels, [provider]: e.target.value })}
+                      placeholder={`Default: ${getDefaultLightModelForProvider(provider) || '—'}`}
+                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+                    />
+                  )}
                 </div>
               </div>
             </section>

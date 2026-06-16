@@ -5,6 +5,7 @@ import { GenerateParams, ChatParams, ConsistencyParams, AIRenderParams } from '@
 import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
 import { formatBibleBlock } from '@/src/lib/storyBible';
+import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
 
 export class AIError extends Error {
   code: string;
@@ -21,6 +22,10 @@ export class AIError extends Error {
 // Satu tipe aksi bisa punya beberapa panggilan berjalan bersamaan, jadi simpan
 // kumpulan controller per-tipe agar pembatalan & pembersihan tidak salah sasaran.
 const abortControllers = new Map<string, Set<AbortController>>();
+
+// Dedup rewrite konkuren: panggilan identik yang masih berjalan berbagi promise yang
+// sama. Lihat catatan di processRewrite.
+const inFlightRewrites = new Map<string, Promise<string>>();
 
 function registerAbort(type: string, controller: AbortController) {
   let set = abortControllers.get(type);
@@ -54,7 +59,6 @@ export function cancelAI(type?: string) {
 }
 
 const CACHE_SUPPORTED_PROVIDERS = ['google', 'claude', 'openrouter'];
-const MAX_CACHED_LORE_CHARS = 50000;
 
 export function isCacheSupported(provider: string): boolean {
   return CACHE_SUPPORTED_PROVIDERS.includes(provider.toLowerCase());
@@ -96,7 +100,7 @@ function buildCachedContextBlock(bibleRules: StoryBibleRule[], codexEntries: Cod
   const sortedCodex = [...codexEntries].sort((a, b) => a.name.localeCompare(b.name));
 
   const bibleString = formatBibleBlock(sortedRules) || 'No specific rules set.';
-  const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, MAX_CACHED_LORE_CHARS) || 'No specific lore.';
+  const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, getMaxCachedLoreChars()) || 'No specific lore.';
   const graphString = buildRelationshipGraph(relationships, codexEntries);
 
   return `STORY BIBLE:\n${bibleString}\n\nCODEX LORE:\n${loreString}${graphString}`;
@@ -381,6 +385,16 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   const settings = getSettings();
   const provider = params.provider || settings.provider;
 
+  // Dedup in-flight: panggilan rewrite identik yang masih berjalan berbagi promise yang
+  // sama → cegah panggilan kembar (mis. trigger ganda tak sengaja). Panggilan BERURUTAN
+  // tak terpengaruh karena entri terhapus saat selesai, jadi "regenerate" tetap memberi
+  // variasi baru. Catatan: peserta kedua berbagi stream peserta pertama sehingga onChunk-nya
+  // tak terpanggil — ia tetap menerima hasil final via promise. Cukup untuk kasus double-fire.
+  const dedupKey = `${provider}|${params.action}|${params.prompt ?? ''}|${params.selection ?? ''}`;
+  const existing = inFlightRewrites.get(dedupKey);
+  if (existing) return existing;
+
+  const task = (async (): Promise<string> => {
   // RAG for Rewrite
   let textForRAG = params.ragContextText ? params.ragContextText + '\n' + params.selection : params.selection;
   let relevantScenesText = '';
@@ -443,6 +457,14 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
     throw new AIError(error instanceof Error ? error.message : 'AI rewrite failed.', "API_ERROR");
   } finally {
     unregisterAbort('rewrite', controller);
+  }
+  })();
+
+  inFlightRewrites.set(dedupKey, task);
+  try {
+    return await task;
+  } finally {
+    inFlightRewrites.delete(dedupKey);
   }
 }
 

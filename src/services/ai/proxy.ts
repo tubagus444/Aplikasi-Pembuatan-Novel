@@ -32,8 +32,23 @@ export async function callProxy(provider: string, params: AIRenderParams, apiKey
     body.system = params.cacheable
       ? [{ type: 'text', text: params.systemInstruction, cache_control: { type: 'ephemeral', ttl: '1h' } }]
       : params.systemInstruction;
+    const claudeHistory: any[] = history.map(h => ({
+      role: h.role === 'model' ? 'assistant' : 'user',
+      content: historyText(h)
+    }));
+    // Cache breakpoint KEDUA pada pesan riwayat terakhir. Blok system (lore) sudah
+    // tercache; tanpa ini riwayat percakapan dikirim ulang penuh & dibayar penuh tiap
+    // giliran. Dengan menandai pesan riwayat terakhir, prefix percakapan (system +
+    // seluruh riwayat) ikut tercache → giliran berikut hanya bayar pesan baru.
+    // Anthropic mengizinkan ≤4 breakpoint; ini ke-2. Hanya saat cacheable (chat) & ada
+    // riwayat. Catatan: begitu riwayat melewati MAX_PROXY_HISTORY, jendela geser membuat
+    // prefix berubah → cache riwayat miss (system tetap hit); keterbatasan inheren.
+    if (params.cacheable && claudeHistory.length > 0) {
+      const last = claudeHistory[claudeHistory.length - 1];
+      last.content = [{ type: 'text', text: last.content, cache_control: { type: 'ephemeral', ttl: '1h' } }];
+    }
     body.messages = [
-      ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: historyText(h) })),
+      ...claudeHistory,
       { role: "user", content: params.userPrompt }
     ];
   } else if (provider === 'google') {
@@ -321,13 +336,27 @@ const LIGHT_MODELS: Record<string, string> = {
   openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
 };
 
+/** Default hardcoded model ringan per provider (sebelum override pengguna). */
+export function getDefaultLightModelForProvider(provider: string): string | undefined {
+  return provider ? LIGHT_MODELS[provider.toLowerCase()] : undefined;
+}
+
 /**
- * Model "ringan" untuk tugas mekanis pada provider yang sama. Mengembalikan
- * undefined bila provider tak punya tier murah (mis. ollama) → pemanggil jatuh
- * ke model pilihan pengguna.
+ * Model "ringan" untuk tugas mekanis pada provider yang sama. Pengguna bisa
+ * meng-override default lewat Settings (`ai_light_model_<provider>` di localStorage);
+ * bila kosong, pakai default hardcoded. Mengembalikan undefined bila provider tak
+ * punya tier murah (mis. ollama) → pemanggil jatuh ke model pilihan pengguna.
  */
 export function getLightModelForProvider(provider: string): string | undefined {
-  return provider ? LIGHT_MODELS[provider.toLowerCase()] : undefined;
+  if (!provider) return undefined;
+  const key = provider.toLowerCase();
+  try {
+    const override = localStorage.getItem(`ai_light_model_${key}`);
+    if (override && override.trim()) return override.trim();
+  } catch {
+    // localStorage tak tersedia (mis. konteks worker) → pakai default.
+  }
+  return LIGHT_MODELS[key];
 }
 
 function getModelForProvider(provider: string) {

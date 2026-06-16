@@ -6,6 +6,31 @@ import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
 // We should have a debouncer or background tracking.
 // We don't want to block the UI, and we want to allow failures without crashing.
 
+// Tunda ringkasan bab yang ditinggalkan agar perpindahan bab cepat (A→B→C) tak
+// memicu satu panggilan AI per bab. Hanya bab yang benar-benar ditinggalkan selama
+// ≥ DEBOUNCE_MS yang dirangkum. `inFlight` mencegah panggilan kembar untuk bab yang
+// sama bila timer & pemicu lain bertumpuk.
+const DEBOUNCE_MS = 8000;
+const pendingTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const inFlight = new Set<number>();
+
+function clearPending(chapterId: number) {
+  const t = pendingTimers.get(chapterId);
+  if (t) {
+    clearTimeout(t);
+    pendingTimers.delete(chapterId);
+  }
+}
+
+function scheduleSummarize(chapterId: number) {
+  clearPending(chapterId);
+  const t = setTimeout(() => {
+    pendingTimers.delete(chapterId);
+    summarizeChapterBackground(chapterId);
+  }, DEBOUNCE_MS);
+  pendingTimers.set(chapterId, t);
+}
+
 export function useAutoSummarizer() {
   const { activeChapterId } = useNavigation();
   const prevChapterIdRef = useRef<number | null>(activeChapterId);
@@ -16,14 +41,27 @@ export function useAutoSummarizer() {
       const chapterToSummarize = prevChapterIdRef.current;
       prevChapterIdRef.current = activeChapterId;
 
-      if (chapterToSummarize) {
-        summarizeChapterBackground(chapterToSummarize);
+      // Kembali ke sebuah bab → batalkan ringkasan tertunda untuknya (masih diedit).
+      if (activeChapterId != null) clearPending(activeChapterId);
+
+      if (chapterToSummarize != null) {
+        scheduleSummarize(chapterToSummarize);
       }
     }
   }, [activeChapterId]);
+
+  // Bersihkan timer tertunda saat unmount (teardown app/HMR) agar tak ada panggilan
+  // setelah komponen lepas. Guard `summaryUpdatedAt >= lastModified` akan merangkum
+  // ulang di sesi berikutnya bila perlu, jadi membatalkan di sini aman.
+  useEffect(() => () => {
+    pendingTimers.forEach(t => clearTimeout(t));
+    pendingTimers.clear();
+  }, []);
 }
 
 async function summarizeChapterBackground(chapterId: number) {
+  if (inFlight.has(chapterId)) return; // sudah diproses; cegah panggilan kembar
+  inFlight.add(chapterId);
   try {
     const chapter = await db.chapters.get(chapterId);
     if (!chapter || !chapter.content || chapter.content.trim().length < 50) {
@@ -86,5 +124,7 @@ async function summarizeChapterBackground(chapterId: number) {
 
   } catch (error) {
     console.error(`[AutoSummarize] Failed to summarize chapter ${chapterId}:`, error);
+  } finally {
+    inFlight.delete(chapterId);
   }
 }

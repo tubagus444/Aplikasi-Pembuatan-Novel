@@ -504,7 +504,7 @@ self.onmessage = async (e: MessageEvent) => {
         };
         break;
       case 'PREVIEW_CONTEXT_TOKENS': {
-        const { text, allCodex, allRules, model, fullContext } = payload;
+        const { text, allCodex, allRules, model, fullContext, maxCachedLoreChars } = payload;
 
         let codexText: string;
         let rulesText: string;
@@ -512,7 +512,9 @@ self.onmessage = async (e: MessageEvent) => {
         if (fullContext) {
           // Mode caching: SELURUH Story Bible + Codex dikirim statis (lihat
           // buildCachedContextBlock di services/ai/index.ts). Cerminkan itu di meter.
-          const MAX_CACHED_LORE_CHARS = 50000; // sinkron dengan index.ts
+          // Cap diteruskan dari main thread (getMaxCachedLoreChars) — worker tak punya
+          // localStorage. Fallback ke default bila tak terkirim (pemanggil lama).
+          const MAX_CACHED_LORE_CHARS = maxCachedLoreChars ?? 50000;
           const sortedRules = [...allRules].sort((a: StoryBibleRule, b: StoryBibleRule) => a.key.localeCompare(b.key));
           const sortedCodex = [...allCodex].sort((a: CodexEntry, b: CodexEntry) => a.name.localeCompare(b.name));
           rulesText = formatBibleBlock(sortedRules);

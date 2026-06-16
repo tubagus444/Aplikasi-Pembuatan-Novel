@@ -62,44 +62,69 @@ membengkak) selalu dikirim PENUH di mode caching → bayar penuh tiap cache bust
   `ALWAYS_INCLUDE`/fallback RAG (sebelumnya tagline tak pernah sampai ke AI, dan
   `__TARGET_AUDIENCE__` adalah key yang dinanti engine tapi tanpa UI — kini ada).
 
+### ✅ #4 — Cache riwayat percakapan chat (multi-breakpoint, Claude)
+**Dampak: tinggi untuk pengguna chat-berat.** Sebelumnya system prompt (lore)
+tercache tapi riwayat percakapan dikirim ulang penuh & dibayar penuh tiap giliran.
+- Blok `claude` di `src/services/ai/proxy.ts` kini menandai **pesan riwayat
+  terakhir** dengan `cache_control: { type: 'ephemeral', ttl: '1h' }` saat
+  `cacheable` (chat) & ada riwayat → prefix percakapan (system + riwayat) ikut
+  tercache; giliran berikut hanya bayar pesan baru. Breakpoint ke-2 (system = ke-1),
+  masih di bawah batas 4 breakpoint Anthropic.
+- `userPrompt` (RAG scene dinamis) berada SETELAH breakpoint → tak membatalkan
+  prefix yang tercache.
+- **Keterbatasan inheren:** begitu riwayat melewati `MAX_PROXY_HISTORY` (8), jendela
+  geser mengubah prefix → cache riwayat miss (system tetap hit). Untuk chat
+  ≤5 giliran cache penuh; lebih dari itu hanya kehilangan diskon riwayat, bukan
+  system. Cukup untuk pola pemakaian tipikal.
+- Belum dipasang untuk OpenRouter→Anthropic (string `content` biasa); bisa jadi
+  follow-up bila pengguna chat-berat via OpenRouter. Google/Groq lewati (TTL implicit
+  / tak mendukung).
+
 ---
 
 ## Belum dikerjakan
 
-### ⬜ #4 — Cache riwayat percakapan chat (multi-breakpoint, Claude)
-**Dampak: tinggi untuk pengguna chat-berat.**
-Saat ini di chat, system prompt (lore) tercache tapi **riwayat percakapan
-dikirim ulang penuh tiap giliran tanpa cache**. Claude mengizinkan **hingga 4
-cache breakpoint** — tambahkan satu `cache_control` pada pesan riwayat terakhir
-agar prefix percakapan ikut tercache.
-- Lokasi: blok `claude` di `src/services/ai/proxy.ts` (susun `body.messages`).
-- Hati-hati: taruh breakpoint pada batas yang stabil (jangan pada pesan yang
-  masih bisa berubah). Riwayat sudah di-trim (10 di facade, 8 di proxy) —
-  pastikan breakpoint konsisten antar-giliran agar prefix benar-benar match.
-- Berlaku untuk Claude (dan mungkin OpenRouter→Anthropic). Google/Groq lewati.
-- Prasyarat keputusan: idealnya setelah #4-data menunjukkan chat sering & panjang.
+_(kosong — semua item actionable selesai.)_
 
-### ⬜ #5 — Tune `MAX_CACHED_LORE_CHARS` berbasis data
-**Tunggu data Dashboard dulu (jangan tebak).**
-50.000 char (~12.5k token) ditulis ke cache itu besar. Sekarang sudah ada alat
-ukur (cache hit rate di Dashboard).
-- Hit rate **tinggi** → biarkan.
-- Hit rate **rendah** (sering edit lore di tengah sesi) → pertimbangkan turunkan,
-  karena cache yang sering di-bust = sering bayar penuh menulis 12.5k token.
-- Konstanta: `MAX_CACHED_LORE_CHARS` di `src/services/ai/index.ts`.
-- **Keterbatasan inheren:** satu edit lore apa pun membatalkan cache (karena
+---
+
+## Selesai (lanjutan)
+
+### ✅ #5 — `MAX_CACHED_LORE_CHARS` jadi tunable (keputusan diserahkan ke data pengguna)
+Daripada menebak satu angka, cap kini **bisa diatur pengguna** dari Settings →
+"Optimasi AI Lanjutan" → "Maks. Lore di Cache" (preset 25k/50k/75k/100k char),
+sehingga keputusan tuning dibuat berdasarkan *cache hit rate* nyata di Dashboard.
+- Sumber tunggal: `getMaxCachedLoreChars()` di `src/lib/aiTuning.ts` (baca
+  `ai_max_cached_lore_chars` localStorage, default 50k, di-clamp 10k–100k).
+- Dipakai di `buildCachedContextBlock` (`src/services/ai/index.ts`). Worker meter
+  (`contextWorker.ts`) **tak bisa baca localStorage** → nilai diteruskan lewat
+  payload `PREVIEW_CONTEXT_TOKENS` dari `previewContextTokens` (`contextEngine.ts`,
+  main thread). Konstanta hardcoded duplikat di kedua tempat dihapus.
+- **Keterbatasan inheren tetap:** satu edit lore apa pun membatalkan cache (karena
   `buildCachedContextBlock` memuat seluruh codex+bible). Saran UX: kelompokkan
   editing lore dulu, baru menulis — jangan selang-seling.
 
-### ⬜ #6 — Debounce / dedup panggilan kembar (opsional, dampak kecil-menengah)
-- Hindari rewrite identik beruntun atau auto-summarizer menyalak untuk edit kecil.
-- Auto-summarizer sudah cek `summaryUpdatedAt >= lastModified`; bisa ditambah
-  debounce waktu agar tidak memicu pada tiap perpindahan bab cepat.
+### ✅ #7 — UI override model tugas-ringan
+Versi lengkap #3. Settings → "Optimasi AI Lanjutan" → "Model Tugas Ringan"
+meng-override default hardcoded per **provider terpilih** (kosong = pakai default).
+- `getLightModelForProvider()` (`src/services/ai/proxy.ts`) baca
+  `ai_light_model_<provider>` dulu, fallback ke `LIGHT_MODELS`. Default tetap
+  diekspos via `getDefaultLightModelForProvider()` untuk placeholder UI.
+- Ollama dilewati (tak punya tier ringan terpisah).
 
-### ⬜ #7 — (Pertimbangan) UI override model tugas-ringan
-Versi lengkap dari #3: tambah pilihan di Settings "model untuk tugas ringan"
-agar pengguna bisa override default hardcoded. Hanya bila #3 default terasa
-kurang pas. Nambah permukaan UI.
+### ✅ #6 — Debounce / dedup panggilan kembar
+- **Auto-summarizer** (`src/hooks/useAutoSummarizer.tsx`): ringkasan bab yang
+  ditinggalkan kini **di-debounce 8 dtk per-bab**, jadi perpindahan bab cepat
+  (A→B→C) tak memicu satu panggilan AI per bab — hanya bab yang benar-benar
+  ditinggalkan ≥8 dtk. Kembali ke sebuah bab membatalkan ringkasan tertundanya
+  (masih diedit). Guard `inFlight` (Set chapterId) mencegah panggilan kembar untuk
+  bab yang sama bila pemicu bertumpuk. Timer dibersihkan saat unmount.
+- **Rewrite** (`processRewrite` di `src/services/ai/index.ts`): dedup **in-flight
+  konkuren** — panggilan rewrite identik (`provider|action|prompt|selection`) yang
+  masih berjalan berbagi satu promise → cegah double-fire tak sengaja. Sengaja
+  **tidak** cache-and-return hasil: tombol "regenerate" menjalankan ulang untuk
+  variasi (temp 0.85); panggilan berurutan tetap fresh karena entri terhapus saat
+  selesai.
 
 ---
 

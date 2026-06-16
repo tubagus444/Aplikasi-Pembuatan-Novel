@@ -7,6 +7,7 @@ import { db } from '@/src/db';
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import ContextWorker from '@/src/services/contextWorker?worker';
 import { oramaSync } from '@/src/services/rag/oramaSync';
+import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
 
 // Worker instance and communication state
 let worker: Worker | null = null;
@@ -166,5 +167,6 @@ export async function estimateContextTokens(text: string, codexText: string, rul
 }
 
 export async function previewContextTokens(text: string, allCodex: CodexEntry[], allRules: StoryBibleRule[], model?: string, fullContext?: boolean): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
-  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, model, fullContext });
+  // Worker tak punya localStorage → baca cap tunable di main thread & teruskan.
+  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, model, fullContext, maxCachedLoreChars: getMaxCachedLoreChars() });
 }
