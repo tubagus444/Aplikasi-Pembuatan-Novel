@@ -3,6 +3,7 @@ import { db } from '@/src/db';
 import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { CodexEntry, CodexCategory } from '@/src/types';
 import { invalidateContextCache } from '@/src/services/contextEngine';
+import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 
 export type CodexSort = 'name-asc' | 'name-desc' | 'category' | 'recent' | 'oldest';
 
@@ -15,9 +16,11 @@ export function useCodexPanel(projectId: number) {
     db.bible.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
-  const relationships = useOptimizedLiveQuery(() => 
+  const relationships = useOptimizedLiveQuery(() =>
     db.relationships.where('projectId').equals(projectId).toArray()
   , [projectId]);
+
+  const { custom: customCategories, categories } = useCodexCategories(projectId);
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -210,6 +213,8 @@ export function useCodexPanel(projectId: number) {
     relationships,
     allTags,
     stats,
+    categories,
+    customCategories,
 
     isAdding,
     editingId,

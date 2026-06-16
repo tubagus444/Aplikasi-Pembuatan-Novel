@@ -6,17 +6,19 @@ import { cn } from '@/src/lib/utils';
 import { expandCodexEntry } from '@/src/services/ai';
 import { useToast } from '@/src/hooks/useToast';
 import { useNavigation } from '@/src/contexts/NavigationContext';
+import { BUILTIN_CATEGORIES, type CategoryDef } from '@/src/lib/codexCategories';
 
 interface CodexFormProps {
   initialData?: Partial<CodexEntry>;
   editingId: number | null;
   bibleRules: any[];
   existingEntries?: CodexEntry[];
+  categories?: CategoryDef[];
   onSave: (data: Partial<CodexEntry>) => Promise<void>;
   onCancel: () => void;
 }
 
-export function CodexForm({ initialData, editingId, bibleRules, existingEntries = [], onSave, onCancel }: CodexFormProps) {
+export function CodexForm({ initialData, editingId, bibleRules, existingEntries = [], categories = BUILTIN_CATEGORIES, onSave, onCancel }: CodexFormProps) {
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
   const [formData, setFormData] = useState<Partial<CodexEntry>>({
@@ -128,12 +130,9 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
                 value={formData.category}
                 onChange={e => setFormData({...formData, category: e.target.value as CodexCategory})}
               >
-                <option value="character">Karakter</option>
-                <option value="location">Lokasi</option>
-                <option value="magic">Sistem Sihir</option>
-                <option value="item">Item/Artefak</option>
-                <option value="event">Peristiwa</option>
-                <option value="other">Lore Lainnya</option>
+                {categories.map(cat => (
+                  <option key={cat.slug} value={cat.slug}>{cat.label}</option>
+                ))}
               </select>
             </div>
             

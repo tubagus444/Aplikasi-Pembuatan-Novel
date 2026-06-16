@@ -134,7 +134,11 @@ export interface Project {
   lastOpened: number;
 }
 
-export type CodexCategory = 'character' | 'location' | 'item' | 'magic' | 'event' | 'other';
+// Kategori bawaan Codex. Kategori KUSTOM (buatan pengguna, tabel `codexCategories`)
+// memakai slug bebas, sehingga nilai tersimpan di `CodexEntry.category` bertipe string.
+// Union bawaan dipertahankan agar autocomplete tetap mengenali nilai standar.
+export type BuiltinCodexCategory = 'character' | 'location' | 'item' | 'magic' | 'event' | 'other';
+export type CodexCategory = BuiltinCodexCategory | (string & {});
 
 export interface CodexEntry {
   id?: number;
@@ -144,6 +148,19 @@ export interface CodexEntry {
   category: CodexCategory;
   description: string;
   tags: string[];
+}
+
+// Kategori Codex kustom per-proyek. `slug` dipakai sebagai nilai `CodexEntry.category`
+// dan tidak boleh berubah setelah dibuat (agar entri tetap tertaut). `icon`/`color`
+// merujuk kunci di ICON_REGISTRY/COLOR_REGISTRY (src/lib/codexCategories.ts).
+export interface CustomCategory {
+  id?: number;
+  projectId: number;
+  slug: string;
+  label: string;
+  icon: string;
+  color: string;
+  order: number;
 }
 
 export interface StoryBibleRule {

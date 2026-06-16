@@ -6,12 +6,14 @@ import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
 import { getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
+import { getCategoryLabel, type CategoryDef } from '@/src/lib/codexCategories';
 
 interface CodexDetailModalProps {
   entry: CodexEntry;
   entries: CodexEntry[];
   relationships: Relationship[];
   projectId: number;
+  categories?: CategoryDef[];
   onClose: () => void;
   onEdit: (entry: CodexEntry) => void;
   onDelete: (id: number) => void;
@@ -22,6 +24,7 @@ export function CodexDetailModal({
   entries,
   relationships,
   projectId,
+  categories,
   onClose,
   onEdit,
   onDelete
@@ -54,12 +57,12 @@ export function CodexDetailModal({
         <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-              <CategoryIcon category={entry.category} />
+              <CategoryIcon category={entry.category} categories={categories} />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{entry.name}</h2>
               <span className="text-xs uppercase tracking-widest font-bold text-indigo-500 dark:text-indigo-400">
-                {entry.category}
+                {getCategoryLabel(entry.category, categories)}
               </span>
             </div>
           </div>

@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory } from '@/src/types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -20,6 +20,7 @@ export class AetherScribeDB extends Dexie {
   chatSessions!: Table<ChatSession>;
   embeddings!: Table<VectorEmbedding>;
   aiUsageLogs!: Table<AIUsageLog>;
+  codexCategories!: Table<CustomCategory>;
 
   constructor() {
     super('AetherScribeDB');
@@ -182,6 +183,25 @@ export class AetherScribeDB extends Dexie {
       if (scribbleCount > 0) {
         console.log(`Tagged ${scribbleCount} legacy Scribble session(s) as kind:'scribble'.`);
       }
+    });
+
+    // v19: tabel baru `codexCategories` untuk kategori Codex kustom per-proyek.
+    // Append-only; tidak ada migrasi data (entri lama tetap memakai slug bawaan).
+    this.version(19).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]'
     });
   }
 }

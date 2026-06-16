@@ -6,12 +6,14 @@ import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
 import { RELATIONSHIP_TYPES, getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
+import { getCategoryLabel, type CategoryDef } from '@/src/lib/codexCategories';
 
 interface CodexCardProps {
   entry: CodexEntry;
   entries: CodexEntry[];
   relationships: Relationship[];
   projectId: number;
+  categories?: CategoryDef[];
   linkingId: number | null;
   linkingTarget: number | null;
   linkingType: string;
@@ -30,6 +32,7 @@ export function CodexCard({
   entries,
   relationships,
   projectId,
+  categories,
   linkingId,
   linkingTarget,
   linkingType,
@@ -52,12 +55,12 @@ export function CodexCard({
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900 transition-colors">
-              <CategoryIcon category={entry.category} />
+              <CategoryIcon category={entry.category} categories={categories} />
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{entry.name}</h3>
               <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
-                {entry.category}
+                {getCategoryLabel(entry.category, categories)}
               </span>
             </div>
           </div>

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Plus, Search, MessageSquareText, Database } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Search, MessageSquareText, Database, Tags } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScribbleAssistantPanel } from '@/src/features/assistant/components/ScribbleAssistantPanel';
 import { VirtuosoGrid } from 'react-virtuoso';
@@ -7,22 +7,16 @@ import { VirtuosoGrid } from 'react-virtuoso';
 import { CodexForm } from '@/src/features/codex/components/CodexForm';
 import { CodexCard } from '@/src/features/codex/components/CodexCard';
 import { CodexDetailModal } from '@/src/features/codex/components/CodexDetailModal';
+import { CategoryManagerModal } from '@/src/features/codex/components/CategoryManagerModal';
 import { useCodexPanel } from '@/src/features/codex/hooks/useCodexPanel';
+import { getCategoryLabel } from '@/src/lib/codexCategories';
 
 interface CodexPanelProps {
   projectId: number;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  character: 'Karakter',
-  location: 'Lokasi',
-  magic: 'Sistem Sihir',
-  item: 'Item',
-  event: 'Peristiwa',
-  other: 'Lainnya',
-};
-
 export function CodexPanel({ projectId }: CodexPanelProps) {
+  const [isManagingCategories, setIsManagingCategories] = useState(false);
   const {
     entries,
     filteredEntries,
@@ -30,6 +24,8 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     relationships,
     allTags,
     stats,
+    categories,
+    customCategories,
 
     isAdding,
     editingId,
@@ -88,18 +84,27 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                 <span className="font-bold text-slate-600 dark:text-slate-300">{stats.total} entri</span>
                 {Object.entries(stats.byCategory)
                   .sort((a, b) => b[1] - a[1])
-                  .map(([cat, n]) => ` · ${n} ${CATEGORY_LABELS[cat] ?? cat}`)
+                  .map(([cat, n]) => ` · ${n} ${getCategoryLabel(cat, categories)}`)
                   .join('')}
               </p>
             )}
           </div>
           {!isAdding && (
-            <button 
-              onClick={startAdding}
-              className="self-start md:self-auto flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
-            >
-              <Plus size={16} /> Entri Baru
-            </button>
+            <div className="self-start md:self-auto flex items-center gap-2">
+              <button
+                onClick={() => setIsManagingCategories(true)}
+                className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95"
+                title="Kelola kategori Codex"
+              >
+                <Tags size={16} /> Kategori
+              </button>
+              <button
+                onClick={startAdding}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
+              >
+                <Plus size={16} /> Entri Baru
+              </button>
+            </div>
           )}
         </div>
 
@@ -122,12 +127,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                className="w-full sm:w-44 py-2 px-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-200"
             >
               <option value="all">Semua Kategori</option>
-              <option value="character">Karakter</option>
-              <option value="location">Lokasi</option>
-              <option value="magic">Sistem Sihir</option>
-              <option value="item">Item & Artefak</option>
-              <option value="event">Peristiwa</option>
-              <option value="other">Lore Lainnya</option>
+              {categories.map(cat => (
+                <option key={cat.slug} value={cat.slug}>{cat.label}</option>
+              ))}
             </select>
             {allTags.length > 0 && (
               <select
@@ -167,6 +169,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                 editingId={editingId}
                 bibleRules={bibleRules || []}
                 existingEntries={entries || []}
+                categories={categories}
                 onSave={handleSaveEntry}
                 onCancel={cancelEdit}
               />
@@ -196,6 +199,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                  entries={entries || []}
                  relationships={relationships || []}
                  projectId={projectId}
+                 categories={categories}
                  linkingId={linkingId}
                  linkingTarget={linkingTarget}
                  linkingType={linkingType}
@@ -321,6 +325,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             entries={entries || []}
             relationships={relationships || []}
             projectId={projectId}
+            categories={categories}
             onClose={() => setSelectedEntry(null)}
             onEdit={(entry) => {
               setSelectedEntry(null);
@@ -330,6 +335,16 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               setSelectedEntry(null);
               deleteEntry(id);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isManagingCategories && (
+          <CategoryManagerModal
+            projectId={projectId}
+            custom={customCategories}
+            onClose={() => setIsManagingCategories(false)}
           />
         )}
       </AnimatePresence>

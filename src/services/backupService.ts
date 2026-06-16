@@ -19,6 +19,7 @@ export interface BackupData {
     timeline: any[];
     relationships: any[];
     chatSessions: any[];
+    codexCategories?: any[];
   };
 }
 
@@ -30,7 +31,7 @@ export const backupService = {
    */
   async collectAllData(): Promise<BackupData> {
     return {
-      version: 2, // v2: menyertakan chatSessions
+      version: 3, // v3: menyertakan codexCategories (kategori Codex kustom)
       timestamp: Date.now(),
       data: {
         projects: await db.projects.toArray(),
@@ -41,7 +42,8 @@ export const backupService = {
         snapshots: await db.snapshots.toArray(),
         timeline: await db.timeline.toArray(),
         relationships: await db.relationships.toArray(),
-        chatSessions: await db.chatSessions.toArray()
+        chatSessions: await db.chatSessions.toArray(),
+        codexCategories: await db.codexCategories.toArray()
       }
     };
   },
@@ -146,7 +148,7 @@ export const backupService = {
     if (!data || !data.projects) throw new Error('Format cadangan tidak valid');
 
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.codexCategories],
       async () => {
         // Clear existing data
         await db.projects.clear();
@@ -158,6 +160,7 @@ export const backupService = {
         await db.timeline.clear();
         await db.relationships.clear();
         await db.chatSessions.clear();
+        await db.codexCategories.clear();
         await db.embeddings.clear(); // di-regenerasi dari codex; jangan dipulihkan dari backup
 
         // Restore from backup
@@ -182,6 +185,7 @@ export const backupService = {
         if (data.timeline?.length) await db.timeline.bulkAdd(data.timeline);
         if (data.relationships?.length) await db.relationships.bulkAdd(data.relationships);
         if (data.chatSessions?.length) await db.chatSessions.bulkAdd(data.chatSessions);
+        if (data.codexCategories?.length) await db.codexCategories.bulkAdd(data.codexCategories);
     });
   },
 

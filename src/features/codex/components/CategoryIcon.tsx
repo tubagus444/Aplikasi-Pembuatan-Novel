@@ -1,14 +1,17 @@
 import React from 'react';
-import { User, MapPin, Sparkles, Tag, BookOpen, CalendarClock } from 'lucide-react';
 import { CodexCategory } from '@/src/types';
+import { getCategoryDef, resolveIcon, resolveColor, type CategoryDef } from '@/src/lib/codexCategories';
 
-export function CategoryIcon({ category }: { category: CodexCategory }) {
-  switch (category) {
-    case 'character': return <User size={20} className="text-indigo-500" />;
-    case 'location': return <MapPin size={20} className="text-emerald-500" />;
-    case 'magic': return <Sparkles size={20} className="text-amber-500" />;
-    case 'item': return <Tag size={20} className="text-rose-500" />;
-    case 'event': return <CalendarClock size={20} className="text-sky-500" />;
-    default: return <BookOpen size={20} className="text-slate-400 dark:text-slate-500" />;
-  }
+interface CategoryIconProps {
+  category: CodexCategory;
+  /** Daftar kategori (bawaan + kustom). Bila kosong, hanya kategori bawaan dikenali. */
+  categories?: CategoryDef[];
+  size?: number;
+}
+
+export function CategoryIcon({ category, categories, size = 20 }: CategoryIconProps) {
+  const def = getCategoryDef(category, categories);
+  const Icon = def ? resolveIcon(def.icon) : resolveIcon('book');
+  const color = def ? resolveColor(def.color) : resolveColor('slate');
+  return <Icon size={size} className={color} />;
 }
