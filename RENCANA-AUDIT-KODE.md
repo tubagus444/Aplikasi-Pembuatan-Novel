@@ -25,9 +25,9 @@
 | 6 | Server proxy | `server.ts` | P1 | ✅ SV1/SV2/SV3/SV5/SV6/SV10/SV15 ✅ (SV-SEC out-of-scope) | ✅ mendalam |
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP/BK4/BK6/BK7/BK8/BK9/BK10/BK11 ✅; BK3/BK12 belum | ✅ mendalam |
 | 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
-| 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 L1 ✅ (+test); L2 belum | ✅ mendalam |
+| 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | ✅ L1/L2 ✅ (+test); L3 🟢 diterima | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
-| 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | 🔄 ED1/ED2/ED3 ✅; ED4 belum | ✅ mendalam |
+| 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | ✅ ED1/ED2/ED3/ED4 ✅ | ✅ mendalam |
 | 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | 🔄 analisa selesai | ✅ struktural |
 
 ---
@@ -328,7 +328,7 @@ Skema Orama jelas; `search` mengambil record lengkap dari Dexie (data mutakhir) 
 
 **Temuan (semua minor):**
 - ✅ **L1 (DIPERBAIKI). Konsistensi boundary nama Indonesia.** `AhoCorasick.search` (C4) & `chunkEngine.countMatches` kini menoleransi akhiran Indonesia, selaras dengan `getCodexRegex`. Ditambah unit test `ahoCorasick.test.ts` ("…Indonesian suffix particles…") → total test 21→22.
-- 🟡 **L2. Regex mention greedy.** `loreUtils` `@rule:(\S+)`/`@codex:(\S+)` menyertakan tanda baca akhir (mis. `@codex:Kael.` → "Kael."). Edge parsing.
+- ✅ **L2 (DIPERBAIKI). Regex mention greedy.** Ditambah helper `splitTrailingPunct` (lepas `.,;:!?)]}"` di AKHIR token; apostrof & hubung sengaja dipertahankan agar nama fantasi `Kael'thas`/`Anne-Marie` utuh) → dipakai di `resolveLoreTags`, `stripLoreTags`, `parseMentionTags`. `@codex:Kael.` kini resolve "Kael" + titik di luar; `(@codex:Kael)` benar. Ditambah 2 unit test (trailing punct + apostrof). Total test 33→35.
 - 🟢 **L3. Angka ajaib** (threshold `0.5`, top-2 scene, `len>3`) — wajar, terdokumentasi via test.
 
 **Catatan positif:** fungsi murni & deterministik, **sudah ada unit test** (ahoCorasick, chunkEngine, loreUtils, utils). Risiko rendah; cocok jadi tempat menambah test edge-case bila boundary (L1) disatukan.
@@ -357,7 +357,7 @@ Verifikasi: `tsc` 0 error, vitest 21/21.
 **Temuan — Maintainability / churn:**
 - ✅ **ED2 (DIPERBAIKI). `skipNextUpdateRef` mati.** `useEditorSetup` kini `setContent(initialContent, { emitUpdate: false })` → load konten awal tak memicu autosave (tak ada write sia-sia / kedip status). Ref mati `skipNextUpdateRef` dihapus.
 - ✅ **ED3 (DIPERBAIKI). Wiring `onEditorUpdateRef` rapuh.** Diganti `useRef` + `useCallback` stabil di `useNovelEditor`; `onUpdate` editor membaca versi terbaru lewat ref (tak lagi variabel lokal di-reassign).
-- 🟡 **ED4. `PassiveCodexHighlight` walk seluruh text node tiap `docChanged`** (debounce 500ms) → biaya naik dengan ukuran bab (dimitigasi debounce + worker). `data-codex-id` bisa `'undefined'` (cross-ref **C5** #4).
+- ✅ **ED4 (DIPERBAIKI). `PassiveCodexHighlight`.** (1) Ditambah penanda generasi (`runGeneration`): hasil `getCodexMatches` yang basi (ada `docChanged` lebih baru saat run sebelumnya masih in-flight) tidak lagi di-dispatch → cegah highlight kedip ke posisi lama. (2) `data-codex-id` di-hardening: guard `m.codexId == null` + `String(m.codexId)` → tak pernah jadi string `'undefined'` (selaras filter C5 di worker). _Catatan:_ walk seluruh text node tiap `docChanged` dibiarkan apa adanya — sudah dimitigasi debounce 500ms + offload ke worker; optimasi incremental berisiko tinggi vs nilai (P2).
 
 **Catatan positif:** highlight pakai meta-transaction + `map` decorations (benar) dengan cek bounds & debounce; pemisahan hook editor (setup/save/AI/search/codex) rapi; flush-on-unmount & flush-on-chapter-switch sudah ada (tinggal perbaiki sumber datanya, ED1).
 

@@ -24,6 +24,10 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
   addProseMirrorPlugins() {
     const options = this.options;
     let debounceTimer: any = null;
+    // ED4: penanda generasi — bila docChanged baru memicu run lain saat getCodexMatches
+    // run sebelumnya masih in-flight, hasil yang basi (run lama) tidak boleh di-dispatch
+    // (mencegah highlight kedip ke posisi lama sampai update berikutnya).
+    let runGeneration = 0;
 
     return [
       new Plugin({
@@ -101,7 +105,8 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
               }
 
               if (debounceTimer) clearTimeout(debounceTimer);
-              
+
+              const myGeneration = ++runGeneration;
               debounceTimer = setTimeout(async () => {
                 const entries = options.getCodexEntries();
                 if (!entries || entries.length === 0) {
@@ -120,18 +125,22 @@ export const PassiveCodexHighlight = Extension.create<PassiveCodexHighlightOptio
 
                 try {
                   const matches = await getCodexMatches(chunks, entries as any);
-                  
-                  if (view.isDestroyed) return;
-                  
+
+                  // Run ini sudah usang (ada docChanged lebih baru) atau view dibongkar → buang.
+                  if (view.isDestroyed || myGeneration !== runGeneration) return;
+
                   const decorations: Decoration[] = [];
                   matches.forEach(m => {
+                    // codexId mestinya selalu ada (worker C5 sudah memfilter entri tanpa id),
+                    // tapi guard agar atribut tak pernah jadi string "undefined".
+                    if (m.codexId == null) return;
                     // Check if bounds are valid for the current document
                     if (m.start < view.state.doc.content.size && m.end <= view.state.doc.content.size) {
                       decorations.push(
                         Decoration.inline(m.start, m.end, {
                           nodeName: 'span',
                           class: 'codex-highlight group',
-                          'data-codex-id': m.codexId?.toString(),
+                          'data-codex-id': String(m.codexId),
                         })
                       );
                     }

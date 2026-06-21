@@ -31,6 +31,26 @@ describe("loreUtils", () => {
     it("should untouched unresolved tags", () => {
        expect(resolveLoreTags("Fight @codex:Red_Dragon")).toBe("Fight @codex:Red_Dragon");
     });
+
+    it("should not swallow trailing punctuation into the mention (L2)", () => {
+      const codex: CodexEntry[] = [
+        { id: 1, projectId: 1, name: "Kael", aliases: [], description: "A simple farmer.", category: "character", tags: [] }
+      ];
+      // Titik menempel langsung ke nama, tanpa spasi.
+      expect(resolveLoreTags("Beware @codex:Kael. He is here.", codex, []))
+        .toBe("Beware [Lore - Kael: A simple farmer.]. He is here.");
+      // Dalam tanda kurung.
+      expect(resolveLoreTags("(@codex:Kael) ran", codex, []))
+        .toBe("([Lore - Kael: A simple farmer.]) ran");
+    });
+
+    it("should preserve apostrophes inside fantasy names (L2)", () => {
+      const codex: CodexEntry[] = [
+        { id: 1, projectId: 1, name: "Kael'thas", aliases: [], description: "A prince.", category: "character", tags: [] }
+      ];
+      expect(resolveLoreTags("Hail @codex:Kael'thas!", codex, []))
+        .toBe("Hail [Lore - Kael'thas: A prince.]!");
+    });
   });
 
   describe("parseMentionTags", () => {

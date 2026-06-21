@@ -5,6 +5,18 @@
 
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 
+// L2: tanda baca kalimat/penutup yang tidak boleh ikut tersedot ke akhir token
+// mention (mis. "@codex:Kael." → nama "Kael", titik tetap di luar). Apostrof &
+// hubung SENGAJA tidak termasuk agar nama seperti "Kael'thas" / "Anne-Marie" utuh.
+const TRAILING_MENTION_PUNCT = /[.,;:!?)\]}"]+$/;
+
+/** Pisahkan token mention menjadi inti + tanda baca akhir yang menempel. */
+function splitTrailingPunct(token: string): { core: string; trail: string } {
+  const m = token.match(TRAILING_MENTION_PUNCT);
+  if (!m) return { core: token, trail: '' };
+  return { core: token.slice(0, token.length - m[0].length), trail: m[0] };
+}
+
 /**
  * Resolves lore tags like @rule:key and @codex:name into more descriptive
  * text that the AI can understand better.
@@ -17,15 +29,17 @@ export function resolveLoreTags(
   let resolved = input;
   
   // Resolve rules: @rule:key
-  // Matches @rule: followed by non-whitespace characters
-  resolved = resolved.replace(/@rule:(\S+)/g, (match, key) => {
+  // Matches @rule: followed by non-whitespace characters (tanda baca akhir dilepas — L2)
+  resolved = resolved.replace(/@rule:(\S+)/g, (match, raw) => {
+    const { core: key, trail } = splitTrailingPunct(raw);
     const rule = bibleRules.find(r => r.key === key);
-    return rule ? `[Rule - ${key}: ${rule.instruction}]` : match;
+    return rule ? `[Rule - ${key}: ${rule.instruction}]${trail}` : match;
   });
 
   // Resolve codex: @codex:name
-  // Matches @codex: followed by non-whitespace characters
-  resolved = resolved.replace(/@codex:(\S+)/g, (match, name) => {
+  // Matches @codex: followed by non-whitespace characters (tanda baca akhir dilepas — L2)
+  resolved = resolved.replace(/@codex:(\S+)/g, (match, raw) => {
+    const { core: name, trail } = splitTrailingPunct(raw);
     // Replace underscores with spaces for matching if users type @codex:Character_Name
     const searchName = name.replace(/_/g, ' ');
     const lowerSearch = searchName.toLowerCase();
@@ -48,7 +62,7 @@ export function resolveLoreTags(
       description += '...';
     }
 
-    return `[Lore - ${entry.name}: ${description}]`;
+    return `[Lore - ${entry.name}: ${description}]${trail}`;
   });
 
   return resolved;
@@ -60,9 +74,13 @@ export function resolveLoreTags(
  * ada di system prompt, jadi cukup nama agar model paham acuan tanpa membengkakkan token.
  */
 export function stripLoreTags(input: string): string {
+  const toName = (_m: string, raw: string) => {
+    const { core, trail } = splitTrailingPunct(raw);
+    return core.replace(/_/g, ' ') + trail;
+  };
   return input
-    .replace(/@rule:(\S+)/g, (_m, key) => key.replace(/_/g, ' '))
-    .replace(/@codex:(\S+)/g, (_m, name) => name.replace(/_/g, ' '));
+    .replace(/@rule:(\S+)/g, toName)
+    .replace(/@codex:(\S+)/g, toName);
 }
 
 export interface MentionSegment {
@@ -103,13 +121,18 @@ export function parseMentionTags(input: string): MentionSegment[] {
         original: match[0]
       });
     } else {
+      // Lepas tanda baca akhir dari token agar tak ikut ke chip mention (L2).
+      const { core, trail } = splitTrailingPunct(match[2]);
       segments.push({
-        text: match[2].replace(/_/g, ' '), // Display name (replacing underscores)
+        text: core.replace(/_/g, ' '), // Display name (replacing underscores)
         isMention: true,
         type: match[1] as 'codex' | 'rule',
-        value: match[2],
-        original: match[0]
+        value: core,
+        original: `@${match[1]}:${core}`
       });
+      if (trail) {
+        segments.push({ text: trail, isMention: false });
+      }
     }
 
     lastIndex = mentionRegex.lastIndex;
