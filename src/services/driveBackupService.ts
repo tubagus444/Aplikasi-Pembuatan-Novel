@@ -48,28 +48,6 @@ async function getAppFolder(accessToken: string): Promise<string | null> {
   return createData.id;
 }
 
-// Compress string data to gzip Blob
-async function compressData(dataString: string): Promise<Blob> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(dataString);
-  const blob = new Blob([data]);
-  
-  if (typeof CompressionStream === 'undefined') {
-    console.warn("CompressionStream not supported in this browser. Backup will be uncompressed.");
-    return blob;
-  }
-
-  try {
-    const stream = blob.stream();
-    // @ts-ignore - CompressionStream is available in modern browsers but TypeScript might be strict
-    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
-    return await new Response(compressedStream).blob();
-  } catch (err) {
-    console.error("Compression failed:", err);
-    return blob;
-  }
-}
-
 // Upload a single project backup with Versioning and Compression
 export async function syncProjectToDrive(force: boolean = false): Promise<boolean> {
   const accessToken = await getAccessToken();
@@ -114,38 +92,44 @@ export async function syncProjectToDrive(force: boolean = false): Promise<boolea
   // Generate backup content and compress
   const backupObject = await backupService.collectAllData();
   const backupDataString = JSON.stringify(backupObject);
-  const compressedBlob = await compressData(backupDataString);
+  const { blob: contentBlob, compressed } = await backupService.compressData(backupDataString);
 
   // Delete older files if we exceed MAX_BACKUPS (keep MAX_BACKUPS - 1 as we are uploading a new one)
   if (files.length >= MAX_BACKUPS) {
     const filesToDelete = files.slice(MAX_BACKUPS - 1);
     for (const file of filesToDelete) {
-      await fetch(`${DRIVE_API_URL}/${file.id}`, {
+      // BK9: cek hasil DELETE; bila gagal, jangan diam — file lama bisa menumpuk
+      const delRes = await fetch(`${DRIVE_API_URL}/${file.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` }
       });
+      if (!delRes.ok && delRes.status !== 404) {
+        console.warn(`Gagal menghapus cadangan Drive lama (${file.id}): ${delRes.status}`, await delRes.text().catch(() => ''));
+      }
     }
   }
 
-  // Create new version
+  // Create new version. Ekstensi & mimeType mengikuti hasil kompresi (BK4): bila
+  // kompresi gagal, simpan JSON mentah agar tetap bisa dipulihkan.
   const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-  const fileName = `AetherScribe_Backup_${dateStr}.json.gz`;
+  const fileName = compressed ? `AetherScribe_Backup_${dateStr}.json.gz` : `AetherScribe_Backup_${dateStr}.json`;
+  const contentType = compressed ? 'application/gzip' : 'application/json';
 
   const metadata = {
     name: fileName,
-    mimeType: 'application/gzip',
-    parents: [folderId], 
+    mimeType: contentType,
+    parents: [folderId],
   };
 
   const boundary = 'foo_bar_baz';
-  
+
   const multipartBody = new Blob([
     `--${boundary}\r\n`,
     `Content-Type: application/json; charset=UTF-8\r\n\r\n`,
     `${JSON.stringify(metadata)}\r\n`,
     `--${boundary}\r\n`,
-    `Content-Type: application/gzip\r\n\r\n`,
-    compressedBlob,
+    `Content-Type: ${contentType}\r\n\r\n`,
+    contentBlob,
     `\r\n--${boundary}--`
   ], { type: `multipart/related; boundary=${boundary}` });
 

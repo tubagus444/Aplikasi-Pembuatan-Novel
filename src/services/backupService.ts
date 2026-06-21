@@ -71,26 +71,30 @@ export const backupService = {
   },
 
   /**
-   * Helper internal: Compress string data to gzip Blob
+   * Helper internal & sumber tunggal kompresi (dipakai juga driveBackupService).
+   * Mengembalikan `{ blob, compressed }` agar pemanggil bisa menamai file dengan
+   * benar: bila kompresi gagal/tak didukung, `compressed:false` → file JANGAN
+   * diberi ekstensi `.gz` (lihat BK4) supaya restore tak salah memanggil
+   * DecompressionStream pada data mentah.
    */
-  async compressData(dataString: string): Promise<Blob> {
+  async compressData(dataString: string): Promise<{ blob: Blob; compressed: boolean }> {
     const encoder = new TextEncoder();
     const data = encoder.encode(dataString);
     const blob = new Blob([data]);
-    
+
     if (typeof CompressionStream === 'undefined') {
       console.warn("CompressionStream not supported in this browser. Backup will be uncompressed.");
-      return blob;
+      return { blob, compressed: false };
     }
 
     try {
       const stream = blob.stream();
       // @ts-ignore
       const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
-      return await new Response(compressedStream).blob();
+      return { blob: await new Response(compressedStream).blob(), compressed: true };
     } catch (err) {
       console.error("Compression failed:", err);
-      return blob;
+      return { blob, compressed: false };
     }
   },
 
@@ -107,14 +111,16 @@ export const backupService = {
    * Creates a new backup file in the specified directory with compression and versioning.
    */
   async saveToDirectory(data: BackupData, dirHandle: FileSystemDirectoryHandle): Promise<void> {
-    const filename = `aetherscribe-autobackup-${new Date().toISOString().replace(/[:.]/g, '-')}.json.gz`;
-    const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-    
-    // Write compressed data
+    // Write compressed data (ekstensi mengikuti hasil kompresi: .json.gz hanya bila
+    // benar-benar ter-gzip; bila tidak → .json mentah agar bisa dipulihkan — BK4)
     const jsonString = JSON.stringify(data);
-    const compressedBlob = await this.compressData(jsonString);
+    const { blob, compressed } = await this.compressData(jsonString);
+
+    const ext = compressed ? '.json.gz' : '.json';
+    const filename = `aetherscribe-autobackup-${new Date().toISOString().replace(/[:.]/g, '-')}${ext}`;
+    const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
     const writable = await fileHandle.createWritable();
-    await writable.write(compressedBlob);
+    await writable.write(blob);
     await writable.close();
 
     // Rotate backups in this directory: keep only the 5 most recent backups

@@ -23,7 +23,7 @@
 | 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1/C2/C4/C5/C6/C8/C9 ✅; C3/C11 belum | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
 | 6 | Server proxy | `server.ts` | P1 | 🔄 SV1/SV2/SV3/SV15 ✅; SV5/SV6/SV10 belum | ✅ mendalam |
-| 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP ✅ diperbaiki; BK4/BK6–BK10 belum | ✅ mendalam |
+| 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP/BK4/BK6/BK7/BK8/BK9/BK10/BK11 ✅; BK3/BK12 belum | ✅ mendalam |
 | 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 L1 ✅ (+test); L2 belum | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
@@ -260,34 +260,34 @@ Urutan route benar (API sebelum middleware Vite), prioritas kunci klien→`.env`
 
 - ✅ **BK1 (DIPERBAIKI). `chatSessions` tidak ikut dicadangkan.** `collectAllData` (version→2) kini menyertakan `chatSessions`; semua jalur backup (internal/file/Drive) & restore ikut membawanya. Backup lama tanpa chatSessions tetap aman dipulihkan (guard `?.length`).
 - ✅ **BK2 (DIPERBAIKI). Restore tidak membersihkan `embeddings`.** `restoreData` kini `db.embeddings.clear()` di dalam transaksi → embeddings di-regenerasi dari codex (tak ada lagi embedding basi pasca-restore).
-- 🟡 **BK4. Fallback kompresi tetap bernama `.json.gz`.** Bila `CompressionStream` absen/gagal, `compressData` mengembalikan blob **tak terkompresi** tetapi nama file tetap `.json.gz`. Saat restore (`SettingsPanel` 312–317), cabang `.gz` memanggil `DecompressionStream` pada data mentah → gagal → backup itu **tak bisa dipulihkan**.
+- ✅ **BK4 (DIPERBAIKI). Fallback kompresi tetap bernama `.json.gz`.** `compressData` kini mengembalikan `{ blob, compressed }` (sumber tunggal di `backupService`, dipakai juga `driveBackupService` → sekalian menutup sisa BK-DUP). `saveToDirectory` & `syncProjectToDrive` menamai file `.json.gz` **hanya** saat benar-benar ter-gzip; selain itu `.json` mentah (mime `application/json`). Restore di `SettingsPanel` kini mendeteksi gzip lewat **magic bytes** (`0x1f 0x8b`), bukan ekstensi → robust untuk cadangan lama yang salah dinamai maupun yang baru. Verifikasi: `tsc` 0 error, vitest 33/33.
 
 #### Temuan — Maintainability
 
-- ✅ **BK-DUP (sebagian DIPERBAIKI). Logika restore & "kumpul data" terduplikasi.** Ternyata ada **3** tempat kumpul-data (`collectAllData`, `SettingsPanel.handleBackup`, drive via collectAllData) + **2** tempat restore. **Perbaikan:** `SettingsPanel.handleBackup` kini memakai `backupService.collectAllData()`, dan `SettingsPanel.handleFileChange` memakai `backupService.restoreData()` → **satu sumber kebenaran** untuk collect & restore. _Tersisa:_ `compressData` masih duplikat di `backupService` & `driveBackupService` (belum disatukan).
-- 🟡 **BK8. Import `firebase/app` tak terpakai** di `googleAuth.ts` (komentarnya sendiri bilang "tanpa firebase") → menyeret firebase ke bundle sia-sia.
+- ✅ **BK-DUP (DIPERBAIKI penuh). Logika restore, "kumpul data" & kompresi terduplikasi.** `SettingsPanel.handleBackup` → `collectAllData()`, `handleFileChange` → `restoreData()` (sudah sebelumnya), dan kini `compressData` **disatukan** di `backupService` (dipakai `driveBackupService` lewat import) → satu sumber kebenaran untuk collect, restore, & kompresi.
+- ✅ **BK8 (DIPERBAIKI). Import `firebase/app` tak terpakai** di `googleAuth.ts` dihapus saat restrukturisasi BK7 → tak lagi menyeret firebase ke bundle.
 
 #### Temuan — Keandalan Drive/Auth
 
-- 🟡 **BK7. Tidak ada refresh token senyap.** `getAccessToken` melempar `TOKEN_EXPIRED` saat kedaluwarsa & mengosongkan cache; tak ada refresh otomatis (GIS mendukung `prompt:''`). Auto-sync Drive **mati ~tiap jam** sampai user login ulang manual.
-- 🟡 **BK6. Handle folder tidak dipersist.** `directoryHandleRef` hanya di memori; setelah reload, backup ke folder eksternal **berhenti diam-diam** sampai user memilih folder lagi (handle bisa disimpan di IndexedDB).
-- 🟡 **BK10. Spam konflik di perangkat baru.** Auto-backup memanggil `syncProjectToDrive()` tanpa `force`; bila ada file di Drive tapi perangkat ini belum pernah sync → `CONFLICT_DETECTED` tiap siklus (toast error berulang).
-- 🟡 **BK9. Kegagalan DELETE rotasi Drive tak dicek** (`await fetch(...DELETE)` tanpa cek `.ok`) → file lama bisa menumpuk diam-diam.
+- ✅ **BK7 (DIPERBAIKI). Tidak ada refresh token senyap.** `googleAuth` kini menyimpan `tokenClient` GIS + clientId; `getAccessToken` mencoba **refresh diam-diam** (`requestAccessToken({ prompt: '' })`) saat token kedaluwarsa sebelum melempar `TOKEN_EXPIRED`. Auto-sync Drive tak lagi mati ~tiap jam selama app terbuka (consent sudah diingat GIS). _Catatan:_ setelah full reload, token in-memory hilang → tetap perlu login ulang (di luar lingkup BK7).
+- ✅ **BK6 (DIPERBAIKI). Handle folder tidak dipersist.** Handle direktori kini disimpan di IndexedDB mini (`src/lib/folderHandleStore.ts`, DB terpisah `AetherScribeHandles` agar tak menaikkan skema Dexie) dan dipulihkan saat mount → folder tetap terkonfigurasi setelah reload. Izin (yang jadi `'prompt'` pasca-reload) di-`requestPermission` ulang **hanya saat backup manual** (gesture); saat auto, dilewati diam-diam agar tak error tiap siklus.
+- ✅ **BK10 (DIPERBAIKI). Spam konflik di perangkat baru.** `useAutoBackup` membedakan auto vs manual; notifikasi `CONFLICT_DETECTED`/`TOKEN_EXPIRED` saat **auto** ditampilkan **sekali** (ref `driveNoticeShownRef`) dan di-reset setelah sync berhasil → tak ada lagi toast berulang tiap siklus.
+- ✅ **BK9 (DIPERBAIKI). Kegagalan DELETE rotasi Drive tak dicek.** `syncProjectToDrive` kini mengecek `delRes.ok` (404 diabaikan—sudah terhapus) dan `console.warn` bila gagal → kegagalan rotasi tak lagi senyap.
 
 #### Temuan — Minor / kosmetik
 
 - 🟡 **BK3.** Backup **internal** (IndexedDB) tidak dikompresi (hanya file/Drive yang gzip) → 5× JSON penuh bisa membengkak.
-- 🟡 **BK11.** `googleSignIn`: setelah `reject(response)` saat `response.error`, tak ada `return` → eksekusi callback lanjut.
-- ⚪ **BK12.** Pakai `alert()`/`window.confirm()` (bukan sistem toast/modal app); pesan toast campur Inggris/Indonesia.
+- ✅ **BK11 (DIPERBAIKI). `googleSignIn` tanpa `return` setelah `reject`.** Restrukturisasi BK7 memindah callback ke `requestToken()` dengan `if (response.error) { reject; return; }` → tak ada lagi eksekusi callback yang lanjut setelah reject.
+- ⚪ **BK12.** Pakai `alert()`/`window.confirm()` (bukan sistem toast/modal app); pesan toast campur Inggris/Indonesia. _(Sebagian pesan toast di `useAutoBackup` sudah dialihbahasakan ke Indonesia saat BK10.)_
 
 #### Catatan positif
 Arsitektur 3-lapis (internal → folder → Drive) dengan rotasi 5 & gzip cukup matang. Atomicitas restore aman: transaksi `'rw'` rollback bila throw, dan `JSON.parse` dilakukan **sebelum** clear → data tidak hilang bila file korup. Error per-lapis di auto-backup ditangani terpisah dengan baik.
 
-#### Tindakan yang disarankan (belum dikerjakan)
-1. **BK1 + BK-DUP + BK2** — satukan logika backup/restore jadi satu sumber kebenaran (dipakai internal & file), sertakan `chatSessions`, dan `clear embeddings` saat restore.
-2. **BK4** — jangan beri ekstensi `.gz` bila gagal kompresi (atau tandai status kompresi di file).
-3. **BK7 / BK6** — refresh token senyap (GIS `prompt:''`) + persist folder handle ke IndexedDB.
-4. **BK8 / BK9 / BK10 / BK3 / BK11 / BK12** — kebersihan & keandalan sekunder.
+#### Tindakan yang disarankan
+1. ✅ **BK1 + BK-DUP + BK2** — selesai (satu sumber kebenaran collect/restore/kompresi + chatSessions + clear embeddings).
+2. ✅ **BK4** — selesai (penamaan file ikut status kompresi + restore deteksi gzip via magic bytes).
+3. ✅ **BK7 / BK6** — selesai (refresh token senyap GIS `prompt:''` + persist folder handle ke IndexedDB).
+4. ✅ **BK8 / BK9 / BK10 / BK11** — selesai. _Tersisa:_ **BK3** (kompres backup internal) & **BK12** (ganti `alert`/`confirm` ke toast/modal) — kosmetik/opt-in.
 
 ---
 

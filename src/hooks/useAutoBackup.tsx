@@ -8,6 +8,7 @@ import { backupService } from '@/src/services/backupService';
 import { syncProjectToDrive } from '@/src/services/driveBackupService';
 import { getAccessToken } from '@/src/services/googleAuth';
 import { useToast } from '@/src/hooks/useToast';
+import { saveFolderHandle, loadFolderHandle, ensureDirPermission } from '@/src/lib/folderHandleStore';
 
 // Shim for requestIdleCallback
 const idleCallback = (cb: IdleRequestCallback) => {
@@ -47,30 +48,45 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
   const directoryHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const idleRef = useRef<number | null>(null);
+  // BK10: cegah spam toast konflik/sesi-berakhir tiap siklus auto-backup; cukup
+  // beri tahu sekali sampai sync berhasil (atau pengguna bertindak manual).
+  const driveNoticeShownRef = useRef(false);
 
-  const triggerManualBackup = useCallback(async () => {
+  // Inti backup. `isAuto` membedakan siklus terjadwal (boleh diam saat izin folder
+  // belum diberi; notifikasi Drive di-dedup) dari aksi manual (gesture pengguna →
+  // boleh prompt izin folder & selalu beri umpan balik).
+  const runBackup = useCallback(async (isAuto: boolean) => {
     if (isBackingUp) return;
     setIsBackingUp(true);
     let hasError = false;
     try {
       const data = await backupService.collectAllData();
-      
+
       // Layer 1: Internal DB
       try {
         await backupService.saveToInternalDB(data);
       } catch (err) {
         console.error("Internal DB backup failed:", err);
-        toast.error("Failed to backup to local storage.");
+        toast.error("Gagal mencadangkan ke penyimpanan lokal.");
         hasError = true;
       }
-      
+
       // Layer 2: External Folder (if selected)
       if (directoryHandleRef.current) {
-        try {
-          await backupService.saveToDirectory(data, directoryHandleRef.current);
-        } catch (err) {
-          console.error("External backup failed:", err);
-          toast.error("Failed to backup to selected folder. Check folder permissions.");
+        const handle = directoryHandleRef.current;
+        // Izin folder bisa hilang setelah reload (BK6): minta ulang hanya saat aksi
+        // manual (gesture); saat auto, lewati diam-diam bila belum diizinkan.
+        const allowed = await ensureDirPermission(handle, !isAuto);
+        if (allowed) {
+          try {
+            await backupService.saveToDirectory(data, handle);
+          } catch (err) {
+            console.error("External backup failed:", err);
+            toast.error("Gagal mencadangkan ke folder terpilih. Periksa izin folder.");
+            hasError = true;
+          }
+        } else if (!isAuto) {
+          toast.error("Izin folder cadangan dibutuhkan. Pilih ulang folder untuk mengaktifkan kembali.");
           hasError = true;
         }
       }
@@ -83,19 +99,27 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
           if (!driveSuccess) {
             throw new Error("DRIVE_SYNC_FAILED");
           }
+          driveNoticeShownRef.current = false; // sync sukses → izinkan notifikasi lagi
         }
       } catch (err) {
         console.error("Google Drive sync failed:", err);
-        if (err instanceof Error && err.message === 'CONFLICT_DETECTED') {
-           toast.error("Konflik Google Drive: Versi remote lebih baru! Harap sinkronkan manual.");
-        } else if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
-           toast.error("Sesi Google Anda telah berakhir. Harap login ulang di Pengaturan untuk melanjutkan pencadangan.");
-        } else {
-           toast.error("Failed to backup to Google Drive.");
+        const isConflict = err instanceof Error && err.message === 'CONFLICT_DETECTED';
+        const isExpired = err instanceof Error && err.message === 'TOKEN_EXPIRED';
+        // Untuk konflik/sesi-berakhir saat auto: tampilkan sekali saja (BK10).
+        const suppress = isAuto && (isConflict || isExpired) && driveNoticeShownRef.current;
+        if (!suppress) {
+          if (isConflict) {
+            toast.error("Konflik Google Drive: Versi remote lebih baru! Harap sinkronkan manual.");
+          } else if (isExpired) {
+            toast.error("Sesi Google Anda telah berakhir. Harap login ulang di Pengaturan untuk melanjutkan pencadangan.");
+          } else {
+            toast.error("Gagal mencadangkan ke Google Drive.");
+          }
+          if (isConflict || isExpired) driveNoticeShownRef.current = true;
         }
         hasError = true;
       }
-      
+
       if (!hasError) {
         const now = Date.now();
         setLastBackupTime(now);
@@ -103,17 +127,20 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Auto-backup failed:", error);
-      toast.error("Auto-backup failed unexpectedly.");
+      toast.error("Pencadangan gagal tak terduga.");
     } finally {
       setIsBackingUp(false);
     }
   }, [isBackingUp, toast]);
+
+  const triggerManualBackup = useCallback(() => runBackup(false), [runBackup]);
 
   const selectFolder = async () => {
     try {
       const handle = await (window as any).showDirectoryPicker();
       directoryHandleRef.current = handle;
       setFolderName(handle.name);
+      await saveFolderHandle(handle); // BK6: bertahan antar reload
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error("Failed to select folder:", err);
@@ -121,10 +148,23 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // BK6: pulihkan handle folder yang tersimpan saat mount agar konfigurasi folder
+  // tak hilang setelah reload (izinnya diaktifkan ulang saat backup manual berikutnya).
+  useEffect(() => {
+    let cancelled = false;
+    loadFolderHandle().then((handle) => {
+      if (!cancelled && handle) {
+        directoryHandleRef.current = handle;
+        setFolderName(handle.name);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     const runBackupTask = () => {
       idleRef.current = idleCallback(() => {
-        triggerManualBackup();
+        runBackup(true);
       });
     };
 
@@ -151,7 +191,7 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
       if (idleRef.current) cancelIdle(idleRef.current);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [triggerManualBackup]);
+  }, [runBackup]);
 
   return (
     <BackupContext.Provider value={{

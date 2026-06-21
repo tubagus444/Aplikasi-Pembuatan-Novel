@@ -324,15 +324,20 @@ export function SettingsPanel() {
     try {
       setIsRestoring(true);
       
+      // Deteksi gzip lewat magic bytes (0x1f 0x8b), bukan ekstensi — robust untuk
+      // cadangan lama yang salah dinamai `.json.gz` padahal mentah, maupun `.json`
+      // tak terkompresi (BK4).
+      const buffer = await file.arrayBuffer();
+      const head = new Uint8Array(buffer.slice(0, 2));
+      const isGzip = head[0] === 0x1f && head[1] === 0x8b;
+
       let content = '';
-      if (file.name.endsWith('.gz')) {
-        const stream = file.stream();
+      if (isGzip) {
         // @ts-ignore
-        const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
-        const decompressedBlob = await new Response(decompressedStream).blob();
-        content = await decompressedBlob.text();
+        const decompressedStream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+        content = await new Response(decompressedStream).text();
       } else {
-        content = await file.text();
+        content = new TextDecoder().decode(buffer);
       }
       
       const backup = JSON.parse(content);
