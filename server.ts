@@ -3,6 +3,17 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
 
+// SV10: pola penanganan error yang sama dipakai di tiga endpoint → satu helper.
+// Menghormati SV3: bila header sudah terkirim (stream SSE) jangan tulis status lagi.
+function sendError(res: express.Response, status: number, error: any, context: string, fallbackMsg?: string) {
+  console.error(`${context}:`, error);
+  if (res.headersSent) {
+    res.end();
+    return;
+  }
+  res.status(status).json({ error: error?.message || fallbackMsg || String(error) });
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -89,7 +100,17 @@ async function startServer() {
 
       if (!response.ok) {
         const errorData = await response.text();
-        return res.status(response.status).json({ error: errorData || `HTTP error ${response.status}` });
+        // SV5: teruskan JSON error ASLI provider bila ada (bentuk { error: { message } }),
+        // agar klien & log melihat pesan asli alih-alih string ter-bungkus ganda. Klien
+        // (proxy.ts extractErrorMessage) menangani kedua bentuk. Selain itu, bungkus string.
+        let payload: any;
+        try {
+          const parsed = JSON.parse(errorData);
+          payload = (parsed && typeof parsed === 'object') ? parsed : { error: errorData };
+        } catch {
+          payload = { error: errorData || `HTTP error ${response.status}` };
+        }
+        return res.status(response.status).json(payload);
       }
 
       if (isStream) {
@@ -118,13 +139,8 @@ async function startServer() {
     } catch (error: any) {
       // Klien memutus / kita abort upstream → koneksi sudah tidak ada, jangan kirim apa-apa.
       if (error?.name === 'AbortError') return;
-      console.error(`Proxy error for ${provider}:`, error);
-      // SV3: bila streaming SSE sudah dimulai, header sudah terkirim → jangan tulis status/JSON lagi.
-      if (!res.headersSent) {
-        res.status(500).json({ error: error.message });
-      } else {
-        res.end();
-      }
+      // SV3 ditangani di sendError (guard headersSent untuk stream SSE yang sudah dimulai).
+      sendError(res, 500, error, `Proxy error for ${provider}`);
     }
   });
 
@@ -149,8 +165,7 @@ async function startServer() {
       const data = await response.json();
       res.status(response.status).json(data);
     } catch (error: any) {
-      console.error(`Google models listing error:`, error);
-      res.status(500).json({ error: error.message });
+      sendError(res, 500, error, 'Google models listing error');
     }
   });
 
@@ -174,8 +189,7 @@ async function startServer() {
       const data = await response.json();
       res.status(200).json(data);
     } catch (error: any) {
-      console.error(`Ollama models listing error:`, error);
-      res.status(500).json({ error: error.message || 'Failed to connect to Ollama. Make sure it is running globally.' });
+      sendError(res, 500, error, 'Ollama models listing error', 'Failed to connect to Ollama. Make sure it is running globally.');
     }
   });
 

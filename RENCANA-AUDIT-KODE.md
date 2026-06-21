@@ -22,7 +22,7 @@
 | 3 | Proxy AI (parsing response) | `src/services/ai/proxy.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | ✅ C1/C2/C3/C4/C5/C6/C8/C9/C11 ✅ (C7/C10 🟢 diterima) | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
-| 6 | Server proxy | `server.ts` | P1 | 🔄 SV1/SV2/SV3/SV15 ✅; SV5/SV6/SV10 belum | ✅ mendalam |
+| 6 | Server proxy | `server.ts` | P1 | ✅ SV1/SV2/SV3/SV5/SV6/SV10/SV15 ✅ (SV-SEC out-of-scope) | ✅ mendalam |
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP/BK4/BK6/BK7/BK8/BK9/BK10/BK11 ✅; BK3/BK12 belum | ✅ mendalam |
 | 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | 🔄 L1 ✅ (+test); L2 belum | ✅ mendalam |
@@ -236,19 +236,20 @@ _(Koreksi: catatan awal soal "duplikasi relationship-graph" keliru — graph dib
 
 #### Temuan — Maintainability / minor
 
-- 🟡 **SV6. Default model Google tak konsisten antar lapis:** server `gemini-1.5-flash` (47) vs proxy `gemini-2.0-flash`.
-- 🟡 **SV5. (cross-ref #3 P2)** Server membungkus error provider sebagai `{ error: "<text>" }`; sudah ditangani di klien, tapi bisa dibuat konsisten (teruskan JSON asli).
-- 🟡 **SV10.** Pola penanganan error mirip diulang di tiga endpoint (`proxy`, `google-models`, `ollama-models`).
+- ✅ **SV6 (SUDAH KONSISTEN). Default model Google.** Catatan audit usang — kode telah berkembang: server (`server.ts`) & proxy (`getModelForProvider`) **dua-duanya** kini default `gemini-2.5-flash`. Plus proxy selalu mengisi `body.model`, jadi fallback server praktis tak terpakai. Tak ada perubahan kode.
+- ✅ **SV5 (DIPERBAIKI). Bungkus error ganda.** Server kini meneruskan **JSON error asli provider** bila bisa di-parse (bentuk `{ error: { message } }`) alih-alih membungkusnya jadi string ganda; selain itu tetap `{ error: "<text>" }`. Klien (`extractErrorMessage`) menangani kedua bentuk → pesan asli kini terbaca langsung tanpa unwrap berlapis.
+- ✅ **SV10 (DIPERBAIKI). Pola error berulang.** Diekstrak helper `sendError(res, status, error, context, fallbackMsg?)` (guard `headersSent` untuk SV3) → dipakai ketiga endpoint (`proxy`, `google-models`, `ollama-models`).
 - 🟢 **SV-SEC.** SSRF via `ollamaBaseUrl` (dikontrol klien) + tanpa auth/rate-limit → **sengaja out-of-scope** per CLAUDE.md. Dicatat saja.
 
 #### Catatan positif
 Urutan route benar (API sebelum middleware Vite), prioritas kunci klien→`.env` benar, passthrough streaming byte-per-byte, dan forwarding status non-stream sudah tepat.
 
-#### Tindakan yang disarankan (belum dikerjakan)
-1. **SV1** — naikkan `express.json` limit. Quick win, dampak tinggi (memperbaiki fitur inti caching).
-2. **SV15** — validasi body + pindahkan pembacaan ke dalam `try` (cegah request menggantung).
-3. **SV2/SV4/SV3** — abort upstream saat klien putus + guard `headersSent` pada stream.
-4. **SV6/SV5/SV10** — kebersihan.
+#### Tindakan yang disarankan
+1. ✅ **SV1** — limit `express.json` dinaikkan (25mb).
+2. ✅ **SV15** — validasi body di awal handler.
+3. ✅ **SV2/SV4/SV3** — abort upstream + guard `headersSent`.
+4. ✅ **SV5/SV6/SV10** — selesai (SV6 sudah konsisten; SV5 teruskan JSON asli; SV10 helper `sendError`).
+5. **SV-SEC** — out-of-scope per CLAUDE.md (auth/rate-limit/SSRF).
 
 ---
 
