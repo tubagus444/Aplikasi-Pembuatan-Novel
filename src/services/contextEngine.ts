@@ -41,8 +41,10 @@ function getWorker(): Worker {
       }
     };
     worker.onerror = (e) => {
-      console.error('Context Worker Error:', e);
-      window.dispatchEvent(new ErrorEvent('error', { error: e.error, message: e.message }));
+      // C11: JANGAN re-dispatch ErrorEvent('error') ke window — itu memicu handler
+      // error global (main.tsx) dan bisa menggandakan log / berisiko loop. Cukup log
+      // di sini; terminateWorker() me-reject semua pending sehingga pemanggil tahu.
+      console.error('Context Worker Error:', e.message || e);
       terminateWorker();
     };
   }
@@ -56,6 +58,10 @@ function sendToWorker(type: string, payload: any): Promise<any> {
     const timeoutId = setTimeout(() => {
       if (pendingRequests.has(id)) {
         pendingRequests.delete(id);
+        // C3: beri sinyal batal ke worker agar tak membuang siklus pada operasi
+        // async (mis. embedding) & tak mem-post hasil basi. Best-effort: hanya
+        // berpengaruh di checkpoint await worker (operasi sinkron tak bisa diputus).
+        try { worker?.postMessage({ type: 'CANCEL', cancelId: id }); } catch { /* worker mati */ }
         reject(new Error(`Context engine worker request timed out (${type})`));
       }
     }, 30000);

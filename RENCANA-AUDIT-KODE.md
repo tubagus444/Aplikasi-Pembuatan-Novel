@@ -20,7 +20,7 @@
 | 1 | Orkestrasi AI & ketahanan | `src/services/ai/index.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 2 | Klasifikasi error & tipe | `src/services/ai/errors.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
 | 3 | Proxy AI (parsing response) | `src/services/ai/proxy.ts` | P0 | ✅ perbaikan diterapkan | ✅ mendalam |
-| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | 🔄 C1/C2/C4/C5/C6/C8/C9 ✅; C3/C11 belum | ✅ mendalam |
+| 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | ✅ C1/C2/C3/C4/C5/C6/C8/C9/C11 ✅ (C7/C10 🟢 diterima) | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
 | 6 | Server proxy | `server.ts` | P1 | 🔄 SV1/SV2/SV3/SV15 ✅; SV5/SV6/SV10 belum | ✅ mendalam |
 | 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP/BK4/BK6/BK7/BK8/BK9/BK10/BK11 ✅; BK3/BK12 belum | ✅ mendalam |
@@ -192,8 +192,8 @@ db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningka
 
 - ✅ **C1 (DIPERBAIKI — Opsi "AC-first + embed background"). Head-of-line blocking + timeout 30s saat embedding pertama.** `getRelevantContext` kini: (1) selalu kembalikan hasil Aho-Corasick dengan cepat; (2) hitung skor semantik **hanya jika sudah siap** (`semanticReady`: model termuat + semua embedding tercache); (3) bila belum siap, picu `ensureEmbeddings()` sebagai **tugas latar tanpa di-await** (loop tetap `yield` tiap 10) lalu balas AC-only kali ini. Hasil: query tak pernah timeout/memblokir; semantik aktif otomatis di query berikutnya. **Bonus:** filter relevansi diubah jadi `acScore>0 || finalScore>20` agar kecocokan eksak tunggal tetap muncul di mode AC-only (sebelumnya `finalScore>20` membuang exact-match tunggal). Verifikasi: `tsc` 0 error, vitest 21/21.
 - ✅ **C2 (DIPERBAIKI). Kegagalan semantik senyap.** `getEmbedder` kini **reset `modelInitPromise=null` saat gagal** → model bisa dicoba ulang (sebelumnya promise gagal ter-cache selamanya). `ensureEmbeddings` catch mem-post `PROGRESS { type: 'embedding_error', message }` agar kegagalan tidak senyap (bisa ditangkap UI lewat event `semantic-indexing-progress`).
-- 🟡 **C3. Timeout tidak membatalkan kerja worker.** `sendToWorker` reject di 30s tapi tak mengirim sinyal batal; worker lanjut. Tidak ada protokol cancel per-request.
-- 🟡 **C11. `worker.onerror` me-redispatch `ErrorEvent('error')` ke `window`** (`contextEngine` 44) → berpotensi memicu handler error global/menggandakan log. Perlu dipastikan tak menimbulkan loop.
+- ✅ **C3 (DIPERBAIKI). Timeout tidak membatalkan kerja worker.** Ditambah protokol cancel per-request: saat `sendToWorker` timeout (30s), main thread mem-`postMessage({ type: 'CANCEL', cancelId: id })`. Worker menyimpan `cancelledIds` (Set, ber-cap 256), mengecek `checkCancelled(id)` di checkpoint async (`await` embedding di `getRelevantContext`), dan **men-drop hasil** untuk id yang dibatalkan sebelum `postMessage`. Catatan jujur: worker single-thread → cancel hanya efektif pada operasi **async** (yang punya titik `await`); operasi sinkron tetap tak bisa diputus tanpa terminate, tapi pasca-C1 jalur request sudah cepat. Verifikasi: `tsc` 0 error, vitest 33/33.
+- ✅ **C11 (DIPERBAIKI). `worker.onerror` me-redispatch `ErrorEvent('error')` ke `window`** — dihapus (sejajar RG5 di Orama). Kini cukup `console.error` + `terminateWorker()` (yang me-reject semua pending) → tak lagi memicu handler error global/menggandakan log.
 
 #### Temuan — Correctness / konsistensi
 
@@ -212,12 +212,11 @@ db.ts relatif sehat: **tidak ada risiko kehilangan data** pada migrasi. Peningka
 Algoritma inti (Aho-Corasick, hybrid scoring, caching embedding ke IndexedDB) sudah solid. Risiko terbesar bersifat **operasional**: embedding pertama memblokir worker (C1) & kegagalan senyap (C2). Plus satu **inkonsistensi nyata** (C4) yang memengaruhi kualitas highlight/konteks bahasa Indonesia.
 _(Koreksi: catatan awal soal "duplikasi relationship-graph" keliru — graph dibangun di `index.ts`, bukan worker; sudah ditangani di #1/M1.)_
 
-#### Tindakan yang disarankan (belum dikerjakan)
-1. **C1** — strategi anti-blocking untuk embedding pertama (idle pre-embed / timeout khusus / hasil bertahap). Paling berdampak.
-2. **C4** — satukan logika boundary nama (AC mengenali sufiks Indonesia, atau pakai jalur regex yang sama) agar highlight/konteks konsisten.
-3. **C2** — log kegagalan model ke `ErrorService` + notifikasi.
-4. **C5/C6/C9** — guard `entry.id`, strip HTML di SCAN_APPEARANCES, hapus variabel mati.
-5. **C3/C8/C11** — sekunder (protokol cancel, dokumentasi konstanta, cek redispatch error).
+#### Tindakan yang disarankan
+1. ✅ **C1/C2/C4/C5/C6/C8/C9** — selesai (lihat temuan di atas).
+2. ✅ **C3** — protokol cancel per-request (CANCEL message + `checkCancelled` di checkpoint async + drop hasil basi).
+3. ✅ **C11** — hapus redispatch `ErrorEvent` ke window.
+4. _Diterima (tak diperbaiki):_ **C7** (asumsi embedding ternormalisasi — risiko rendah) & **C10** (cache embedding tak terbatas — wajar, dibersihkan saat `INVALIDATE_CACHE { deep }`).
 
 ---
 
@@ -299,7 +298,7 @@ Arsitektur 3-lapis (internal → folder → Drive) dengan rotasi 5 & gzip cukup 
 - ✅ **RG1+RG7 (DIPERBAIKI). Search bisa menggantung selamanya.** Sekarang: (1) `oramaSync.search` punya **timeout 15s** (reject + bersihkan pending); (2) `worker.onerror` mem-**reject SEMUA pending** lalu reset worker (dibuat ulang saat dipakai lagi); (3) worker `SEARCH catch` kini mem-post `SEARCH_RESULT { error }` sehingga promise pasti settle. `contextEngine.getRelevantContext` sudah membungkus `search` dalam try/catch → rejection ditangani anggun (fallback ke hasil contextWorker). Verifikasi: `tsc` 0 error, vitest 21/21.
 - 🟡 **RG3. Index/update/remove fire-and-forget** (tanpa ack/penanganan error) → drift indeks senyap; entri yang gagal diindeks tak diketahui.
 - ✅ **RG4 (TERTANGANI via #5 D1). Koneksi Dexie ganda** (main + context worker + orama worker — semua buka `@/src/db`). Karena `db.ts` kini punya handler `versionchange`/`blocked`/`open().catch()`, **setiap** koneksi worker juga menutup dengan benar saat upgrade → tak lagi memblokir/menggantung.
-- ✅ **RG5 (DIPERBAIKI). `worker.onerror` redispatch `ErrorEvent('error')` ke `window`** — dihapus; diganti `console.error` + reject-pending. (Padanannya C11 di #4 masih terbuka untuk contextEngine.)
+- ✅ **RG5 (DIPERBAIKI). `worker.onerror` redispatch `ErrorEvent('error')` ke `window`** — dihapus; diganti `console.error` + reject-pending. (Padanannya **C11** di #4 kini juga sudah diperbaiki untuk contextEngine.)
 
 #### Temuan — Correctness (minor)
 

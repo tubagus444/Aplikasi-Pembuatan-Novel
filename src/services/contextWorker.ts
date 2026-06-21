@@ -20,6 +20,15 @@ let backgroundIndexing = false; // cegah indexing embedding latar berjalan ganda
 let modelInitPromise: Promise<any> | null = null;
 let encoders = new Map<string, any>();
 
+// C3: id request yang dibatalkan main thread (lewat pesan CANCEL saat timeout).
+// Worker single-thread → cancel hanya efektif pada operasi async (mis. embedding),
+// di mana checkpoint `checkCancelled` membuat handler berhenti & hasilnya di-drop.
+const cancelledIds = new Set<number>();
+class CancelledError extends Error { constructor() { super('__CANCELLED__'); } }
+function checkCancelled(id?: number) {
+  if (id !== undefined && cancelledIds.has(id)) throw new CancelledError();
+}
+
 function getEncoderForModelOrStandard(model?: string): any {
   if (!model) return getEncoding('cl100k_base');
   
@@ -278,7 +287,7 @@ async function ensureEmbeddings(allCodex: CodexEntry[]): Promise<void> {
   }
 }
 
-async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise<CodexEntry[]> {
+async function getRelevantContext(text: string, allCodex: CodexEntry[], reqId?: number): Promise<CodexEntry[]> {
   if (!text || !allCodex || allCodex.length === 0) return [];
 
   // 1. Exact Match Score (AhoCorasick) — selalu cepat.
@@ -301,6 +310,7 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
   if (semanticReady(allCodex)) {
     try {
       const textEmbedding = await getSemanticEmbedding(text);
+      checkCancelled(reqId); // request sudah di-timeout? hentikan, hasilnya tak terpakai.
       for (const entry of allCodex) {
         const key = entry.id !== undefined ? entry.id : entry.name;
         const info = embeddingCache.get(key);
@@ -312,6 +322,7 @@ async function getRelevantContext(text: string, allCodex: CodexEntry[]): Promise
         }
       }
     } catch (error) {
+      if (error instanceof CancelledError) throw error; // jangan ditelan fallback
       console.error("Semantic scoring failed, falling back to pure AhoCorasick", error);
     }
   } else {
@@ -435,11 +446,26 @@ function condenseCoreRules(rules: StoryBibleRule[]): StoryBibleRule[] {
 self.onmessage = async (e: MessageEvent) => {
   const { type, id, payload } = e.data;
 
+  // C3: sinyal batal (fire-and-forget, tanpa balasan). Tandai id agar handler
+  // async yang sedang berjalan bisa berhenti di checkpoint & hasilnya di-drop.
+  if (type === 'CANCEL') {
+    if (payload && typeof payload.cancelId === 'number') {
+      cancelledIds.add(payload.cancelId);
+      // Batasi pertumbuhan: cancel yang tiba setelah request selesai takkan pernah
+      // dibersihkan, jadi buang yang terlama bila set membengkak.
+      if (cancelledIds.size > 256) {
+        const oldest = cancelledIds.values().next().value;
+        if (oldest !== undefined) cancelledIds.delete(oldest);
+      }
+    }
+    return;
+  }
+
   try {
     let result;
     switch (type) {
       case 'GET_RELEVANT_CONTEXT':
-        result = await getRelevantContext(payload.text, payload.allCodex);
+        result = await getRelevantContext(payload.text, payload.allCodex, id);
         break;
       case 'GET_CODEX_MATCHES': {
         const { chunks, allCodex } = payload;
@@ -509,6 +535,7 @@ self.onmessage = async (e: MessageEvent) => {
         let codexText: string;
         let rulesText: string;
 
+        // (reqId diteruskan ke getRelevantContext di cabang non-fullContext di bawah)
         if (fullContext) {
           // Mode caching: SELURUH Story Bible + Codex dikirim statis (lihat
           // buildCachedContextBlock di services/ai/index.ts). Cerminkan itu di meter.
@@ -521,7 +548,7 @@ self.onmessage = async (e: MessageEvent) => {
           codexText = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, MAX_CACHED_LORE_CHARS);
         } else {
           // Mode RAG legacy: hanya lore/aturan relevan yang dikirim.
-          const relevantCodex = await getRelevantContext(text, allCodex);
+          const relevantCodex = await getRelevantContext(text, allCodex, id);
           const relevantRules = getRelevantBibleRules(text, allRules, 2500); // Example depth
           codexText = relevantCodex.map(e => `[${e.name}]: ${e.description}`).join(' ');
           rulesText = formatBibleBlock(relevantRules);
@@ -539,8 +566,19 @@ self.onmessage = async (e: MessageEvent) => {
         throw new Error(`Unknown message type: ${type}`);
     }
 
+    // Request dibatalkan saat diproses → jangan post hasil basi (main thread sudah
+    // me-reject lewat timeout). Bersihkan penanda.
+    if (id !== undefined && cancelledIds.has(id)) {
+      cancelledIds.delete(id);
+      return;
+    }
+
     self.postMessage({ id, result });
   } catch (error: any) {
+    if (error instanceof CancelledError) {
+      if (id !== undefined) cancelledIds.delete(id);
+      return; // dibatalkan; tak perlu balas
+    }
     self.postMessage({ id, error: error.message || 'Worker error' });
   }
 };
