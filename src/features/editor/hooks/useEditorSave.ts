@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
 import { db } from '@/src/db';
 import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
+import { registerActiveEditor, unregisterActiveEditor, ActiveEditorBridge } from '@/src/features/editor/editorBridge';
 
 interface UseEditorSaveProps {
   chapterId: number;
@@ -64,6 +65,44 @@ export function useEditorSave({ chapterId, chapter, editor }: UseEditorSaveProps
       chapterIdRef.current = chapterId;
     }
   }, [chapterId, performSave]);
+
+  // Flush segera: batalkan timer debounce lalu simpan konten editor TERKINI ke DB.
+  // Dipakai sebelum operasi lintas-bab (mis. Find & Replace global) agar edit yang
+  // belum tersimpan tidak hilang. Membaca HTML langsung dari editor (bukan htmlRef)
+  // agar tetap akurat walau belum ada event update sejak mount.
+  const flushNow = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    const id = chapterIdRef.current;
+    if (!id || id <= 0) return;
+    const html = editor && !editor.isDestroyed ? editor.getHTML() : htmlRef.current;
+    htmlRef.current = html;
+    await performSave(id, html);
+  }, [editor, performSave]);
+
+  // Daftarkan editor aktif ke bridge agar operasi lintas-bab bisa flush + reload aman.
+  useEffect(() => {
+    if (!editor) return;
+    const bridge: ActiveEditorBridge = {
+      getChapterId: () => chapterIdRef.current,
+      flush: flushNow,
+      reload: async () => {
+        if (!editor || editor.isDestroyed) return;
+        const fresh = await db.chapters.get(chapterIdRef.current);
+        if (!editor || editor.isDestroyed) return;
+        const content = fresh?.content ?? '';
+        // emitUpdate:false → tidak memicu autosave (mencegah penimpaan balik hasil replace).
+        editor.commands.setContent(content, { emitUpdate: false });
+        // Selaraskan snapshot flush agar flush unmount/ganti-bab berikutnya tak memakai
+        // konten basi pra-replace.
+        htmlRef.current = content;
+      },
+    };
+    registerActiveEditor(bridge);
+    return () => unregisterActiveEditor(bridge);
+  }, [editor, flushNow]);
 
   // Sync title when chapter loads
   useEffect(() => {

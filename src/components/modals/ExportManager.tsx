@@ -3,15 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
-import { FileDown, FileText, Globe, Loader2, CheckCircle2, X, FileEdit } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { FileDown, FileText, Globe, Loader2, CheckCircle2, X, FileEdit, BookOpen, CheckSquare, Square } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/src/db';
 import { Project, Chapter } from '@/src/types';
-import { stripHtml, htmlToMarkdown } from '@/src/lib/editorUtils';
+import { htmlToMarkdown } from '@/src/lib/editorUtils';
+import { countWords } from '@/src/lib/utils';
+import { buildEpub } from '@/src/lib/epub';
 
 interface ExportManagerProps {
   projectId: number;
@@ -19,87 +22,170 @@ interface ExportManagerProps {
   onClose: () => void;
 }
 
+type ExportFormat = 'md' | 'pdf' | 'docx' | 'epub';
 type ExportStatus = 'idle' | 'processing' | 'success';
+
+interface Run { text: string; bold: boolean; italic: boolean; }
+
+// ── Helper konversi konten ─────────────────────────────────────────────────────
+
+/** Pecah elemen blok menjadi run bergaya (tebal/miring) untuk render PDF. */
+function extractRuns(el: Element): Run[] {
+  const runs: Run[] = [];
+  const walk = (node: Node, bold: boolean, italic: boolean) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const t = node.textContent || '';
+      if (t) runs.push({ text: t, bold, italic });
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const e = node as HTMLElement;
+      const b = bold || e.tagName === 'STRONG' || e.tagName === 'B';
+      const i = italic || e.tagName === 'EM' || e.tagName === 'I';
+      e.childNodes.forEach(c => walk(c, b, i));
+    }
+  };
+  el.childNodes.forEach(c => walk(c, false, false));
+  return runs;
+}
+
+/** Konversi HTML bab → badan XHTML well-formed (untuk EPUB). */
+function htmlToXhtmlBody(html: string): string {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  const serialized = new XMLSerializer().serializeToString(doc.body);
+  // Buang pembungkus <body ...> ... </body> → sisakan isi (XHTML, tag void self-closing).
+  const inner = serialized.replace(/^<body[^>]*>/, '').replace(/<\/body>\s*$/, '').trim();
+  return inner || '<p></p>';
+}
+
+function makeUuid(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 
 export function ExportManager({ projectId, project, onClose }: ExportManagerProps) {
   const [status, setStatus] = useState<ExportStatus>('idle');
-  const [format, setFormat] = useState<'md' | 'pdf' | 'docx'>('md');
+  const [format, setFormat] = useState<ExportFormat>('md');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [initialized, setInitialized] = useState(false);
 
-  const getAllChaptersPath = async () => {
-    return await db.chapters.where('projectId').equals(projectId).sortBy('order');
+  const chapters = useLiveQuery(
+    () => db.chapters.where('projectId').equals(projectId).sortBy('order'),
+    [projectId],
+  );
+
+  // Default: pilih semua bab saat daftar pertama kali termuat.
+  useEffect(() => {
+    if (chapters && !initialized) {
+      setSelectedIds(new Set(chapters.map(c => c.id!)));
+      setInitialized(true);
+    }
+  }, [chapters, initialized]);
+
+  const selectedChapters = useMemo(
+    () => (chapters || []).filter(c => selectedIds.has(c.id!)),
+    [chapters, selectedIds],
+  );
+
+  const selectedWords = useMemo(
+    () => selectedChapters.reduce((sum, c) => sum + countWords(c.content), 0),
+    [selectedChapters],
+  );
+
+  const allSelected = !!chapters && chapters.length > 0 && selectedIds.size === chapters.length;
+
+  const toggleChapter = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
-  const exportMarkdown = async (chapters: Chapter[]) => {
+  const toggleAll = () => {
+    if (!chapters) return;
+    setSelectedIds(allSelected ? new Set() : new Set(chapters.map(c => c.id!)));
+  };
+
+  // ── Eksportir ────────────────────────────────────────────────────────────────
+
+  const exportMarkdown = (list: Chapter[]) => {
     let content = `# ${project?.name || 'Untitled Project'}\n\n`;
-    chapters.forEach(ch => {
+    list.forEach(ch => {
       content += `## ${ch.title}\n\n${htmlToMarkdown(ch.content)}\n\n`;
     });
-    const blob = new Blob([content], { type: 'text/markdown' });
-    saveAs(blob, `${project?.name || 'Manuscript'}.md`);
+    saveAs(new Blob([content], { type: 'text/markdown' }), `${project?.name || 'Manuscript'}.md`);
   };
 
-  const exportPDF = async (chapters: Chapter[]) => {
+  const exportPDF = (list: Chapter[]) => {
     const doc = new jsPDF();
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
-    const margin = 25.4; // 1 inch margin
+    const margin = 25.4; // 1 inci
     const innerWidth = pageWidth - margin * 2;
-    const lineHeight = 7; // Improved line height for 11pt font
+    const lineHeight = 7;
     let y = margin;
 
-    // Document styling
     doc.setFont('times', 'normal');
 
-    // Title Page (Simplified)
+    // Halaman judul sederhana
     doc.setFontSize(24);
     doc.text(project?.name || 'Manuscript', pageWidth / 2, y + 40, { align: 'center' });
     doc.setFontSize(14);
     doc.text('A Novel Manuscript', pageWidth / 2, y + 55, { align: 'center' });
-    
     doc.addPage();
     y = margin;
 
-    chapters.forEach((ch, index) => {
-      // Check for page overflow before chapter title
-      if (y > pageHeight - 40) {
-        doc.addPage();
-        y = margin;
-      }
-      
+    const styleFor = (b: boolean, i: boolean) => (b && i ? 'bolditalic' : b ? 'bold' : i ? 'italic' : 'normal');
+
+    // Render paragraf dengan run bergaya (mempertahankan tebal/miring inline).
+    const renderRuns = (runs: Run[]) => {
+      let x = margin;
+      doc.setFontSize(11);
+      runs.forEach(run => {
+        doc.setFont('times', styleFor(run.bold, run.italic));
+        const tokens = run.text.split(/(\s+)/);
+        for (const token of tokens) {
+          if (!token) continue;
+          const w = doc.getTextWidth(token);
+          if (token.trim() === '') {
+            x += w; // spasi: cukup majukan kursor
+            continue;
+          }
+          if (x + w > margin + innerWidth) {
+            x = margin;
+            y += lineHeight;
+            if (y > pageHeight - margin) { doc.addPage(); y = margin; }
+          }
+          doc.text(token, x, y);
+          x += w;
+        }
+      });
+      y += lineHeight + 4; // jarak antar paragraf
+    };
+
+    list.forEach((ch, index) => {
+      if (y > pageHeight - 40) { doc.addPage(); y = margin; }
+
       doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('times', 'bold');
       doc.text(ch.title || `Chapter ${index + 1}`, margin, y);
       y += 12;
-      
-      doc.setFontSize(11);
-      doc.setFont(undefined, 'normal');
-      
-      // Parse paragraphs from HTML
+
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = ch.content || '';
-      const paragraphs = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
-      
-      const contentNodes = paragraphs.length > 0 ? paragraphs : [tempDiv];
-      
-      contentNodes.forEach((pNode) => {
-        const text = pNode.textContent?.trim() || '';
-        if (!text) return;
-        
-        const lines = doc.splitTextToSize(text, innerWidth);
-        
-        lines.forEach((line: string) => {
-          if (y > pageHeight - margin) {
-            doc.addPage();
-            y = margin;
-          }
-          doc.text(line, margin, y);
-          y += lineHeight;
-        });
-        
-        y += 4; // Extra space after paragraph
+      const blocks = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+      const nodes = blocks.length > 0 ? blocks : [tempDiv];
+
+      nodes.forEach((node) => {
+        const runs = extractRuns(node);
+        if (runs.length === 0) return;
+        if (y > pageHeight - margin) { doc.addPage(); y = margin; }
+        renderRuns(runs);
       });
-      
-      y += 10; // Space between chapters
+
+      y += 10; // jarak antar bab
     });
 
     doc.save(`${project?.name || 'Manuscript'}.pdf`);
@@ -114,23 +200,14 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
       let runs: TextRun[] = [];
       if (node.nodeType === Node.TEXT_NODE) {
         if (node.textContent) {
-          runs.push(new TextRun({
-            text: node.textContent,
-            bold: styles.bold,
-            italics: styles.italics,
-            size: 24, // 12pt
-            font: 'Times New Roman'
-          }));
+          runs.push(new TextRun({ text: node.textContent, bold: styles.bold, italics: styles.italics, size: 24, font: 'Times New Roman' }));
         }
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const el = node as HTMLElement;
         const nextStyles = { ...styles };
         if (el.tagName === 'STRONG' || el.tagName === 'B') nextStyles.bold = true;
         if (el.tagName === 'EM' || el.tagName === 'I') nextStyles.italics = true;
-        
-        el.childNodes.forEach(child => {
-          runs = runs.concat(processNode(child, nextStyles));
-        });
+        el.childNodes.forEach(child => { runs = runs.concat(processNode(child, nextStyles)); });
       }
       return runs;
     };
@@ -139,181 +216,181 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
       if (node.nodeType === Node.ELEMENT_NODE) {
         const el = node as HTMLElement;
         const children: TextRun[] = [];
-        el.childNodes.forEach(child => {
-          children.push(...processNode(child));
-        });
+        el.childNodes.forEach(child => { children.push(...processNode(child)); });
 
         if (el.tagName === 'P') {
-          elements.push(new Paragraph({ 
-            children, 
-            spacing: { after: 200, line: 360 }, // 1.5 line height
-            alignment: AlignmentType.JUSTIFIED
-          }));
+          elements.push(new Paragraph({ children, spacing: { after: 200, line: 360 }, alignment: AlignmentType.JUSTIFIED }));
         } else if (el.tagName.startsWith('H')) {
           const level = parseInt(el.tagName.substring(1));
-          const headingMap: Record<number, any> = {
-            1: HeadingLevel.HEADING_1,
-            2: HeadingLevel.HEADING_2,
-            3: HeadingLevel.HEADING_3,
-          };
-          elements.push(new Paragraph({
-            children,
-            heading: headingMap[level] || HeadingLevel.HEADING_1,
-            spacing: { before: 400, after: 200 }
-          }));
+          const headingMap: Record<number, any> = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
+          elements.push(new Paragraph({ children, heading: headingMap[level] || HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }));
         } else if (children.length > 0) {
-          // Handle other elements as simple paragraphs
           elements.push(new Paragraph({ children, spacing: { after: 200 } }));
         }
       } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
-         elements.push(new Paragraph({
-           children: [new TextRun({ text: node.textContent, size: 24, font: 'Times New Roman' })],
-           spacing: { after: 200 }
-         }));
+        elements.push(new Paragraph({ children: [new TextRun({ text: node.textContent, size: 24, font: 'Times New Roman' })], spacing: { after: 200 } }));
       }
     });
 
     return elements;
   };
 
-  const exportDocx = async (chapters: Chapter[]) => {
-    const sections = chapters.map(ch => {
-      const heading = new Paragraph({
-        text: ch.title,
-        heading: HeadingLevel.HEADING_1,
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 400, after: 400 }
-      });
-
-      const bodyElements = htmlToDocxElements(ch.content || '');
-      
-      return [heading, ...bodyElements];
+  const exportDocx = async (list: Chapter[]) => {
+    const sections = list.map(ch => {
+      const heading = new Paragraph({ text: ch.title, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 400, after: 400 } });
+      return [heading, ...htmlToDocxElements(ch.content || '')];
     }).flat();
 
     const doc = new Document({
       title: project?.name,
-      sections: [{
-        properties: {
-          page: {
-            margin: {
-              top: 1440, // 1 inch
-              right: 1440,
-              bottom: 1440,
-              left: 1440
-            }
-          }
-        },
-        children: sections
-      }]
+      sections: [{ properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } }, children: sections }],
     });
 
     const buffer = await Packer.toBlob(doc);
     saveAs(buffer, `${project?.name || 'Manuscript'}.docx`);
   };
 
+  const exportEpub = (list: Chapter[]) => {
+    const bytes = buildEpub({
+      title: project?.name || 'Manuscript',
+      identifier: makeUuid(),
+      language: 'id',
+      chapters: list.map((ch, i) => ({
+        title: ch.title || `Bab ${i + 1}`,
+        xhtmlBody: htmlToXhtmlBody(ch.content || ''),
+      })),
+    });
+    saveAs(new Blob([bytes], { type: 'application/epub+zip' }), `${project?.name || 'Manuscript'}.epub`);
+  };
+
   const handleExport = async () => {
+    if (selectedChapters.length === 0) return;
     setStatus('processing');
     try {
-      const chapters = await getAllChaptersPath();
-      
       switch (format) {
-        case 'md': await exportMarkdown(chapters); break;
-        case 'pdf': await exportPDF(chapters); break;
-        case 'docx': await exportDocx(chapters); break;
+        case 'md': exportMarkdown(selectedChapters); break;
+        case 'pdf': exportPDF(selectedChapters); break;
+        case 'docx': await exportDocx(selectedChapters); break;
+        case 'epub': exportEpub(selectedChapters); break;
       }
       setStatus('success');
-      setTimeout(() => {
-        setStatus('idle');
-        onClose();
-      }, 2000);
+      setTimeout(() => { setStatus('idle'); onClose(); }, 2000);
     } catch (error) {
       console.error(error);
       setStatus('idle');
     }
   };
 
+  const formatOptions: { id: ExportFormat; label: string; icon: typeof FileText; color: string }[] = [
+    { id: 'md', label: 'Markdown', icon: FileEdit, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' },
+    { id: 'pdf', label: 'PDF', icon: FileText, color: 'text-red-600 bg-red-50 dark:bg-red-900/20' },
+    { id: 'docx', label: 'Word', icon: Globe, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
+    { id: 'epub', label: 'EPUB', icon: BookOpen, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' },
+  ];
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-3xl overflow-hidden border border-slate-200 dark:border-slate-800"
+        className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-3xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]"
       >
-        <header className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <header className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-none">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Ekspor Naskah</h2>
             <p className="text-xs text-slate-400 dark:text-slate-500">Siapkan cerita Anda untuk dunia.</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500" title="Tutup">
             <X size={18} />
           </button>
         </header>
 
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { id: 'md', label: 'Markdown', icon: FileEdit, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' },
-              { id: 'pdf', label: 'PDF Document', icon: FileText, color: 'text-red-600 bg-red-50 dark:bg-red-900/20' },
-              { id: 'docx', label: 'Word (DOCX)', icon: Globe, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
-            ].map((f) => (
+        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {formatOptions.map((f) => (
               <button
+                type="button"
                 key={f.id}
-                onClick={() => setFormat(f.id as any)}
-                className={`flex sm:flex-col flex-row items-center justify-start sm:justify-center gap-3 p-4 rounded-xl border transition-all ${
-                  format === f.id 
-                    ? 'border-indigo-500 ring-4 ring-indigo-50 dark:ring-indigo-900/10 bg-white dark:bg-slate-800' 
-                    : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-800 dark:hover:border-slate-700 opacity-60'
+                onClick={() => setFormat(f.id)}
+                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
+                  format === f.id
+                    ? 'border-indigo-500 ring-4 ring-indigo-50 dark:ring-indigo-900/10 bg-white dark:bg-slate-800'
+                    : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 opacity-60'
                 }`}
               >
                 <div className={`p-2 rounded-lg ${f.color}`}>
-                  <f.icon size={20} />
+                  <f.icon size={18} />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-wider dark:text-slate-300">{f.label}</span>
               </button>
             ))}
           </div>
 
+          {/* Pemilihan bab */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Bab yang Diekspor</h3>
+              <button type="button" onClick={toggleAll} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                {allSelected ? <Square size={12} /> : <CheckSquare size={12} />}
+                {allSelected ? 'Kosongkan' : 'Pilih Semua'}
+              </button>
+            </div>
+            <div className="max-h-44 overflow-y-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-50 dark:divide-slate-800/50">
+              {!chapters && (
+                <div className="p-4 text-center text-xs text-slate-400"><Loader2 size={16} className="animate-spin mx-auto" /></div>
+              )}
+              {chapters && chapters.length === 0 && (
+                <div className="p-4 text-center text-xs text-slate-400 italic">Belum ada bab.</div>
+              )}
+              {chapters?.map((ch) => {
+                const checked = selectedIds.has(ch.id!);
+                return (
+                  <button
+                    type="button"
+                    key={ch.id}
+                    onClick={() => toggleChapter(ch.id!)}
+                    className="w-full flex items-center gap-3 p-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                  >
+                    {checked
+                      ? <CheckSquare size={16} className="text-indigo-600 shrink-0" />
+                      : <Square size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />}
+                    <span className={`text-sm truncate flex-1 ${checked ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                      {ch.title || 'Tanpa Judul'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 shrink-0">{countWords(ch.content).toLocaleString()}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
             <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Ringkasan Ekspor</h3>
             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex justify-between">
-                <span>Total Kata:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{project?.wordGoal?.toLocaleString()} (est)</span>
+                <span>Bab Dipilih:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedChapters.length} / {chapters?.length ?? 0}</span>
               </div>
               <div className="flex justify-between">
-                <span>Tata Letak:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">A4 Standar</span>
+                <span>Total Kata:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedWords.toLocaleString()}</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <button 
-            disabled={status !== 'idle'}
+        <div className="p-6 pt-0 flex-none">
+          <button
+            type="button"
+            disabled={status !== 'idle' || selectedChapters.length === 0}
             onClick={handleExport}
             className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 text-sm font-bold transition-all shadow-lg ${
-              status === 'success' 
-                ? 'bg-emerald-500 text-white' 
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50'
+              status === 'success' ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:pointer-events-none'
             }`}
           >
-            {status === 'idle' && (
-              <>
-                <FileDown size={18} />
-                Buat Ekspor {format.toUpperCase()}
-              </>
-            )}
-            {status === 'processing' && (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Diseduh naskahnya...
-              </>
-            )}
-            {status === 'success' && (
-              <>
-                <CheckCircle2 size={18} />
-                Ekspor Selesai!
-              </>
-            )}
+            {status === 'idle' && (<><FileDown size={18} />Buat Ekspor {format.toUpperCase()}</>)}
+            {status === 'processing' && (<><Loader2 size={18} className="animate-spin" />Diseduh naskahnya...</>)}
+            {status === 'success' && (<><CheckCircle2 size={18} />Ekspor Selesai!</>)}
           </button>
         </div>
       </motion.div>

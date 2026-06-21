@@ -19,6 +19,7 @@ import { Header } from '@/src/components/layout/Header';
 import { MainView } from '@/src/components/layout/MainView';
 import { ProjectManagerModal } from '@/src/components/modals/ProjectManagerModal';
 import { GlobalSearch } from '@/src/components/common/GlobalSearch';
+import { CrossChapterReplace } from '@/src/components/modals/CrossChapterReplace';
 import { ExportManager } from '@/src/components/modals/ExportManager';
 import { IndexingIndicator } from '@/src/components/common/IndexingIndicator';
 import { Suspense, useEffect } from 'react';
@@ -34,10 +35,12 @@ export default function App() {
     setIsFocusMode,
     sidebarOpen, 
     setSidebarOpen,
-    isSearchOpen, 
-    setIsSearchOpen, 
-    isExportOpen, 
-    setIsExportOpen 
+    isSearchOpen,
+    setIsSearchOpen,
+    isReplaceOpen,
+    setIsReplaceOpen,
+    isExportOpen,
+    setIsExportOpen
   } = useUI();
 
   useEffect(() => {
@@ -130,11 +133,22 @@ export default function App() {
           />
         )}
 
+        {isReplaceOpen && projectId && (
+          <CrossChapterReplace
+            projectId={projectId}
+            onClose={() => setIsReplaceOpen(false)}
+            onSelectChapter={(id) => {
+              setActiveChapterId(id);
+              setViewMode('write');
+            }}
+          />
+        )}
+
         {isExportOpen && projectId && (
-          <ExportManager 
-            projectId={projectId} 
-            project={project} 
-            onClose={() => setIsExportOpen(false)} 
+          <ExportManager
+            projectId={projectId}
+            project={project}
+            onClose={() => setIsExportOpen(false)}
           />
         )}
       </Suspense>

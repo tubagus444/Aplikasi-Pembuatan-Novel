@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ChevronRight, Search, Moon, Sun, Zap, Download } from 'lucide-react';
+import { ChevronRight, Search, Moon, Sun, Zap, Download, ReplaceAll } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -25,8 +25,9 @@ export function Header() {
     sidebarOpen, 
     setSidebarOpen, 
     isFocusMode, 
-    setIsSearchOpen, 
-    setIsExportOpen, 
+    setIsSearchOpen,
+    setIsReplaceOpen,
+    setIsExportOpen,
     setIsProjectManagerOpen,
     theme,
     toggleTheme 
@@ -62,12 +63,21 @@ export function Header() {
 
         <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0 mx-1 hidden sm:block" />
         
-        <button 
+        <button
           onClick={() => setIsSearchOpen(true)}
           className="p-1.5 flex items-center justify-center bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
           title="Pencarian Global (Ctrl+K)"
         >
           <Search size={16} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsReplaceOpen(true)}
+          className="p-1.5 flex items-center justify-center bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-md text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors flex-shrink-0"
+          title="Ganti di Seluruh Naskah"
+        >
+          <ReplaceAll size={16} />
         </button>
 
         <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0 mx-1 hidden sm:block" />

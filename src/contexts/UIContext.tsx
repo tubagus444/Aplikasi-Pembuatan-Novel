@@ -14,6 +14,8 @@ interface UIContextType {
   setIsFocusMode: (focus: boolean) => void;
   isSearchOpen: boolean;
   setIsSearchOpen: (open: boolean) => void;
+  isReplaceOpen: boolean;
+  setIsReplaceOpen: (open: boolean) => void;
   isExportOpen: boolean;
   setIsExportOpen: (open: boolean) => void;
   isProjectManagerOpen: boolean;
@@ -29,6 +31,7 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isReplaceOpen, setIsReplaceOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
   
@@ -53,10 +56,11 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     sidebarOpen, setSidebarOpen,
     isFocusMode, setIsFocusMode,
     isSearchOpen, setIsSearchOpen,
+    isReplaceOpen, setIsReplaceOpen,
     isExportOpen, setIsExportOpen,
     isProjectManagerOpen, setIsProjectManagerOpen,
     theme, setTheme, toggleTheme
-  }), [sidebarOpen, isFocusMode, isSearchOpen, isExportOpen, isProjectManagerOpen, theme, toggleTheme]);
+  }), [sidebarOpen, isFocusMode, isSearchOpen, isReplaceOpen, isExportOpen, isProjectManagerOpen, theme, toggleTheme]);
 
   return (
     <UIContext.Provider value={value}>

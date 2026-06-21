@@ -6,9 +6,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { db } from '@/src/db';
-import { Target, TrendingUp, Edit2, Clock, BarChart2, ChevronDown } from 'lucide-react';
+import { Target, TrendingUp, Edit2, Clock, BarChart2, ChevronDown, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { countWords } from '@/src/lib/utils';
+import { countWords, cn } from '@/src/lib/utils';
+import { useDailyProgress } from '@/src/hooks/useDailyProgress';
 
 interface WritingStatsProps {
   projectId: number;
@@ -52,8 +53,9 @@ export function WritingStats({ projectId }: WritingStatsProps) {
   const totalWords = stats?.totalWords || 0;
   const chapterCount = stats?.chapterCount || 0;
 
+  const { wordsToday, streak, dailyGoal, dailyPercent } = useDailyProgress(projectId, stats?.totalWords, project);
+
   const wordGoal = project?.wordGoal || 50000;
-  const dailyGoal = project?.dailyGoal || 1500;
   const progressPercent = Math.min(100, Math.round((totalWords / wordGoal) * 100));
   
   const readTimeMin = Math.ceil(totalWords / 250);
@@ -140,17 +142,32 @@ export function WritingStats({ projectId }: WritingStatsProps) {
             </div>
 
             <div className="p-4 grid grid-cols-2 gap-3">
-              {/* Session Target */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800 col-span-2 flex items-center gap-3">
-                <div className="p-2 bg-white dark:bg-slate-900 rounded-md shadow-sm text-indigo-500">
-                  <TrendingUp size={14} />
+              {/* Daily / Session Progress */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800 col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none flex items-center gap-1.5">
+                    <TrendingUp size={12} className="text-indigo-500" /> Hari Ini
+                  </p>
+                  {streak > 0 && (
+                    <span
+                      className="flex items-center gap-1 text-[10px] font-bold text-amber-500"
+                      title={`${streak} hari berturut-turut memenuhi target`}
+                    >
+                      <Flame size={12} /> {streak} hari
+                    </span>
+                  )}
                 </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none mb-1.5">Target Sesi</p>
+
+                <div className="flex items-baseline gap-1.5 mb-2">
+                  <span className="text-lg font-bold text-slate-800 dark:text-slate-100 tabular-nums leading-none">
+                    {wordsToday.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-slate-400">/</span>
                   {isEditingDaily ? (
-                    <input 
+                    <input
                       autoFocus
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-0.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                      aria-label="Target kata harian"
+                      className="w-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-0.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
                       defaultValue={dailyGoal}
                       onBlur={(e) => {
                         updateDailyGoal(e.target.value);
@@ -164,14 +181,25 @@ export function WritingStats({ projectId }: WritingStatsProps) {
                       }}
                     />
                   ) : (
-                    <button 
+                    <button
+                      type="button"
                       onClick={() => setIsEditingDaily(true)}
-                      className="group flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 transition-colors"
+                      className="group flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors"
                     >
-                      {dailyGoal.toLocaleString()} <span className="text-slate-400 font-normal text-xs">kata</span>
+                      {dailyGoal.toLocaleString()} <span className="font-normal">kata</span>
                       <Edit2 size={10} className="opacity-0 group-hover:opacity-100 text-slate-400" />
                     </button>
                   )}
+                </div>
+
+                <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      dailyPercent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500',
+                    )}
+                    style={{ width: `${dailyPercent}%` }}
+                  />
                 </div>
               </div>
 

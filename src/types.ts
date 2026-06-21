@@ -132,6 +132,11 @@ export interface Project {
   dailyGoal?: number;
   createdAt: number;
   lastOpened: number;
+  // Pelacakan target harian (field NON-INDEKS; ikut backup via tabel `projects`,
+  // tanpa migrasi skema). Diisi/dibaca oleh useDailyProgress + src/lib/dailyProgress.ts.
+  dailyLog?: Record<string, number>; // 'YYYY-MM-DD' (lokal) → kata ditulis hari itu
+  lastWordCount?: number;            // total kata terakhir teramati (untuk hitung delta)
+  lastWordCountDate?: string;        // tanggal observasi terakhir 'YYYY-MM-DD' (lokal)
 }
 
 // Kategori bawaan Codex. Kategori KUSTOM (buatan pengguna, tabel `codexCategories`)
