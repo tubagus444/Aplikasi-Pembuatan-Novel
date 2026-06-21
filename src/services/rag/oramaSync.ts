@@ -36,13 +36,23 @@ function getWorker(): Worker {
     };
 
     worker.onmessage = (e) => {
-      const { type, id, result, error } = e.data;
+      const { type, id, result, error, op, payload, retry } = e.data;
       if (type === 'SEARCH_RESULT' && id !== undefined && pendingRequests.has(id)) {
         const pending = pendingRequests.get(id)!;
         clearTimeout(pending.timeoutId);
         pendingRequests.delete(id);
         if (error) pending.reject(new Error(error));
         else pending.resolve(result);
+      } else if (type === 'MUTATION_ERROR') {
+        // RG3: kegagalan mutasi indeks tak lagi senyap. Coba ulang SEKALI (menyembuhkan
+        // kegagalan transien); bila masih gagal, log peringatan agar drift indeks fallback
+        // diketahui (Orama hanya jalur RAG cadangan — tak memblokir fitur utama).
+        const attempt = (retry || 0) + 1;
+        if (attempt <= 1) {
+          try { getWorker().postMessage({ type: op, payload, retry: attempt }); } catch { /* worker mati */ }
+        } else {
+          console.warn(`[Orama] Mutasi ${op} gagal setelah ${attempt} percobaan; indeks pencarian fallback mungkin melenceng:`, error);
+        }
       }
     };
   }

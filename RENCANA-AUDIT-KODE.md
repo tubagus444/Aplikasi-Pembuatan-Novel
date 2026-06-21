@@ -23,8 +23,8 @@
 | 4 | Mesin konteks (worker) | `src/services/contextWorker.ts` | P1 | ✅ C1/C2/C3/C4/C5/C6/C8/C9/C11 ✅ (C7/C10 🟢 diterima) | ✅ mendalam |
 | 5 | Skema & migrasi Dexie | `src/db.ts` | P1 | 🔄 D1 ✅ + D2/D4 dikomentari; D6 belum | ✅ mendalam |
 | 6 | Server proxy | `server.ts` | P1 | ✅ SV1/SV2/SV3/SV5/SV6/SV10/SV15 ✅ (SV-SEC out-of-scope) | ✅ mendalam |
-| 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1/BK2/BK-DUP/BK4/BK6/BK7/BK8/BK9/BK10/BK11 ✅; BK3/BK12 belum | ✅ mendalam |
-| 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG7/RG5 ✅ (RG4 via #5); RG2/RG3/RG-ARCH belum | ✅ mendalam |
+| 7 | Backup & sync Drive | `src/services/backupService.ts`, `driveBackupService.ts`, `src/hooks/useAutoBackup.tsx`, `googleAuth.ts` | P1 | 🔄 BK1–BK11 ✅ (kecuali BK12); BK12 belum (kosmetik) | ✅ mendalam |
+| 8 | RAG Orama (sinkronisasi) | `src/services/rag/*` | P1 | 🔄 RG1/RG3/RG5/RG7 ✅ (RG4 via #5); RG2/RG-ARCH belum (minor/doc) | ✅ mendalam |
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | ✅ L1/L2 ✅ (+test); L3 🟢 diterima | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
 | 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | ✅ ED1/ED2/ED3/ED4 ✅ | ✅ mendalam |
@@ -276,7 +276,7 @@ Urutan route benar (API sebelum middleware Vite), prioritas kunci klien→`.env`
 
 #### Temuan — Minor / kosmetik
 
-- 🟡 **BK3.** Backup **internal** (IndexedDB) tidak dikompresi (hanya file/Drive yang gzip) → 5× JSON penuh bisa membengkak.
+- ✅ **BK3 (DIPERBAIKI).** Backup **internal** (IndexedDB) kini dikompresi gzip (`saveToInternalDB` pakai `compressData` bersama). `BackupRecord.data` jadi `string | Uint8Array` + flag `compressed` (field non-indeks → tanpa bump skema). Restore lewat `decodeInternalBackup` yang menangani string lama, gzip (deteksi magic bytes), maupun bytes mentah fallback. `size` mencerminkan ukuran tersimpan (terkompresi). 5× JSON penuh tak lagi membengkak.
 - ✅ **BK11 (DIPERBAIKI). `googleSignIn` tanpa `return` setelah `reject`.** Restrukturisasi BK7 memindah callback ke `requestToken()` dengan `if (response.error) { reject; return; }` → tak ada lagi eksekusi callback yang lanjut setelah reject.
 - ⚪ **BK12.** Pakai `alert()`/`window.confirm()` (bukan sistem toast/modal app); pesan toast campur Inggris/Indonesia. _(Sebagian pesan toast di `useAutoBackup` sudah dialihbahasakan ke Indonesia saat BK10.)_
 
@@ -287,7 +287,7 @@ Arsitektur 3-lapis (internal → folder → Drive) dengan rotasi 5 & gzip cukup 
 1. ✅ **BK1 + BK-DUP + BK2** — selesai (satu sumber kebenaran collect/restore/kompresi + chatSessions + clear embeddings).
 2. ✅ **BK4** — selesai (penamaan file ikut status kompresi + restore deteksi gzip via magic bytes).
 3. ✅ **BK7 / BK6** — selesai (refresh token senyap GIS `prompt:''` + persist folder handle ke IndexedDB).
-4. ✅ **BK8 / BK9 / BK10 / BK11** — selesai. _Tersisa:_ **BK3** (kompres backup internal) & **BK12** (ganti `alert`/`confirm` ke toast/modal) — kosmetik/opt-in.
+4. ✅ **BK3 / BK8 / BK9 / BK10 / BK11** — selesai (BK3: backup internal kini gzip). _Tersisa:_ **BK12** (ganti `alert`/`confirm` ke toast/modal) — kosmetik.
 
 ---
 
@@ -297,7 +297,7 @@ Arsitektur 3-lapis (internal → folder → Drive) dengan rotasi 5 & gzip cukup 
 #### Temuan — Keandalan (prioritas)
 
 - ✅ **RG1+RG7 (DIPERBAIKI). Search bisa menggantung selamanya.** Sekarang: (1) `oramaSync.search` punya **timeout 15s** (reject + bersihkan pending); (2) `worker.onerror` mem-**reject SEMUA pending** lalu reset worker (dibuat ulang saat dipakai lagi); (3) worker `SEARCH catch` kini mem-post `SEARCH_RESULT { error }` sehingga promise pasti settle. `contextEngine.getRelevantContext` sudah membungkus `search` dalam try/catch → rejection ditangani anggun (fallback ke hasil contextWorker). Verifikasi: `tsc` 0 error, vitest 21/21.
-- 🟡 **RG3. Index/update/remove fire-and-forget** (tanpa ack/penanganan error) → drift indeks senyap; entri yang gagal diindeks tak diketahui.
+- ✅ **RG3 (DIPERBAIKI). Index/update/remove fire-and-forget → drift senyap.** Worker kini mem-post `MUTATION_ERROR { op, payload, retry, error }` saat mutasi (INIT/INDEX/UPDATE/REMOVE) gagal. Main thread (`oramaSync.onmessage`) **mencoba ulang sekali** (menyembuhkan kegagalan transien); bila masih gagal, `console.warn` dengan konteks → kegagalan tak lagi senyap. Bounded (retry ≤1, tanpa loop). Catatan: Orama hanya jalur RAG cadangan, jadi drift tak memblokir fitur utama; ini menutup celah diagnosa/penyembuhan.
 - ✅ **RG4 (TERTANGANI via #5 D1). Koneksi Dexie ganda** (main + context worker + orama worker — semua buka `@/src/db`). Karena `db.ts` kini punya handler `versionchange`/`blocked`/`open().catch()`, **setiap** koneksi worker juga menutup dengan benar saat upgrade → tak lagi memblokir/menggantung.
 - ✅ **RG5 (DIPERBAIKI). `worker.onerror` redispatch `ErrorEvent('error')` ke `window`** — dihapus; diganti `console.error` + reject-pending. (Padanannya **C11** di #4 kini juga sudah diperbaiki untuk contextEngine.)
 
@@ -316,8 +316,8 @@ Skema Orama jelas; `search` mengambil record lengkap dari Dexie (data mutakhir) 
 #### Tindakan yang disarankan (belum dikerjakan)
 1. **RG1+RG7** — tambah timeout pada `oramaSync.search` + reject semua pending saat `worker.onerror` (pola `terminateWorker` ala `contextEngine`); worker `SEARCH catch` harus mem-post `SEARCH_RESULT { error }`.
 2. **RG4** — selesaikan bersama **#5 D1** (handler `versionchange`/`blocked` di `db.ts` berlaku untuk semua koneksi worker).
-3. **RG3 / RG2** — (opsional) ack indexing / re-sync setelah init.
-4. **RG-ARCH / RG5 / RG6** — dokumentasi pembagian peran & kebersihan.
+3. ✅ **RG3** — selesai (MUTATION_ERROR + retry sekali + warn). _Tersisa:_ **RG2** (race init minor — catatan saja).
+4. **RG-ARCH / RG6** — dokumentasi pembagian peran (opsional). RG5 ✅.
 
 ---
 

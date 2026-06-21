@@ -50,16 +50,29 @@ export const backupService = {
 
   /**
    * Saves backup data to the internal IndexedDB 'backups' table.
-   * Keeps only the latest 5 backups.
+   * Keeps only the latest 5 backups. Dikompresi gzip bila didukung (BK3) — 5×
+   * JSON penuh bisa membengkak; gzip memangkasnya signifikan. Bila kompresi tak
+   * didukung/gagal, simpan JSON string mentah (tetap dapat dipulihkan).
    */
   async saveToInternalDB(data: BackupData): Promise<void> {
     const jsonString = JSON.stringify(data);
-    const size = new Blob([jsonString]).size;
+    const { blob, compressed } = await this.compressData(jsonString);
+
+    let stored: string | Uint8Array;
+    let size: number;
+    if (compressed) {
+      stored = new Uint8Array(await blob.arrayBuffer());
+      size = stored.byteLength;
+    } else {
+      stored = jsonString;
+      size = new Blob([jsonString]).size;
+    }
 
     await db.backups.add({
       timestamp: data.timestamp,
-      data: jsonString,
-      size: size
+      data: stored,
+      size,
+      compressed
     });
 
     // Roll rotation: keep only latest 5
@@ -68,6 +81,25 @@ export const backupService = {
       const toDelete = allBackups.slice(0, allBackups.length - 5);
       await db.backups.bulkDelete(toDelete.map(b => b.id!));
     }
+  },
+
+  /**
+   * Mengubah `BackupRecord.data` (string JSON lama, gzip bytes, atau bytes mentah
+   * bila kompresi sempat gagal) kembali menjadi string JSON. Deteksi gzip via magic
+   * bytes (0x1f 0x8b) agar robust tanpa bergantung penuh pada flag `compressed`.
+   */
+  async decodeInternalBackup(backup: BackupRecord): Promise<string> {
+    const d = backup.data;
+    if (typeof d === 'string') return d; // cadangan lama: JSON mentah
+    const bytes = d instanceof Uint8Array ? d : new Uint8Array(d as ArrayBuffer);
+    const isGzip = bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+    if (isGzip && typeof DecompressionStream !== 'undefined') {
+      // @ts-ignore
+      const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(ds).text();
+    }
+    // Bukan gzip (kompresi sempat fallback) → bytes adalah UTF-8 JSON mentah.
+    return new TextDecoder().decode(bytes);
   },
 
   /**
@@ -202,7 +234,8 @@ export const backupService = {
     const backup = await db.backups.get(backupId);
     if (!backup) throw new Error('Backup not found');
 
-    const parsedData: BackupData = JSON.parse(backup.data);
+    const json = await this.decodeInternalBackup(backup);
+    const parsedData: BackupData = JSON.parse(json);
     await this.restoreData(parsedData);
   },
 

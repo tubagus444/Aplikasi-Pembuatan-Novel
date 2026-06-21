@@ -205,8 +205,11 @@ export interface AppError {
 export interface BackupRecord {
   id?: number;
   timestamp: number;
-  data: string; // JSON
-  size: number; // bytes
+  // String JSON (cadangan lama / saat kompresi tak didukung) ATAU gzip bytes bila
+  // `compressed` true (BK3). Restore mendeteksi keduanya (typeof + magic bytes gzip).
+  data: string | Uint8Array;
+  size: number; // bytes (ukuran tersimpan)
+  compressed?: boolean;
 }
 
 export interface VectorEmbedding {
