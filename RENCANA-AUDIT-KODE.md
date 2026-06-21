@@ -3,6 +3,27 @@
 > Dokumen pelacak (tracker) untuk audit kualitas kode bertahap.
 > Tujuan: memetakan bagian-bagian penting, memprioritaskan, dan mencatat **mana yang sudah selesai**.
 
+## Status (per 2026-06-21): seluruh pekerjaan berdampak SELESAI
+
+Semua temuan yang menyangkut **correctness, kehilangan data, keandalan, dan keamanan-data
+telah diperbaiki** (area #1–#11 tuntas; lihat tabel di bawah). Aplikasi aman dipakai apa adanya.
+
+**Sisa yang sengaja TIDAK dikerjakan** — murni kosmetik/opsional/refactor, **tanpa dampak
+ke penggunaan**; dibiarkan sebagai catatan keputusan agar tak dianalisis ulang:
+
+| Item | Sifat | Kenapa ditunda |
+|------|-------|----------------|
+| **D6** (#5) | Kosmetik | Teks default proyek pertama berbahasa Inggris; pengguna langsung menimpa. |
+| **BK12** (#7) | Kosmetik/UX | `alert()`/`confirm()` masih dipakai (berfungsi normal) alih-alih toast app. |
+| **RG2** (#8) | Minor | Race init Orama sangat sempit; path utama tetap menemukan entri. |
+| **RG-ARCH** (#8) | Dokumentasi | Penegasan pembagian peran 3 sistem relevansi; nol dampak runtime. |
+| **UI1** (#12) | Refactor | Pecah `SettingsPanel`; nol dampak pengguna, risikonya ada di *melakukan*-nya. |
+| **[A1]** | Nuansa kualitas | Konteks regen chat tak dijamin identik; ditunda sengaja sejak awal. |
+| **C7, C10, SV-SEC** | Diterima | Risiko rendah / out-of-scope per CLAUDE.md — bukan untuk diperbaiki. |
+
+> Dokumen ini dipertahankan sebagai **memori-proyek**: rekam temuan + alasan keputusan
+> (termasuk yang sengaja ditolak). Dirujuk oleh `CLAUDE.md`.
+
 ## Cara pakai
 
 - **Status:** ⬜ Belum · 🔄 Sedang dikerjakan · ✅ Selesai · ⏭️ Dilewati (dengan alasan)
