@@ -36,6 +36,7 @@ export function AIPreferences({ provider, setProvider, contextDepth, setContextD
             <option value="groq">Groq Cloud</option>
             <option value="openrouter">OpenRouter</option>
             <option value="claude">Anthropic (Claude)</option>
+            <option value="huggingface">Hugging Face</option>
             <option value="ollama">Ollama (Lokal)</option>
           </select>
         </div>

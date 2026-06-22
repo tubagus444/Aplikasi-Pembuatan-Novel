@@ -17,7 +17,7 @@ export interface ProviderModel {
   description?: string; // keterangan tambahan (opsional)
 }
 
-export type ModelListProvider = 'google' | 'groq' | 'openrouter' | 'claude';
+export type ModelListProvider = 'google' | 'groq' | 'openrouter' | 'claude' | 'huggingface';
 
 export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
   const cached = localStorage.getItem(MODEL_CACHE_KEY);
@@ -88,7 +88,7 @@ async function postModelListing(path: string, apiKey?: string): Promise<any> {
  * Sumber tunggal pengambilan daftar model lintas-provider.
  * Mengembalikan daftar ternormalisasi `ProviderModel[]`.
  * - openrouter: endpoint publik (tanpa key), di-cache 24 jam.
- * - google/groq/claude: lewat proxy server, butuh `apiKey`.
+ * - google/groq/claude/huggingface: lewat proxy server, butuh `apiKey`.
  */
 export async function fetchModelsForProvider(
   provider: ModelListProvider,
@@ -137,6 +137,17 @@ export async function fetchModelsForProvider(
       return data.data.map((m: any) => ({
         id: m.id,
         name: m.display_name || m.id,
+      }));
+    }
+
+    case 'huggingface': {
+      const data = await postModelListing('/api/ai/huggingface-models', apiKey);
+      if (!Array.isArray(data.data)) {
+        throw new Error(data.error || 'Format data dari Hugging Face API tidak sesuai.');
+      }
+      return data.data.map((m: any) => ({
+        id: m.id,
+        name: m.id,
       }));
     }
 

@@ -57,6 +57,9 @@ export function ContextMeter() {
       } else if (selectedProvider === 'openrouter') {
         m = localStorage.getItem('ai_model_openrouter') || 'openrouter/auto';
         limit = 128000; // rough generic limit
+      } else if (selectedProvider === 'huggingface') {
+        m = localStorage.getItem('ai_model_huggingface') || 'meta-llama/Llama-3.3-70B-Instruct';
+        limit = 32000; // perkiraan konservatif (sejalan dgn PROVIDER_CONTEXT_WINDOW)
       }
       
       setModelConfig({ model: m, modelContextLimit: limit });

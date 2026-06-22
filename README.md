@@ -14,7 +14,7 @@ menjaga konteks, dan mempercepat revisi** — tanpa membutuhkan database backend
   - Pencarian semantik lokal via embeddings `Xenova/all-MiniLM-L6-v2` (berjalan di browser, di-cache di IndexedDB).
   - Pencarian leksikal (BM25) via Orama sebagai fallback.
 - **AI multi-provider** dengan fallback otomatis, circuit breaker, dan exponential backoff:
-  Google Gemini, Anthropic Claude, Groq, OpenRouter, dan Ollama (lokal).
+  Google Gemini, Anthropic Claude, Groq, OpenRouter, Hugging Face, dan Ollama (lokal).
 - **Daemon latar belakang**: auto-backup (gzip), auto-summarizer per bab.
 - **Sinkronisasi opsional** ke Google Drive (BYOK) dan Firebase.
 - **Penyimpanan lokal** penuh via Dexie/IndexedDB — data tetap di perangkat Anda.
@@ -41,7 +41,7 @@ menjaga konteks, dan mempercepat revisi** — tanpa membutuhkan database backend
    ```bash
    cp .env.example .env
    ```
-   Variabel yang didukung: `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CLAUDE_API_KEY`.
+   Variabel yang didukung: `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CLAUDE_API_KEY`, `HF_API_KEY`.
 3. Jalankan server pengembangan:
    ```bash
    npm run dev

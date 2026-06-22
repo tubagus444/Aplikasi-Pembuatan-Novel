@@ -61,6 +61,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
             let pName = log.provider;
             if (pName === 'google') pName = 'Gemini';
             else if (pName === 'openrouter') pName = 'OpenR';
+            else if (pName === 'huggingface') pName = 'HF';
 
             const label = `${pName} (${log.model})`;
             modelUsage[label] = (modelUsage[label] || 0) + log.totalTokens;

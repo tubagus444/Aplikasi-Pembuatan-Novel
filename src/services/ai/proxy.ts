@@ -393,6 +393,7 @@ const LIGHT_MODELS: Record<string, string> = {
   claude: 'claude-3-5-haiku-20241022',
   groq: 'llama-3.1-8b-instant',
   openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  huggingface: 'meta-llama/Llama-3.1-8B-Instruct',
 };
 
 /** Default hardcoded model ringan per provider (sebelum override pengguna). */
@@ -425,6 +426,7 @@ function getModelForProvider(provider: string) {
     case 'claude': return 'claude-3-5-sonnet-20241022';
     case 'google': return 'gemini-2.5-flash'; // 2.5 → implicit prompt caching otomatis (hemat token)
     case 'ollama': return 'llama3.2';
+    case 'huggingface': return 'meta-llama/Llama-3.3-70B-Instruct';
     default: return '';
   }
 }

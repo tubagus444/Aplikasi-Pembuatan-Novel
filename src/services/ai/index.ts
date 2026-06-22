@@ -73,6 +73,7 @@ const PROVIDER_CONTEXT_WINDOW: Record<string, number> = {
   claude: 200_000,
   openrouter: 128_000,
   groq: 32_000,
+  huggingface: 32_000,
   ollama: 8_192,
 };
 
@@ -134,6 +135,7 @@ function getSettings() {
       groq: loadKey('groq'),
       openrouter: loadKey('openrouter'),
       claude: loadKey('claude'),
+      huggingface: loadKey('huggingface'),
       ollama: '' // Ollama doesn't use API key
     },
     models: {
@@ -141,6 +143,7 @@ function getSettings() {
       groq: localStorage.getItem('ai_model_groq') || '',
       openrouter: localStorage.getItem('ai_model_openrouter') || '',
       claude: localStorage.getItem('ai_model_claude') || '',
+      huggingface: localStorage.getItem('ai_model_huggingface') || '',
       ollama: localStorage.getItem('ai_model_ollama') || ''
     }
   };
@@ -206,7 +209,7 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
 }
 
 const MAX_RETRIES = 3;
-const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq']; // Ordered preference for fallback
+const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq', 'huggingface']; // Ordered preference for fallback
 
 // Tugas mekanis (bukan penulisan kreatif) dirutekan ke model tier-murah provider
 // yang sama. rewrite/chat/expand tetap memakai model pilihan pengguna demi kualitas.

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const PROVIDERS = ['google', 'claude', 'groq', 'openrouter', 'ollama'];
+const PROVIDERS = ['google', 'claude', 'groq', 'openrouter', 'huggingface', 'ollama'];
 
 export function useAvailableProviders() {
   const [availableProviders, setAvailableProviders] = useState<string[]>(['google']);

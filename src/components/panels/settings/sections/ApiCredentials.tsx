@@ -20,6 +20,7 @@ const PROVIDERS = [
   { id: 'groq', name: 'Groq Cloud', placeholder: 'gsk_...', modelHint: 'Cth: llama-3.3-70b-versatile' },
   { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-...', modelHint: 'Pilih model...' },
   { id: 'claude', name: 'Claude (Anthropic)', placeholder: 'sk-ant-...', modelHint: 'Cth: claude-opus-4-8' },
+  { id: 'huggingface', name: 'Hugging Face', placeholder: 'hf_...', modelHint: 'Cth: meta-llama/Llama-3.3-70B-Instruct' },
 ] as const;
 
 export function ApiCredentials({ keys, setKeys, models, setModels, isSaved, onSave }: Props) {
