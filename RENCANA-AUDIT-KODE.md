@@ -49,7 +49,7 @@ ke penggunaan**; dibiarkan sebagai catatan keputusan agar tak dianalisis ulang:
 | 9 | Algoritma murni | `src/lib/{ahoCorasick,chunkEngine,loreUtils}.ts` | P2 | ✅ L1/L2 ✅ (+test); L3 🟢 diterima | ✅ mendalam |
 | 10 | State & live query | `src/contexts/*`, `src/hooks/useOptimizedLiveQuery.ts` | P2 | ✅ LQ1/LQ2/LQ3 diperbaiki | ✅ mendalam |
 | 11 | Editor TipTap (save/highlight) | `src/features/editor/hooks/*`, `extensions/*` | P2 | ✅ ED1/ED2/ED3/ED4 ✅ | ✅ mendalam |
-| 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | 🔄 analisa selesai | ✅ struktural |
+| 12 | Panel UI raksasa (refactor) | `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx` | P2 | ✅ `SettingsPanel` dipecah; BiblePanel/Outline ditunda | ✅ struktural |
 
 ---
 
@@ -385,7 +385,7 @@ Verifikasi: `tsc` 0 error, vitest 21/21.
 **Tindakan disarankan:** **ED1 dulu** (cegah kehilangan data), lalu ED2/ED3 kebersihan.
 
 ### [#12] Panel UI raksasa — `SettingsPanel.tsx`, `BiblePanel.tsx`, `OutlinePanel.tsx`
-**Status:** 🔄 Analisa struktural selesai — belum ada perubahan kode. · **Prioritas:** P2
+**Status:** ✅ `SettingsPanel` dipecah (UI1 selesai); BiblePanel/OutlinePanel ditunda (UI2). · **Prioritas:** P2
 
 **Metrik (mengubah gambaran awal):**
 
@@ -396,10 +396,10 @@ Verifikasi: `tsc` 0 error, vitest 21/21.
 | `OutlinePanel.tsx` | 725 | 7 | 0 | Besar karena **JSX/presentasi** |
 
 **Temuan:**
-- 🟡 **UI1. `SettingsPanel` adalah target refactor sesungguhnya.** 26 akses `db.` langsung + 18 state mencampur presentasi dengan logika backup/restore, pengaturan AI, dan fetch model. Logika restore-nya juga **duplikat** dengan `backupService` (cross-ref **#7 BK-DUP**). Saran: ekstrak ke hook/service (`useSettings*`, satukan backup/restore), sisakan presentasi.
+- ✅ **UI1 (DIPERBAIKI). `SettingsPanel` dipecah dari god-component 1122 baris → shell 78 baris.** Dua tab jadi komponen sendiri (`settings/AISettingsTab.tsx`, `settings/BackupTab.tsx`); tab AI dipecah jadi sections (`AIPreferences`, `AdvancedAIOptimization`, `ApiCredentials`, `OllamaConfig`) dan tab Backup jadi sections (`SemanticCacheSection`, `ManualBackupSection`, `AutoBackupSection`) — kedua tab kini cuma container tipis. Logika persist diekstrak ke hook `useAISettings.ts`; tes koneksi ke `useConnectionTest.ts`; tombol/error Cek dideduplikasi jadi `ConnectionTestButton`/`ConnectionTestError`. Akses `db.` langsung sudah 0 (BK-DUP beres sebelumnya), `import db` + `useStorageQuota` mati dibuang. Catatan: edit yang belum disimpan kini hilang saat pindah tab (state ikut unmount) — diterima sebagai trade-off.
 - 🟢 **UI2. `BiblePanel`/`OutlinePanel` besar karena JSX**, logika sudah didelegasikan (≤7 state, 0 db) → **risiko rendah**. Refactor (pecah sub-komponen) opsional untuk keterbacaan, bukan prioritas.
 
-**Tindakan disarankan:** prioritaskan pemecahan `SettingsPanel` (sekaligus menuntaskan BK-DUP #7); BiblePanel/OutlinePanel ditunda.
+**Tindakan disarankan:** ~~prioritaskan pemecahan `SettingsPanel`~~ ✅ selesai; BiblePanel/OutlinePanel masih ditunda (besar karena JSX, risiko rendah).
 
 ---
 

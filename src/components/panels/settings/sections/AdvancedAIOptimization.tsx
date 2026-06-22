@@ -1,0 +1,127 @@
+import React from 'react';
+import { BrainCircuit } from 'lucide-react';
+import { getDefaultLightModelForProvider } from '@/src/services/ai/proxy';
+import { DEFAULT_REWRITE_TEMPERATURE } from '@/src/lib/aiTuning';
+
+interface Props {
+  provider: string;
+  maxLoreChars: string;
+  setMaxLoreChars: (v: string) => void;
+  lightModels: Record<string, string>;
+  setLightModels: (v: Record<string, string>) => void;
+  cacheTtl: string;
+  setCacheTtl: (v: string) => void;
+  rewriteTemp: string;
+  setRewriteTemp: (v: string) => void;
+}
+
+export function AdvancedAIOptimization({
+  provider,
+  maxLoreChars, setMaxLoreChars,
+  lightModels, setLightModels,
+  cacheTtl, setCacheTtl,
+  rewriteTemp, setRewriteTemp,
+}: Props) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
+        <BrainCircuit size={18} className="text-indigo-500" />
+        <div>
+          <h3 className="text-md font-semibold text-slate-900 dark:text-slate-100">Optimasi AI Lanjutan</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Penyetelan token & biaya untuk pengguna mahir. Default sudah aman dibiarkan.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* #5 — cap lore di cache */}
+        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+          <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            Maks. Lore di Cache
+          </label>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+            Batas karakter Codex pada prompt statis (mode caching). Lebih kecil = cache lebih murah ditulis ulang bila sering edit lore di tengah sesi; lebih besar = lebih banyak lore sampai ke AI. Pantau <em>cache hit rate</em> di Dashboard.
+          </p>
+          <select
+            value={maxLoreChars}
+            onChange={(e) => setMaxLoreChars(e.target.value)}
+            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+          >
+            <option value="25000">25.000 karakter (~6k token) — paling hemat</option>
+            <option value="50000">50.000 karakter (~12,5k token) — default</option>
+            <option value="75000">75.000 karakter (~19k token)</option>
+            <option value="100000">100.000 karakter (~25k token) — lore terkaya</option>
+          </select>
+        </div>
+
+        {/* #7 — override model tugas ringan untuk provider default terpilih */}
+        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+          <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            Model Tugas Ringan
+          </label>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+            Model untuk tugas mekanis (rangkum, ekstraksi entitas) pada penyedia <strong>{provider}</strong>. Kosongkan untuk pakai default. Tugas berat (tulis ulang, chat) tetap pakai model utama.
+          </p>
+          {provider === 'ollama' ? (
+            <p className="text-xs italic text-slate-400 dark:text-slate-500 py-2">
+              Ollama tak punya tier model ringan terpisah — tugas ringan memakai model utama.
+            </p>
+          ) : (
+            <input
+              type="text"
+              value={lightModels[provider] ?? ''}
+              onChange={(e) => setLightModels({ ...lightModels, [provider]: e.target.value })}
+              placeholder={`Default: ${getDefaultLightModelForProvider(provider) || '—'}`}
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+            />
+          )}
+        </div>
+
+        {/* #P5 — masa hidup (TTL) cache Claude */}
+        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+          <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            Masa Hidup Cache (Claude)
+          </label>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+            Hanya untuk Claude langsung. <strong>1 jam</strong> menjaga cache hangat melewati jeda berpikir/mengetik (optimal untuk sesi menulis panjang yang banyak baca cache); <strong>5 menit</strong> menekan premi tulis bila kamu hanya sesekali memanggil AI. OpenRouter/Google tak terpengaruh.
+          </p>
+          <select
+            aria-label="Masa Hidup Cache Claude"
+            value={cacheTtl}
+            onChange={(e) => setCacheTtl(e.target.value)}
+            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow"
+          >
+            <option value="1h">1 jam — default (sesi menulis panjang)</option>
+            <option value="5m">5 menit — pemakaian jarang / burst pendek</option>
+          </select>
+        </div>
+
+        {/* Suhu rewrite — opsi A: kontrol kreativitas khusus "Tanya AI" di editor */}
+        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+          <label htmlFor="rewrite-temp" className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            Kreativitas Tulis Ulang
+          </label>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+            Suhu AI untuk aksi <strong>"Tanya AI"</strong> di editor. <strong>Rendah</strong> = lebih taat instruksi & dekat naskah asli; <strong>tinggi</strong> = lebih bervariasi/kreatif tapi rawan menyimpang. Tugas analitis (cek konsistensi, ekstraksi) tak terpengaruh.
+          </p>
+          <input
+            id="rewrite-temp"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={rewriteTemp}
+            onChange={(e) => setRewriteTemp(e.target.value)}
+            className="w-full accent-indigo-600 cursor-pointer"
+          />
+          <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+            <span>Presisi</span>
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400 tabular-nums">
+              {Number(rewriteTemp).toFixed(2)}
+              {Number(rewriteTemp) === DEFAULT_REWRITE_TEMPERATURE && ' (default)'}
+            </span>
+            <span>Kreatif</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
