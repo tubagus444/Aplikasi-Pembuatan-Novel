@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Editor } from '@tiptap/react';
 import { AIAction } from '@/src/types';
+import { getActionIcon } from './ActionsPanel';
 import { useAvailableProviders } from '@/src/hooks/useAvailableProviders';
 
 interface SelectionFloatingMenuProps {
@@ -497,15 +498,19 @@ export function SelectionFloatingMenu({
                                    Kustom (Personal)
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 px-2">
-                                  {customActions.map((action) => (
-                                    <button 
+                                  {customActions.map((action) => {
+                                    const ActionIcon = getActionIcon(action.icon);
+                                    return (
+                                    <button
                                       key={action.id || action.prompt}
-                                      onClick={() => onAiAction(action.prompt, selectedProvider)} 
-                                      className="px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors shrink-0 max-w-full truncate"
+                                      onClick={() => onAiAction(action.prompt, selectedProvider)}
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors shrink-0 max-w-full"
                                     >
-                                      {action.label}
+                                      <ActionIcon size={12} className="shrink-0" />
+                                      <span className="truncate">{action.label}</span>
                                     </button>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                              </div>
                            )}
