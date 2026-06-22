@@ -64,7 +64,7 @@ export function AssistantSidebar({
       <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <h2 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <BrainCircuit size={18} className="text-indigo-600" />
-          AI Studio
+          Studio Asisten
         </h2>
         <button 
           onClick={onCreateSession}

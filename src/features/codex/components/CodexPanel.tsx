@@ -41,17 +41,11 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     setSortBy,
     isAssistantOpen,
     setIsAssistantOpen,
-    
-    linkingId,
-    linkingTarget,
-    setLinkingTarget,
-    linkingType,
-    setLinkingType,
-    
+
     initialData,
     confirmDeleteId,
     setConfirmDeleteId,
-    
+
     startAdding,
     startEditing,
     handleSaveEntry,
@@ -59,8 +53,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     confirmDelete,
     cancelEdit,
     addBond,
-    deleteRelationship,
-    handleToggleLinking
+    deleteRelationship
   } = useCodexPanel(projectId);
 
   useEffect(() => {
@@ -200,17 +193,9 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                  relationships={relationships || []}
                  projectId={projectId}
                  categories={categories}
-                 linkingId={linkingId}
-                 linkingTarget={linkingTarget}
-                 linkingType={linkingType}
-                 onSetLinkingTarget={setLinkingTarget}
-                 onSetLinkingType={setLinkingType}
-                 onToggleLinking={handleToggleLinking}
-                 onAddBond={addBond}
                  onEdit={startEditing}
                  onDelete={deleteEntry}
                  onSelect={setSelectedEntry}
-                 onDeleteRelationship={deleteRelationship}
                />
              )}
            />
@@ -335,6 +320,8 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               setSelectedEntry(null);
               deleteEntry(id);
             }}
+            onAddBond={addBond}
+            onDeleteRelationship={deleteRelationship}
           />
         )}
       </AnimatePresence>

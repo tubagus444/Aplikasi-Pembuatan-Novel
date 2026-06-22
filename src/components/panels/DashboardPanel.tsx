@@ -7,9 +7,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { db } from '@/src/db';
 import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { useProjectData } from '@/src/hooks/useProjectData';
-import { BarChart2, Book, FileText, Clock, Database, HardDrive, Target, Sparkles, Server, AlertTriangle, ScrollText, Network } from 'lucide-react';
+import { BarChart2, Book, FileText, Clock, Database, HardDrive, Target, Sparkles, Server, AlertTriangle, ScrollText, Network, Flame, TrendingUp, PenLine } from 'lucide-react';
 import { countWords } from '@/src/lib/utils';
 import { motion } from 'motion/react';
+import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useDailyProgress } from '@/src/hooks/useDailyProgress';
 
 interface DashboardPanelProps {
   projectId: number;
@@ -18,10 +20,12 @@ interface DashboardPanelProps {
 export function DashboardPanel({ projectId }: DashboardPanelProps) {
   const [storageInfo, setStorageInfo] = useState<{ usage: number, quota: number } | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { setActiveChapterId, setViewMode } = useNavigation();
 
   const project = useOptimizedLiveQuery(() => db.projects.get(projectId), [projectId]);
   const chapters = useOptimizedLiveQuery(() => db.chapters.where('projectId').equals(projectId).toArray(), [projectId]);
-  const { codexEntries, aiActions, bibleRules } = useProjectData(projectId);
+  const { codexEntries, aiActions, bibleRules, relationships } = useProjectData(projectId);
+  const timelineCount = useOptimizedLiveQuery(() => db.timeline.where('projectId').equals(projectId).count(), [projectId]);
   
   const systemStats = useOptimizedLiveQuery(async () => {
     return {
@@ -51,14 +55,16 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
             totalTokensThisWeek += log.totalTokens;
             promptTokensThisWeek += log.promptTokens || 0;
             cachedTokensThisWeek += log.cachedTokens || 0;
-        }
-        // Normalize provider names somewhat
-        let pName = log.provider;
-        if (pName === 'google') pName = 'Gemini';
-        else if (pName === 'openrouter') pName = 'OpenR';
 
-        const label = `${pName} (${log.model})`;
-        modelUsage[label] = (modelUsage[label] || 0) + log.totalTokens;
+            // Normalize provider names somewhat (dihitung dalam jendela 7 hari yang sama
+            // agar "Model Teratas" konsisten dengan total token di kartu).
+            let pName = log.provider;
+            if (pName === 'google') pName = 'Gemini';
+            else if (pName === 'openrouter') pName = 'OpenR';
+
+            const label = `${pName} (${log.model})`;
+            modelUsage[label] = (modelUsage[label] || 0) + log.totalTokens;
+        }
     });
 
     const topModels = Object.entries(modelUsage).sort((a,b) => b[1] - a[1]).slice(0, 3);
@@ -104,7 +110,22 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
   }, [chapters]);
 
   const readTimeMin = Math.ceil(totalWords / 250);
-  
+
+  // #1 Progres menulis harian + streak (sumber yang sama dengan pill header).
+  const { wordsToday, streak, dailyGoal, dailyPercent } = useDailyProgress(projectId, totalWords, project);
+
+  // #3 Bab yang terakhir disentuh → tujuan tombol "Lanjutkan menulis".
+  const lastChapter = useMemo(() => {
+    if (!chapters || chapters.length === 0) return null;
+    return chapters.reduce((latest, ch) => (ch.lastModified > latest.lastModified ? ch : latest));
+  }, [chapters]);
+
+  const continueWriting = () => {
+    if (!lastChapter) return;
+    setActiveChapterId(lastChapter.id!);
+    setViewMode('write');
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -118,27 +139,43 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
 
   return (
     <div className="max-w-5xl mx-auto pb-24 mt-6">
-      <header className="mb-10 px-2 lg:px-0">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl">
+      <header className="mb-10 px-2 lg:px-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl shrink-0">
             <BarChart2 className="text-indigo-600 dark:text-indigo-400" size={32} />
           </div>
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Dashboard Proyek
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-0.5">Dashboard Proyek</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white truncate">
+              {project?.name || 'Proyek'}
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">Ringkasan statistik, progres naskah, dan telemetri sistem.</p>
           </div>
         </div>
+
+        {/* #3 CTA: lanjut menulis di bab terakhir yang disentuh */}
+        {lastChapter && (
+          <button
+            onClick={continueWriting}
+            className="flex items-center gap-2.5 px-5 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-95 shrink-0 self-start sm:self-auto"
+            title={`Buka editor pada "${lastChapter.title}"`}
+          >
+            <PenLine size={18} className="shrink-0" />
+            <span className="flex flex-col items-start leading-tight text-left">
+              <span>Lanjutkan menulis</span>
+              <span className="text-[11px] font-normal text-indigo-200 max-w-[170px] truncate">{lastChapter.title}</span>
+            </span>
+          </button>
+        )}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 px-2 lg:px-0">
         {/* Progress Card - Full Width */}
-        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-8 shadow-sm flex flex-col justify-center overflow-hidden relative col-span-1 md:col-span-12 group">
+        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm flex flex-col justify-center overflow-hidden relative col-span-1 md:col-span-12 group">
           <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl transition-all duration-700 group-hover:scale-110 pointer-events-none" />
           <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl transition-all duration-700 group-hover:scale-110 pointer-events-none" />
           
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-stretch justify-between gap-6">
             <div className="flex-1 w-full shrink-0">
               <div className="flex items-center gap-3 mb-4">
                 <Target size={20} className="text-indigo-500" />
@@ -160,9 +197,38 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
                   <div className="absolute inset-0 bg-white/20 w-full h-full transform skew-x-12 translate-x-full animate-[shimmer_2s_infinite]"></div>
                 </div>
               </div>
+
+              {/* #1 Progres harian + streak */}
+              <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <TrendingUp size={16} className="text-indigo-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Hari Ini</span>
+                  </div>
+                  {streak > 0 && (
+                    <span
+                      className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-0.5 rounded-full border border-amber-100 dark:border-amber-900/30"
+                      title={`${streak} hari berturut-turut memenuhi target harian`}
+                    >
+                      <Flame size={13} /> {streak} hari beruntun
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tabular-nums">{wordsToday.toLocaleString()}</span>
+                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">/ {dailyGoal.toLocaleString()} kata target harian</span>
+                  <span className={`ml-auto text-sm font-bold ${dailyPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{dailyPercent}%</span>
+                </div>
+                <div className="h-2.5 bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden w-full shadow-inner">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ease-out ${dailyPercent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                    style={{ width: `${dailyPercent}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            
-            <div className="flex gap-4 shrink-0 lg:ml-auto w-full lg:w-auto">
+
+            <div className="flex flex-row lg:flex-col gap-4 shrink-0 lg:ml-auto w-full lg:w-52">
                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800/80 flex-1 flex flex-col justify-center min-w-[140px]">
                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-2">
                    <Clock size={16} />
@@ -183,7 +249,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
         </motion.div>
 
         {/* Content Metrics */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-6 lg:col-span-4 flex flex-col">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-6 lg:col-span-6 flex flex-col">
            <div className="flex items-center gap-4 mb-6">
              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl shadow-inner border border-amber-200/50 dark:border-amber-700/30">
                <Book size={24} />
@@ -194,20 +260,28 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
              </div>
            </div>
            
-           <div className="grid grid-cols-2 gap-4 mt-auto">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+           <div className="grid grid-cols-2 gap-4 flex-1 auto-rows-fr">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
                 <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{codexEntries.length}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Entri Codex</div>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
                 <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{bibleRules.length}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Aturan Dasar</div>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
+                <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{relationships.length}</div>
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Relasi</div>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
+                <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{timelineCount ?? 0}</div>
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Event Timeline</div>
               </div>
            </div>
         </motion.div>
 
         {/* AI Metrics */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-6 lg:col-span-4 flex flex-col">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-6 lg:col-span-6 flex flex-col">
            <div className="flex items-center justify-between mb-6">
              <div className="flex items-center gap-4">
                <div className="p-3 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 rounded-xl shadow-inner border border-fuchsia-200/50 dark:border-fuchsia-700/30">
@@ -240,87 +314,91 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
                <Database size={32} className="text-emerald-300/50 dark:text-emerald-700/50 stroke-1" />
              </div>
 
-             <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Sesi Chat</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{aiStats?.activeSessions ?? 0}</span>
+             <div className="grid grid-cols-3 gap-3">
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Sesi Chat</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">{aiStats?.activeSessions ?? 0}</span>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Snippets</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{aiActions.length}</span>
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Pesan</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">{(aiStats?.totalMessages ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Snippets</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">{aiActions.length}</span>
                 </div>
              </div>
+
+             {/* #2 Model teratas (datanya sudah dihitung; sebelumnya tak ditampilkan) */}
+             {aiStats?.topModels && aiStats.topModels.length > 0 && (
+               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/80">
+                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Model Teratas (7 Hari)</p>
+                 <div className="space-y-2.5">
+                   {aiStats.topModels.map(([label, tokens]) => {
+                     const max = aiStats.topModels[0][1] || 1;
+                     const pct = Math.max(5, Math.round((tokens / max) * 100));
+                     return (
+                       <div key={label}>
+                         <div className="flex items-baseline justify-between gap-2 mb-1">
+                           <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">{label}</span>
+                           <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400 shrink-0 tabular-nums">{tokens.toLocaleString()}</span>
+                         </div>
+                         <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                           <div className="h-full bg-fuchsia-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                         </div>
+                       </div>
+                     );
+                   })}
+                 </div>
+               </div>
+             )}
            </div>
         </motion.div>
         
-        {/* System Details */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-12 lg:col-span-4 flex flex-col">
-           <div className="flex items-center gap-4 mb-6">
-             <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl shadow-inner border border-emerald-200/50 dark:border-emerald-700/30">
-               <Server size={24} />
-             </div>
-             <div>
-               <h3 className="font-bold text-lg tracking-tight text-slate-900 dark:text-slate-100">Telemetri Sistem</h3>
-               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Status dan kapasitas lokal</p>
-             </div>
-           </div>
-           
-           <div className="space-y-4 mt-auto">
-             {/* Storage Block */}
-             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/80">
-               <div className="flex justify-between items-baseline mb-2">
-                 <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Penyimpanan Terpakai</span>
-                 <span className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">
-                   {storageInfo ? formatBytes(storageInfo.usage) : '---'}
-                 </span>
-               </div>
-               {storageInfo && storageInfo.quota > 0 ? (
-                 <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden w-full shadow-inner">
-                    <div 
-                      className={`h-full transition-all duration-1000 ease-out ${
-                        (storageInfo.usage / storageInfo.quota) > 0.8 ? 'bg-rose-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${Math.min(100, (storageInfo.usage / storageInfo.quota) * 100)}%` }}
-                    />
-                 </div>
-               ) : (
-                 <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full w-full"></div>
-               )}
-               <div className="flex justify-between mt-2 text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                 <span>0%</span>
-                 <span>Sisa: {storageInfo ? formatBytes(storageInfo.quota - storageInfo.usage) : '---'}</span>
-               </div>
-             </div>
+        {/* System Details — di-de-emphasize jadi strip ringkas full-width (#4).
+            Catatan: backups/snapshots/errors di-count seluruh DB (bukan per-proyek). */}
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }} className="col-span-1 md:col-span-12 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/60 px-5 py-4">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+            <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 shrink-0">
+              <Server size={15} />
+              <span className="text-[11px] font-bold uppercase tracking-widest">Telemetri Sistem</span>
+            </div>
 
-             <div className="grid grid-cols-2 gap-3">
-               <div className="flex flex-col p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
-                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Status Koneksi</span>
-                 <div className="flex items-center gap-2">
-                   <div className="relative flex h-2.5 w-2.5">
-                     {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                     <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                   </div>
-                   <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">
-                     {isOnline ? 'ONLINE' : 'OFFLINE'}
-                   </span>
-                 </div>
-               </div>
-               <div className="flex flex-col p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 justify-center">
-                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Skema DB</span>
-                 <span className="font-mono text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    v{db.verno}
-                 </span>
-               </div>
-             </div>
-             
-             <div className="flex items-center justify-between text-xs font-medium px-1">
-               <span className="text-slate-500">Backups: <strong className="text-slate-800 dark:text-slate-200">{systemStats?.backups ?? 0}</strong></span>
-               <span className="text-slate-500">Snapshots: <strong className="text-slate-800 dark:text-slate-200">{systemStats?.snapshots ?? 0}</strong></span>
-               <span className={`${(systemStats?.errors ?? 0) > 0 ? 'text-rose-500 font-bold' : 'text-slate-500'}`}>
-                 Errors: <strong className="text-slate-800 dark:text-slate-200">{systemStats?.errors ?? 0}</strong>
-               </span>
-             </div>
-           </div>
+            {/* Penyimpanan */}
+            <div className="flex-1 min-w-[180px]">
+              <div className="flex justify-between items-baseline mb-1">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Penyimpanan</span>
+                <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  {storageInfo ? `${formatBytes(storageInfo.usage)} / ${formatBytes(storageInfo.quota)}` : '---'}
+                </span>
+              </div>
+              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                {storageInfo && storageInfo.quota > 0 && (
+                  <div
+                    className={`h-full transition-all duration-1000 ease-out ${(storageInfo.usage / storageInfo.quota) > 0.8 ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${Math.min(100, (storageInfo.usage / storageInfo.quota) * 100)}%` }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Chip status ringkas */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs shrink-0">
+              <span className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />}
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                </span>
+                <span className="font-semibold text-slate-600 dark:text-slate-300">{isOnline ? 'Online' : 'Offline'}</span>
+              </span>
+              <span className="text-slate-400 dark:text-slate-500">DB <span className="font-mono font-semibold text-slate-600 dark:text-slate-300">v{db.verno}</span></span>
+              <span className="text-slate-400 dark:text-slate-500">Backups <strong className="font-semibold text-slate-600 dark:text-slate-300">{systemStats?.backups ?? 0}</strong></span>
+              <span className="text-slate-400 dark:text-slate-500">Snapshots <strong className="font-semibold text-slate-600 dark:text-slate-300">{systemStats?.snapshots ?? 0}</strong></span>
+              <span className={(systemStats?.errors ?? 0) > 0 ? 'text-rose-500 font-bold' : 'text-slate-400 dark:text-slate-500'}>
+                Errors <strong className={(systemStats?.errors ?? 0) > 0 ? 'text-rose-600' : 'font-semibold text-slate-600 dark:text-slate-300'}>{systemStats?.errors ?? 0}</strong>
+              </span>
+            </div>
+          </div>
         </motion.div>
 
       </div>

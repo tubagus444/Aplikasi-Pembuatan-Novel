@@ -74,6 +74,36 @@ export const COLOR_KEYS = Object.keys(COLOR_REGISTRY);
 
 const FALLBACK_COLOR = 'text-slate-400 dark:text-slate-500';
 
+/** Aksen warna kategori untuk pemindaian cepat di kartu (latar ikon lembut + bar solid). */
+export interface CategoryAccent {
+  /** Latar lembut untuk wadah ikon. */
+  iconBg: string;
+  /** Warna solid untuk aksen garis/tepi kartu. */
+  bar: string;
+}
+
+// Kelas ditulis literal (bukan string template) agar tidak ter-purge Tailwind.
+const ACCENT_REGISTRY: Record<string, CategoryAccent> = {
+  indigo:  { iconBg: 'bg-indigo-50 dark:bg-indigo-500/10',   bar: 'bg-indigo-500' },
+  emerald: { iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', bar: 'bg-emerald-500' },
+  amber:   { iconBg: 'bg-amber-50 dark:bg-amber-500/10',     bar: 'bg-amber-500' },
+  rose:    { iconBg: 'bg-rose-50 dark:bg-rose-500/10',       bar: 'bg-rose-500' },
+  sky:     { iconBg: 'bg-sky-50 dark:bg-sky-500/10',         bar: 'bg-sky-500' },
+  slate:   { iconBg: 'bg-slate-100 dark:bg-slate-800',       bar: 'bg-slate-400 dark:bg-slate-600' },
+  violet:  { iconBg: 'bg-violet-50 dark:bg-violet-500/10',   bar: 'bg-violet-500' },
+  teal:    { iconBg: 'bg-teal-50 dark:bg-teal-500/10',       bar: 'bg-teal-500' },
+  orange:  { iconBg: 'bg-orange-50 dark:bg-orange-500/10',   bar: 'bg-orange-500' },
+  red:     { iconBg: 'bg-red-50 dark:bg-red-500/10',         bar: 'bg-red-500' },
+  green:   { iconBg: 'bg-green-50 dark:bg-green-500/10',     bar: 'bg-green-500' },
+  blue:    { iconBg: 'bg-blue-50 dark:bg-blue-500/10',       bar: 'bg-blue-500' },
+  pink:    { iconBg: 'bg-pink-50 dark:bg-pink-500/10',       bar: 'bg-pink-500' },
+  cyan:    { iconBg: 'bg-cyan-50 dark:bg-cyan-500/10',       bar: 'bg-cyan-500' },
+  lime:    { iconBg: 'bg-lime-50 dark:bg-lime-500/10',       bar: 'bg-lime-500' },
+  fuchsia: { iconBg: 'bg-fuchsia-50 dark:bg-fuchsia-500/10', bar: 'bg-fuchsia-500' },
+};
+
+const FALLBACK_ACCENT: CategoryAccent = { iconBg: 'bg-slate-100 dark:bg-slate-800', bar: 'bg-slate-400 dark:bg-slate-600' };
+
 // Kategori bawaan — selaras dengan ikon/warna lama di CategoryIcon.
 export const BUILTIN_CATEGORIES: CategoryDef[] = [
   { slug: 'character', label: 'Karakter', icon: 'user', color: 'indigo', builtin: true },
@@ -96,6 +126,16 @@ export function resolveIcon(name: string): LucideIcon {
 
 export function resolveColor(key: string): string {
   return COLOR_REGISTRY[key] ?? FALLBACK_COLOR;
+}
+
+export function resolveAccent(key: string): CategoryAccent {
+  return ACCENT_REGISTRY[key] ?? FALLBACK_ACCENT;
+}
+
+/** Aksen warna untuk sebuah kategori (slug). */
+export function getCategoryAccent(slug: CodexCategory, categories?: CategoryDef[]): CategoryAccent {
+  const def = getCategoryDef(slug, categories);
+  return resolveAccent(def?.color ?? 'slate');
 }
 
 /** Ubah label menjadi slug aman (kebab-case ASCII). */

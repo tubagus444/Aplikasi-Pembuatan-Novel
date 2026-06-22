@@ -59,50 +59,97 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
 
   const renderConnectionWeb = () => {
     if (!selectedCharacter || !relationships || relationships.length === 0) return null;
-    
+
     // Get all relations for the selected character
     const charRels = relationships.filter(r => r.sourceId === selectedCharacter.id || r.targetId === selectedCharacter.id);
     if (charRels.length === 0) return null;
 
-    const size = 360;
-    const center = size / 2;
-    const radius = 120;
+    const count = charRels.length;
+
+    // #4 Batasi jumlah node di lingkaran; sisanya diringkas jadi satu node "+N lainnya"
+    // (semua koneksi tetap tampil lengkap di kartu di bawah diagram).
+    const CAP = 11;
+    const hasOverflow = count > CAP;
+    const visibleRels = hasOverflow ? charRels.slice(0, CAP - 1) : charRels;
+    const overflowCount = hasOverflow ? count - (CAP - 1) : 0;
+    const nodeCount = visibleRels.length + (hasOverflow ? 1 : 0);
+
+    // #3 Geometri adaptif: ring & node menyesuaikan jumlah node agar tetap lega.
+    const radius = Math.min(170, 110 + Math.max(0, nodeCount - 4) * 9);
+    const nodeR = nodeCount <= 6 ? 20 : nodeCount <= 9 ? 16 : 13;
+    const nodeFont = Math.round(nodeR * 0.6);
+    const labelRadius = radius + nodeR + 12;
+
+    // #2 Margin viewBox supaya label radial tidak terpotong (sisi terlebar = label horizontal).
+    const padX = 100;
+    const padY = 30;
+    const cx = labelRadius + padX;
+    const cy = labelRadius + padY;
+    const vbW = cx * 2;
+    const vbH = cy * 2;
+
+    const typeOf = (rel: typeof charRels[number]) => RELATION_TYPES.find(t => t.label === rel.type) || RELATION_TYPES[4];
+
+    // Posisi node + label radial untuk indeks ke-i pada lingkaran.
+    const posAt = (i: number) => {
+      const angle = (i / nodeCount) * 2 * Math.PI - Math.PI / 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      return {
+        angle,
+        x: cx + radius * cos,
+        y: cy + radius * sin,
+        lx: cx + labelRadius * cos,
+        ly: cy + labelRadius * sin,
+        anchor: (cos > 0.33 ? 'start' : cos < -0.33 ? 'end' : 'middle') as 'start' | 'end' | 'middle',
+      };
+    };
+
+    const curvePath = (x: number, y: number, angle: number) => {
+      const midX = (cx + x) / 2;
+      const midY = (cy + y) / 2;
+      const cpX = midX + Math.cos(angle + Math.PI / 4) * 20;
+      const cpY = midY + Math.sin(angle + Math.PI / 4) * 20;
+      return `M ${cx} ${cy} Q ${cpX} ${cpY} ${x} ${y}`;
+    };
+
+    // #1 Legenda warna tipe (menggantikan label tipe di tiap node yang redundan dengan warna garis).
+    const usedLabels = new Set(charRels.map(r => typeOf(r).label));
+    const legend = RELATION_TYPES.filter(t => usedLabels.has(t.label));
 
     return (
       <div className="w-full flex justify-center items-center py-6 mb-8 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden relative">
         {/* Subtle background decoration */}
         <div className="absolute inset-0 max-w-full max-h-full opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-        
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+
+        {/* #1 Legenda tipe relasi */}
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm rounded-lg px-2.5 py-2 border border-slate-200/70 dark:border-slate-800/70 shadow-sm">
+          {legend.map(t => (
+            <div key={t.label} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.hex }} />
+              <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{t.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <svg viewBox={`0 0 ${vbW} ${vbH}`} width={vbW} height={vbH} className="max-w-full h-auto" style={{ maxWidth: Math.min(vbW, 440) }}>
           {/* Background web rings */}
-          <circle cx={center} cy={center} r={radius * 1.3} fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-200 dark:text-slate-800/60" strokeDasharray="4 6" />
-          <circle cx={center} cy={center} r={radius} fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-200 dark:text-slate-800" />
-          <circle cx={center} cy={center} r={radius * 0.6} fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-200 dark:text-slate-800/60" strokeDasharray="2 4" />
+          <circle cx={cx} cy={cy} r={radius * 1.3} fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-200 dark:text-slate-800/60" strokeDasharray="4 6" />
+          <circle cx={cx} cy={cy} r={radius} fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-200 dark:text-slate-800" />
+          <circle cx={cx} cy={cy} r={radius * 0.6} fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-200 dark:text-slate-800/60" strokeDasharray="2 4" />
 
           {/* Draw Lines */}
           <AnimatePresence>
-            {charRels.map((rel, i) => {
-              const angle = (i / charRels.length) * 2 * Math.PI - Math.PI / 2;
-              const x = center + radius * Math.cos(angle);
-              const y = center + radius * Math.sin(angle);
-              
-              // Create an elegant curved path instead of a stiff straight line
-              const midX = (center + x) / 2;
-              const midY = (center + y) / 2;
-              const cpX = midX + Math.cos(angle + Math.PI / 4) * 20;
-              const cpY = midY + Math.sin(angle + Math.PI / 4) * 20;
-              
-              const pathData = `M ${center} ${center} Q ${cpX} ${cpY} ${x} ${y}`;
-              
-              const typeObj = RELATION_TYPES.find(t => t.label === rel.type) || RELATION_TYPES[4];
-              
+            {visibleRels.map((rel, i) => {
+              const { x, y, angle } = posAt(i);
+              const typeObj = typeOf(rel);
               return (
-                <motion.path 
+                <motion.path
                   key={`line-${rel.id}`}
-                  d={pathData}
+                  d={curvePath(x, y, angle)}
                   fill="none"
-                  stroke={typeObj.hex} 
-                  strokeWidth="2.5" 
+                  stroke={typeObj.hex}
+                  strokeWidth="2.5"
                   strokeOpacity="0.4"
                   strokeDasharray={rel.type === 'Other' ? "4 4" : "none"}
                   initial={{ pathLength: 0, opacity: 0 }}
@@ -111,74 +158,113 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                 />
               );
             })}
+            {hasOverflow && (() => {
+              const { x, y, angle } = posAt(visibleRels.length);
+              return (
+                <motion.path
+                  key="line-more"
+                  d={curvePath(x, y, angle)}
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2.5"
+                  strokeOpacity="0.35"
+                  strokeDasharray="2 4"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: visibleRels.length * 0.1 }}
+                />
+              );
+            })()}
           </AnimatePresence>
-          
+
           {/* Draw Surrounding Nodes */}
-          {charRels.map((rel, i) => {
-            const angle = (i / charRels.length) * 2 * Math.PI - Math.PI / 2;
-            const x = center + radius * Math.cos(angle);
-            const y = center + radius * Math.sin(angle);
+          {visibleRels.map((rel, i) => {
+            const { x, y, lx, ly, anchor } = posAt(i);
             const otherCharId = rel.sourceId === selectedCharacter.id ? rel.targetId : rel.sourceId;
             const otherCharName = getCharacterName(otherCharId);
-            const typeObj = RELATION_TYPES.find(t => t.label === rel.type) || RELATION_TYPES[4];
-            
+            const shortName = otherCharName.length > 14 ? otherCharName.slice(0, 13) + '…' : otherCharName;
+
             return (
-              <motion.g 
+              <motion.g
                 key={`node-${rel.id}`}
+                className="group"
+                style={{ cursor: 'pointer' }}
+                onClick={() => { setSelectedCharacterId(otherCharId); cancelAdding(); }}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.4 + (i * 0.1), ease: "easeOut" }}
               >
-                <circle cx={x} cy={y} r="20" fill={getColorForName(otherCharName)} stroke="currentColor" strokeWidth="3" className="text-white dark:text-slate-900 shadow-sm" />
-                <text 
-                  x={x} 
-                  y={y} 
-                  textAnchor="middle" 
-                  alignmentBaseline="central" 
-                  fill="white" 
-                  fontSize="12" 
+                {/* #5 Tooltip + klik untuk pindah ke karakter tersebut */}
+                <title>{`Lihat ${otherCharName}`}</title>
+                <circle cx={x} cy={y} r={nodeR} fill={getColorForName(otherCharName)} strokeWidth="3" className="stroke-white dark:stroke-slate-900 transition-colors group-hover:stroke-indigo-400 dark:group-hover:stroke-indigo-500" />
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="white"
+                  fontSize={nodeFont}
                   fontWeight="bold"
+                  className="pointer-events-none"
                 >
                   {otherCharName.substring(0, 2).toUpperCase()}
                 </text>
-                
-                {/* Background pill for text to improve readability */}
-                <rect 
-                  x={x - 40} 
-                  y={y + 19} 
-                  width="80" 
-                  height="36" 
-                  rx="6" 
-                  fill="currentColor" 
-                  className="text-white/80 dark:text-slate-900/80" 
-                />
-                
-                <text 
-                  x={x} 
-                  y={y + 32} 
-                  textAnchor="middle" 
-                  fill="currentColor" 
-                  className="fill-slate-800 dark:fill-slate-200"
-                  fontSize="12" 
+
+                {/* #2 Nama dengan halo (paint-order) agar terbaca tanpa pill yang menabrak */}
+                <text
+                  x={lx}
+                  y={ly}
+                  textAnchor={anchor}
+                  dominantBaseline="central"
+                  fontSize="12"
                   fontWeight="600"
+                  strokeWidth="3"
+                  className="fill-slate-800 dark:fill-slate-200 stroke-slate-50 dark:stroke-slate-900 [paint-order:stroke] transition-colors group-hover:fill-indigo-600 dark:group-hover:fill-indigo-400 pointer-events-none"
                 >
-                  {otherCharName}
-                </text>
-                <text 
-                  x={x} 
-                  y={y + 46} 
-                  textAnchor="middle" 
-                  fill={typeObj.hex}
-                  fontSize="10" 
-                  fontWeight="bold"
-                  letterSpacing="0.05em"
-                  className="uppercase"
-                >
-                  {typeObj.label}
+                  {shortName}
                 </text>
               </motion.g>
             );
           })}
+
+          {/* #4 Node ringkasan untuk koneksi yang tak muat di lingkaran */}
+          {hasOverflow && (() => {
+            const { x, y, lx, ly, anchor } = posAt(visibleRels.length);
+            return (
+              <motion.g
+                key="node-more"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 + (visibleRels.length * 0.1), ease: "easeOut" }}
+              >
+                <title>{`${overflowCount} koneksi lainnya — lihat daftar lengkap di bawah`}</title>
+                <circle cx={x} cy={y} r={nodeR} strokeWidth="3" className="fill-slate-400 dark:fill-slate-600 stroke-white dark:stroke-slate-900" />
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="white"
+                  fontSize={nodeFont}
+                  fontWeight="bold"
+                >
+                  {`+${overflowCount}`}
+                </text>
+                <text
+                  x={lx}
+                  y={ly}
+                  textAnchor={anchor}
+                  dominantBaseline="central"
+                  fontSize="12"
+                  fontWeight="600"
+                  strokeWidth="3"
+                  className="fill-slate-500 dark:fill-slate-400 stroke-slate-50 dark:stroke-slate-900 [paint-order:stroke]"
+                >
+                  lainnya
+                </text>
+              </motion.g>
+            );
+          })()}
 
           {/* Draw Center Node */}
           <motion.g
@@ -187,16 +273,16 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
           >
             {/* Soft glow for center node */}
-            <circle cx={center} cy={center} r="38" fill={getColorForName(selectedCharacter.name)} opacity="0.15" className="blur-md" />
-            
-            <circle cx={center} cy={center} r="32" fill={getColorForName(selectedCharacter.name)} stroke="currentColor" strokeWidth="4" className="text-white dark:text-slate-900 shadow-xl" />
-            <text 
-              x={center} 
-              y={center} 
-              textAnchor="middle" 
-              alignmentBaseline="central" 
-              fill="white" 
-              fontSize="20" 
+            <circle cx={cx} cy={cy} r="38" fill={getColorForName(selectedCharacter.name)} opacity="0.15" className="blur-md" />
+
+            <circle cx={cx} cy={cy} r="32" fill={getColorForName(selectedCharacter.name)} stroke="currentColor" strokeWidth="4" className="text-white dark:text-slate-900 shadow-xl" />
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill="white"
+              fontSize="20"
               fontWeight="bold"
             >
               {selectedCharacter.name.substring(0, 2).toUpperCase()}

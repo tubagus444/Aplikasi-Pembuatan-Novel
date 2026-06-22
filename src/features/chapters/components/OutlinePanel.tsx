@@ -33,11 +33,11 @@ import { useChapterDragAndDrop } from '@/src/features/chapters/hooks/useChapterD
 import { useNavigation } from '@/src/contexts/NavigationContext';
 
 const STATUS_LANES: { id: 'outline' | 'draft' | 'edit' | 'polish' | 'done'; label: string; description: string; colorClass: string }[] = [
-  { id: 'outline', label: 'Outline', description: 'Struktur ide & plot cerita', colorClass: 'border-t-2 border-slate-300 dark:border-slate-700' },
-  { id: 'draft', label: 'Drafting', description: 'Bab dalam proses penulisan', colorClass: 'border-t-2 border-indigo-500' },
-  { id: 'edit', label: 'Editing', description: 'Revisi & penyempurnaan isi', colorClass: 'border-t-2 border-amber-500' },
-  { id: 'polish', label: 'Polishing', description: 'Polesan gaya bahasa & diksi', colorClass: 'border-t-2 border-emerald-500' },
-  { id: 'done', label: 'Completed', description: 'Bab selesai & siap dipublikasi', colorClass: 'border-t-2 border-blue-500' }
+  { id: 'outline', label: 'Kerangka', description: 'Struktur ide & plot cerita', colorClass: 'border-t-2 border-slate-300 dark:border-slate-700' },
+  { id: 'draft', label: 'Draf', description: 'Bab dalam proses penulisan', colorClass: 'border-t-2 border-indigo-500' },
+  { id: 'edit', label: 'Revisi', description: 'Revisi & penyempurnaan isi', colorClass: 'border-t-2 border-amber-500' },
+  { id: 'polish', label: 'Poles', description: 'Polesan gaya bahasa & diksi', colorClass: 'border-t-2 border-emerald-500' },
+  { id: 'done', label: 'Selesai', description: 'Bab selesai & siap dipublikasi', colorClass: 'border-t-2 border-blue-500' }
 ];
 
 interface OutlinePanelProps {
@@ -113,7 +113,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             <span className="p-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-md">
               <Sparkles size={20} className="animate-pulse" />
             </span>
-            <h2 className="text-3xl font-serif font-bold text-slate-950 dark:text-slate-100 capitalize">Planning Board</h2>
+            <h2 className="text-3xl font-serif font-bold text-slate-950 dark:text-slate-100 capitalize">Papan Rencana</h2>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Gambarkan draf cerita Bab demi Bab, pantau status menulis, target kata, dan visualisasikan narasi Anda.
@@ -143,7 +143,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 flex items-center gap-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-3">
             <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-            <span><strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.doneCount}</strong> dari <strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.totalChapters}</strong> selesai (Done)</span>
+            <span><strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.doneCount}</strong> dari <strong className="text-slate-700 dark:text-slate-300 font-mono">{stats.totalChapters}</strong> selesai</span>
           </div>
         </div>
 
@@ -159,7 +159,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             <span className="text-4xl font-bold font-mono text-slate-900 dark:text-slate-100 tracking-tight">{stats.totalWords.toLocaleString()}</span>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">kata</span>
             {stats.totalGoal > 0 && (
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">/ {stats.totalGoal.toLocaleString()} goal</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">/ {stats.totalGoal.toLocaleString()} target</span>
             )}
           </div>
           <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3">
@@ -197,7 +197,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto max-h-[50px] no-scrollbar py-1">
+          <div className="flex-1 overflow-y-auto max-h-[68px] no-scrollbar py-1">
             {uniquePOVs.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {uniquePOVs.map(pov => {
@@ -207,10 +207,10 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
                       key={pov}
                       onClick={() => setSelectedPovFilter(isActive ? null : pov)}
                       className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all cursor-pointer",
+                        "text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all cursor-pointer",
                         isActive 
-                          ? "bg-amber-150 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 shadow-sm"
-                          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-350"
+                          ? "bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 shadow-sm"
+                          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                       )}
                     >
                       {pov}
@@ -257,7 +257,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
                 onClick={() => setSearchQuery('')}
                 className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded transition-colors"
               >
-                Clear
+                Hapus
               </button>
             </div>
           )}
@@ -269,7 +269,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
           <button
             onClick={() => setGlobalExpandSummaries(!globalExpandSummaries)}
             className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800/80 rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 shadow-sm hover:shadow cursor-pointer tracking-wide"
-            title={globalExpandSummaries ? "Collapse all summaries" : "Expand all summaries"}
+            title={globalExpandSummaries ? "Sembunyikan semua rangkuman" : "Tampilkan semua rangkuman"}
           >
             {globalExpandSummaries ? (
               <>
@@ -308,7 +308,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
               )}
             >
               <Columns size={13} />
-              <span>Board</span>
+              <span>Papan</span>
             </button>
           </div>
         </div>
@@ -316,7 +316,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
 
       {/* FILTER MESSAGES */}
       {(searchQuery || selectedPovFilter) && (
-        <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-4 flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/20 px-4 py-2.5 rounded-lg border border-indigo-150 dark:border-indigo-900/30">
+        <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-4 flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/20 px-4 py-2.5 rounded-lg border border-indigo-200 dark:border-indigo-900/30">
           <div className="flex items-center gap-1.5">
             <Filter size={12} />
             <span>
@@ -359,7 +359,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
                     globalExpandSummaries={globalExpandSummaries}
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
-                    onDrop={handleDrop}
+                    onDrop={(e, id) => handleDrop(e, id, { adoptStatus: false })}
                     onDragEnd={handleDragEnd}
                     onUpdateField={updateField}
                     onDelete={deleteChapter}
@@ -408,17 +408,17 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
                     className={cn(
                       "flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/30 rounded-xl border p-3.5 transition-all w-[240px] select-none",
                       isColumnHovered 
-                        ? "border-dashed border-indigo-400 dark:border-indigo-750 bg-indigo-50/20 dark:bg-indigo-950/20 ring-2 ring-indigo-500/10" 
+                        ? "border-dashed border-indigo-400 dark:border-indigo-700 bg-indigo-50/20 dark:bg-indigo-950/20 ring-2 ring-indigo-500/10" 
                         : "border-slate-200 dark:border-slate-800"
                     )}
                   >
                     {/* Lane Header */}
-                    <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-slate-200/60 dark:border-slate-850 relative">
+                    <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-slate-200/60 dark:border-slate-800 relative">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
                           <span className={cn("w-2 h-2 rounded-full", STATUS_DOTS[lane.id] || "bg-slate-400")} />
                           <h3 className="font-bold text-xs text-slate-800 dark:text-slate-100 uppercase tracking-wider">{lane.label}</h3>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-150 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold font-mono text-slate-500 dark:text-slate-400">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold font-mono text-slate-500 dark:text-slate-400">
                             {laneChapters.length}
                           </span>
                         </div>
@@ -548,7 +548,7 @@ function ChapterCard({
         "group bg-white dark:bg-slate-950 border rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden",
         isCurrentDragged 
           ? "opacity-45 border-indigo-500 scale-[0.98] bg-indigo-50/10 dark:bg-indigo-950/10" 
-          : "opacity-100 border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700",
+          : "opacity-100 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700",
         isCompactView ? "p-3.5 gap-2.5" : "p-5 gap-3.5"
       )}
       style={{ transition: 'opacity 0.2s, transform 0.2s, border-color 0.2s' }}
@@ -591,11 +591,11 @@ function ChapterCard({
               "border-slate-200 dark:border-slate-700/60 focus:border-indigo-400"
             )}
           >
-            <option value="outline">Outline</option>
-            <option value="draft">Drafting</option>
-            <option value="edit">Editing</option>
-            <option value="polish">Polishing</option>
-            <option value="done">Completed</option>
+            <option value="outline">Kerangka</option>
+            <option value="draft">Draf</option>
+            <option value="edit">Revisi</option>
+            <option value="polish">Poles</option>
+            <option value="done">Selesai</option>
           </select>
           <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-current opacity-50 pointer-events-none" />
         </div>
@@ -616,7 +616,7 @@ function ChapterCard({
           <Target size={12} className="text-slate-400 shrink-0" />
           <input 
             className="bg-transparent text-[10px] font-bold text-slate-700 dark:text-slate-400 focus:outline-none w-full placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
-            placeholder="GOAL"
+            placeholder="TARGET"
             type="number"
             value={chapter.wordGoal || ''}
             onChange={(e) => onUpdateField(chapter.id!, 'wordGoal', parseInt(e.target.value) || 0)}
@@ -674,7 +674,7 @@ function ChapterCard({
         <div className="flex-1 min-w-0 pr-4">
           {chapter.wordGoal > 0 ? (
             <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 dark:text-slate-400 select-none uppercase tracking-widest font-mono">
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 select-none uppercase tracking-wide font-mono">
                 <span>Target: {progressPercent}%</span>
                 <span>{wordCount} / {chapter.wordGoal}</span>
               </div>
@@ -689,7 +689,7 @@ function ChapterCard({
               </div>
             </div>
           ) : (
-            <span className="text-[10px] text-slate-400 dark:text-slate-500/70 italic select-none font-medium">Goal kata belum diatur</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500/70 italic select-none font-medium">Target kata belum diatur</span>
           )}
         </div>
 
@@ -711,8 +711,8 @@ function ChapterCard({
             className={cn(
               "p-1.5 transition-all rounded-md cursor-pointer select-none border",
               deleteConfirmId === chapter.id 
-                ? "bg-red-550 border-red-550 text-white hover:bg-red-650 opacity-100 scale-105" 
-                : "border-transparent text-slate-350 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20"
+                ? "bg-red-600 border-red-600 text-white hover:bg-red-700 opacity-100 scale-105" 
+                : "border-transparent text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20"
             )}
             title={deleteConfirmId === chapter.id ? "Klik lagi untuk menghapus" : "Hapus Bab"}
           >

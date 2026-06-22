@@ -220,7 +220,7 @@ export function AssistantInputArea({
               {sessionChapterId && !loreSearchQuery && (
                 <>
                     <div className="px-2 py-1.5 border-t border-b border-slate-100 dark:border-slate-800 my-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current Chapter</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Bab Saat Ini</p>
                     </div>
                     <button
                       onClick={() => {
@@ -268,7 +268,7 @@ export function AssistantInputArea({
                   >
                     <BookOpen size={14} className={cn("shrink-0 transition-colors", showChapterMenu ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500")} />
                     <span className="truncate text-slate-700 dark:text-slate-300 font-medium">
-                      {sessionChapterId ? chapters?.find(c => c.id === sessionChapterId)?.title || 'Untitled Chapter' : 'Umum (Seluruh Cerita)'}
+                      {sessionChapterId ? chapters?.find(c => c.id === sessionChapterId)?.title || 'Bab Tanpa Judul' : 'Umum (Seluruh Cerita)'}
                     </span>
                     <ChevronDown size={14} className={cn("shrink-0 transition-all opacity-70", showChapterMenu ? "text-indigo-500 rotate-180" : "text-slate-400 group-hover:text-indigo-500")} />
                   </button>
@@ -293,7 +293,7 @@ export function AssistantInputArea({
                         </button>
                         
                         {chapters && chapters.length > 0 && (
-                          <div className="px-3 py-1.5 mt-1 text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Chapters</div>
+                          <div className="px-3 py-1.5 mt-1 text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Bab</div>
                         )}
                         {chapters?.map(c => (
                           <button
@@ -309,7 +309,7 @@ export function AssistantInputArea({
                                 : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-100 font-medium"
                             )}
                           >
-                            <span className="truncate pr-2">{c.title || 'Untitled Chapter'}</span>
+                            <span className="truncate pr-2">{c.title || 'Bab Tanpa Judul'}</span>
                             {sessionChapterId === c.id && <Check size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />}
                           </button>
                         ))}
@@ -321,7 +321,7 @@ export function AssistantInputArea({
                 {sceneMetadata && chapterContext && (
                     <div className="flex items-center gap-2 ml-2 text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 px-2 py-1 rounded-md zoom-in-95 animate-in duration-200">
                       <span className="font-bold truncate max-w-[150px]">{sceneMetadata.name}</span>
-                      <span className="opacity-70 whitespace-nowrap">· {sceneMetadata.wordCount} words</span>
+                      <span className="opacity-70 whitespace-nowrap">· {sceneMetadata.wordCount} kata</span>
                       <button 
                           onClick={() => {
                             setSceneMetadata(null);
@@ -410,7 +410,7 @@ export function AssistantInputArea({
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Context</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Konteks</span>
                     <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500 leading-none">
                       {tokenStats.total.toLocaleString()} tk
                     </span>
@@ -418,9 +418,9 @@ export function AssistantInputArea({
 
                   {/* Tooltip for Token Breakdown */}
                   <div className="absolute bottom-full left-0 mb-3 w-56 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl opacity-0 group-hover/meter:opacity-100 transition-opacity pointer-events-none z-50">
-                    <div className="font-bold text-white text-xs mb-2 border-b border-slate-700 pb-1">Token Usage Breakdown</div>
+                    <div className="font-bold text-white text-xs mb-2 border-b border-slate-700 pb-1">Rincian Pemakaian Token</div>
                     <div className="flex justify-between text-xs text-slate-300 mb-1">
-                      <span>Prompt/Text:</span>
+                      <span>Prompt/Teks:</span>
                       <span className="tabular-nums font-medium">{tokenStats.text.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-300 mb-1">
@@ -428,7 +428,7 @@ export function AssistantInputArea({
                       <span className="tabular-nums font-medium">{tokenStats.codex.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-300 mb-2">
-                      <span>Bible Rules:</span>
+                      <span>Aturan Bible:</span>
                       <span className="tabular-nums font-medium">{tokenStats.rules.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-xs text-indigo-300 border-t border-slate-700 pt-1 font-bold">

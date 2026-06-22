@@ -1,4 +1,4 @@
-import { ChapterStatus } from '@/src/types';
+import { ChapterStatus, SessionMode } from '@/src/types';
 
 export const PANEL_WIDTH = 340;
 
@@ -27,3 +27,17 @@ export const STATUS_DOTS: Record<ChapterStatus, string> = {
   polish: 'bg-emerald-400',
   done: 'bg-blue-500'
 };
+
+// Label tampil untuk mode sesi asisten — sumber tunggal yang dipakai SessionModeSelector
+// (judul kartu) dan AssistantHeader (badge), agar tidak ada slug mentah yang bocor ke UI.
+export const SESSION_MODE_LABELS: Record<SessionMode, string> = {
+  'prose-review': 'Review Prosa',
+  'plot-check': 'Plot & Konsistensi',
+  'brainstorm': 'Tanya Bebas',
+};
+
+/** Label mode sesi; fallback ke slug (tanda hubung → spasi) untuk mode lama/tak dikenal. */
+export function getSessionModeLabel(mode: string | undefined): string {
+  if (!mode) return '';
+  return SESSION_MODE_LABELS[mode as SessionMode] ?? mode.replace('-', ' ');
+}

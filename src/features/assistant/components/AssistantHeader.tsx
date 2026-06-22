@@ -3,6 +3,7 @@ import { ArrowLeft, Edit2, Check, X, MoreVertical, Trash2, Cpu, ChevronDown, Set
 import { db } from '@/src/db';
 import { ChatSession } from '@/src/types';
 import { cn } from '@/src/lib/utils';
+import { getSessionModeLabel } from '@/src/lib/constants';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 
 interface AssistantHeaderProps {
@@ -134,17 +135,20 @@ export function AssistantHeader({
                 {activeSession?.title}
                 {activeSession?.mode && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider">
-                      {activeSession.mode.replace('-', ' ')}
+                      {getSessionModeLabel(activeSession.mode)}
                     </span>
                 )}
               </h3>
               <div className="flex items-center gap-4 mt-1">
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                  Integrated with lore
+                  Terhubung dengan lore
                 </p>
                 {activeSession?.mode !== 'brainstorm' && (
-                  <label className="flex items-center gap-1.5 cursor-pointer group">
+                  <label
+                    className="flex items-center gap-1.5 cursor-pointer group"
+                    title="Smart Auto: otomatis melampirkan konteks scene yang relevan dari bab aktif ke percakapan."
+                  >
                       <input 
                         type="checkbox"
                         checked={!!activeSession?.smartAutoEnabled}

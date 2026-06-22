@@ -33,10 +33,6 @@ export function useCodexPanel(projectId: number) {
   const [filterTag, setFilterTag] = useState<string>('all');
   const [sortBy, setSortBy] = useState<CodexSort>('name-asc');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  
-  const [linkingId, setLinkingId] = useState<number | null>(null);
-  const [linkingTarget, setLinkingTarget] = useState<number | null>(null);
-  const [linkingType, setLinkingType] = useState<string>('Friend');
 
   const [initialData, setInitialData] = useState<Partial<CodexEntry>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -168,10 +164,6 @@ export function useCodexPanel(projectId: number) {
       });
       // Lore berubah → cache konteks AI (termasuk indeks semantik) harus disegarkan.
       await invalidateContextCache(true);
-      if (linkingId === id) {
-        setLinkingId(null);
-        setLinkingTarget(null);
-      }
       setConfirmDeleteId(null);
     }
   };
@@ -181,29 +173,13 @@ export function useCodexPanel(projectId: number) {
     setEditingId(null);
   };
 
-  const addBond = async (sourceId: number) => {
-    if (!linkingTarget) return;
-    await db.relationships.add({
-      projectId,
-      sourceId,
-      targetId: linkingTarget,
-      type: linkingType
-    });
-    setLinkingId(null);
-    setLinkingTarget(null);
+  const addBond = async (sourceId: number, targetId: number, type: string) => {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    await db.relationships.add({ projectId, sourceId, targetId, type });
   };
 
   const deleteRelationship = async (id: number) => {
     await db.relationships.delete(id);
-  };
-
-  const handleToggleLinking = (id: number) => {
-    setLinkingId(prev => {
-      if (prev === id) return null;
-      setLinkingTarget(null);
-      setLinkingType('Friend');
-      return id;
-    });
   };
 
   return {
@@ -230,17 +206,11 @@ export function useCodexPanel(projectId: number) {
     setSortBy,
     isAssistantOpen,
     setIsAssistantOpen,
-    
-    linkingId,
-    linkingTarget,
-    setLinkingTarget,
-    linkingType,
-    setLinkingType,
-    
+
     initialData,
     confirmDeleteId,
     setConfirmDeleteId,
-    
+
     startAdding,
     startEditing,
     handleSaveEntry,
@@ -248,7 +218,6 @@ export function useCodexPanel(projectId: number) {
     confirmDelete,
     cancelEdit,
     addBond,
-    deleteRelationship,
-    handleToggleLinking
+    deleteRelationship
   };
 }

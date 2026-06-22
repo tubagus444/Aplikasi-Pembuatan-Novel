@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { PenTool, Layers, Zap, X } from 'lucide-react';
 import { SessionMode } from '@/src/types';
+import { SESSION_MODE_LABELS } from '@/src/lib/constants';
 
 interface SessionModeSelectorProps {
   onSelect: (mode: SessionMode, smartAutoEnabled: boolean) => void;
@@ -9,24 +10,21 @@ interface SessionModeSelectorProps {
 }
 
 export function SessionModeSelector({ onSelect, onCancel }: SessionModeSelectorProps) {
-  const modes: { id: SessionMode; title: string; desc: string; icon: React.ReactNode; defaultAuto: boolean }[] = [
+  const modes: { id: SessionMode; desc: string; icon: React.ReactNode; defaultAuto: boolean }[] = [
     {
       id: 'prose-review',
-      title: 'Review Prosa',
       desc: 'Fokus ke kualitas teks, ritme, gaya bahasa, "show don\'t tell".',
       icon: <PenTool size={20} />,
       defaultAuto: true
     },
     {
       id: 'plot-check',
-      title: 'Plot & Konsistensi',
       desc: 'Fokus ke big picture, karakter, pacing, dan alur logika.',
       icon: <Layers size={20} />,
       defaultAuto: true
     },
     {
       id: 'brainstorm',
-      title: 'Tanya Bebas',
       desc: 'Sesi ide liar tanpa constraint ketat dari chapter.',
       icon: <Zap size={20} />,
       defaultAuto: false
@@ -53,7 +51,7 @@ export function SessionModeSelector({ onSelect, onCancel }: SessionModeSelectorP
                 {m.icon}
               </div>
               <div className="flex-1 min-w-0 pt-0.5">
-                <p className="font-bold text-slate-900 dark:text-slate-100 mb-1">{m.title}</p>
+                <p className="font-bold text-slate-900 dark:text-slate-100 mb-1">{SESSION_MODE_LABELS[m.id]}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{m.desc}</p>
               </div>
              </button>

@@ -90,7 +90,7 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
               m.role === 'user' ? "items-end" : "items-start"
             )}>
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5 opacity-50 px-1">
-                {m.role === 'user' ? 'Anda' : 'A.I. Assistant'}
+                {m.role === 'user' ? 'Anda' : 'Asisten'}
               </p>
               
               <div className={cn(
@@ -158,11 +158,11 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
               <Sparkles size={18} />
             </div>
             <div className="flex flex-col max-w-[85%] items-start">
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5 opacity-50 px-1">A.I. Assistant</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5 opacity-50 px-1">Asisten</p>
               <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-5 md:px-6 py-4 rounded-3xl rounded-tl-sm shadow-sm flex flex-col gap-2">
                 <div className="flex items-center gap-3 text-indigo-500 dark:text-indigo-400 font-medium">
                   <Loader2 size={18} className="animate-spin" />
-                  <span className="animate-pulse">Sedang menulis response...</span>
+                  <span className="animate-pulse">Sedang menulis jawaban...</span>
                 </div>
                 {retryStatus && (
                   <div className="bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium border border-amber-200 dark:border-amber-800/50 mt-1">
@@ -182,7 +182,7 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
               className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-lg px-3 py-1.5 transition-all bg-white/50 dark:bg-slate-900/50"
               title="Buat ulang respons terakhir"
             >
-              <RefreshCw size={13} /> Regenerasi
+              <RefreshCw size={13} /> Buat Ulang
             </button>
           </div>
         )}

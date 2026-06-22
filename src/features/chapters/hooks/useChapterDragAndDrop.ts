@@ -28,10 +28,13 @@ export function useChapterDragAndDrop(chapters: any[] | undefined) {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = async (e: React.DragEvent, targetId: number) => {
+  const handleDrop = async (e: React.DragEvent, targetId: number, options?: { adoptStatus?: boolean }) => {
     e.preventDefault();
     e.stopPropagation();
     if (!draggedId || draggedId === targetId || !chapters) return;
+    // Default: ikut status target (perilaku papan Kanban). Tampilan Grid mengirim
+    // `false` agar drag murni mengurutkan — status tidak berubah diam-diam.
+    const adoptStatus = options?.adoptStatus ?? true;
 
     const oldIndex = chapters.findIndex(c => c.id === draggedId);
     const newIndex = chapters.findIndex(c => c.id === targetId);
@@ -40,13 +43,13 @@ export function useChapterDragAndDrop(chapters: any[] | undefined) {
 
     const newChapters = [...chapters];
     const [moved] = newChapters.splice(oldIndex, 1);
-    
-    // If dropped on an item with a different status (lane), update the status
+
+    // Jatuh ke kartu di lane berbeda → ikut status lane tersebut (hanya bila adoptStatus).
     const targetChapter = chapters[newIndex];
-    if (moved.status !== targetChapter.status) {
+    if (adoptStatus && moved.status !== targetChapter.status) {
       moved.status = targetChapter.status;
     }
-    
+
     newChapters.splice(newIndex, 0, moved);
 
     // Update orders in DB atomically (and status if changed)
