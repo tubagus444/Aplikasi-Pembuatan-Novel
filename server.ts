@@ -169,6 +169,57 @@ async function startServer() {
     }
   });
 
+  // Query Allowed Groq Models (OpenAI-compatible endpoint)
+  app.post("/api/ai/groq-models", async (req, res) => {
+    const clientApiKey = (req.headers['x-api-key'] as string) || '';
+    const apiKey = clientApiKey || process.env.GROQ_API_KEY || '';
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "Groq API Key diperlukan. Pastikan sudah dimasukkan." });
+    }
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error: any) {
+      sendError(res, 500, error, 'Groq models listing error');
+    }
+  });
+
+  // Query Allowed Claude (Anthropic) Models
+  app.post("/api/ai/claude-models", async (req, res) => {
+    const clientApiKey = (req.headers['x-api-key'] as string) || '';
+    const apiKey = clientApiKey || process.env.CLAUDE_API_KEY || '';
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "Claude API Key diperlukan. Pastikan sudah dimasukkan." });
+    }
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error: any) {
+      sendError(res, 500, error, 'Claude models listing error');
+    }
+  });
+
   // Query Ollama Models
   app.post("/api/ai/ollama-models", async (req, res) => {
     const { baseUrl } = req.body;

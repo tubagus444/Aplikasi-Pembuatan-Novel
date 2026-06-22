@@ -741,35 +741,3 @@ export async function testConnection(provider: string, apiKey: string, model?: s
   }
 }
 
-export async function fetchGoogleModels(apiKey: string): Promise<any> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  if (apiKey) {
-    headers['x-api-key'] = apiKey;
-  }
-
-  const response = await fetch('/api/ai/google-models', {
-    method: 'POST',
-    headers: headers
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    let errorMessage = text;
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed.error && typeof parsed.error === 'object') {
-        errorMessage = parsed.error.message || JSON.stringify(parsed.error);
-      } else {
-        errorMessage = parsed.error || parsed.message || text;
-      }
-    } catch (e) {
-      // ignore
-    }
-    throw new Error(errorMessage || 'Failed to fetch authorized Google models');
-  }
-
-  return await response.json();
-}
-
