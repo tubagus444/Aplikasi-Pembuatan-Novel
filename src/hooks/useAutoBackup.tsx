@@ -161,6 +161,46 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
+  // BK11: setelah reload izin folder hangus jadi 'prompt', sehingga backup auto
+  // melewati lapisan 2 diam-diam sampai pengguna picu manual. Browser melarang
+  // requestPermission tanpa gesture, jadi kita pasang listener gesture SATU KALI:
+  // pada interaksi pertama pengguna (klik/ketik), izin folder diaktifkan ulang
+  // otomatis — tak perlu buka Pengaturan & klik "Picu Pencadangan Lokal".
+  // Bila izin sudah 'granted' (mis. PWA terinstall dengan izin persisten),
+  // listener tak dipasang sama sekali.
+  useEffect(() => {
+    if (!folderName) return; // tak ada folder terkonfigurasi
+    const handle = directoryHandleRef.current;
+    if (!handle) return;
+
+    let cancelled = false;
+    const events = ['pointerdown', 'keydown'] as const;
+
+    const remove = () => {
+      for (const ev of events) window.removeEventListener(ev, onGesture, true);
+    };
+
+    const onGesture = async () => {
+      remove();
+      try {
+        await ensureDirPermission(handle, true);
+      } catch {
+        // Diam: pengguna boleh menolak; siklus auto berikutnya tetap aman dilewati.
+      }
+    };
+
+    // queryPermission tak butuh gesture; hanya pasang listener bila memang belum diizinkan.
+    ensureDirPermission(handle, false).then((granted) => {
+      if (cancelled || granted) return;
+      for (const ev of events) window.addEventListener(ev, onGesture, true);
+    });
+
+    return () => {
+      cancelled = true;
+      remove();
+    };
+  }, [folderName]);
+
   useEffect(() => {
     const runBackupTask = () => {
       idleRef.current = idleCallback(() => {
