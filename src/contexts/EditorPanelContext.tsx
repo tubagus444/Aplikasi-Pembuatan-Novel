@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo } from 'react';
 
-type PanelType = 'none' | 'assistant' | 'snapshots' | 'insights';
+type PanelType = 'none' | 'outline' | 'comments' | 'assistant' | 'snapshots' | 'insights';
 
 interface EditorPanelContextType {
   activePanel: PanelType;

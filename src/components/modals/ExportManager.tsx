@@ -12,7 +12,7 @@ import { motion } from 'motion/react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/src/db';
 import { Project, Chapter } from '@/src/types';
-import { htmlToMarkdown } from '@/src/lib/editorUtils';
+import { htmlToMarkdown, stripRevisionComments } from '@/src/lib/editorUtils';
 import { countWords } from '@/src/lib/utils';
 import { buildEpub } from '@/src/lib/epub';
 
@@ -267,11 +267,14 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
     if (selectedChapters.length === 0) return;
     setStatus('processing');
     try {
+      // Lepas mark catatan revisi dari konten sebelum konversi format apa pun agar
+      // catatan pribadi penulis tidak ikut terbawa ke berkas hasil ekspor.
+      const cleaned = selectedChapters.map(c => ({ ...c, content: stripRevisionComments(c.content || '') }));
       switch (format) {
-        case 'md': exportMarkdown(selectedChapters); break;
-        case 'pdf': exportPDF(selectedChapters); break;
-        case 'docx': await exportDocx(selectedChapters); break;
-        case 'epub': exportEpub(selectedChapters); break;
+        case 'md': exportMarkdown(cleaned); break;
+        case 'pdf': exportPDF(cleaned); break;
+        case 'docx': await exportDocx(cleaned); break;
+        case 'epub': exportEpub(cleaned); break;
       }
       setStatus('success');
       setTimeout(() => { setStatus('idle'); onClose(); }, 2000);

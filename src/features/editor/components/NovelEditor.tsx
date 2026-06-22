@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '@/src/db';
 import { 
   Loader2, 
@@ -13,11 +13,15 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useUI } from '@/src/contexts/UIContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
 import { EditorContent } from '@tiptap/react';
 import { SelectionFloatingMenu } from '@/src/features/editor/components/SelectionFloatingMenu';
 import { EditorPanelProvider } from '@/src/contexts/EditorPanelContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { useGlobalEvents } from '@/src/hooks/useGlobalEvents';
+import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
+import { getCategoryLabel } from '@/src/lib/codexCategories';
+import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 
 // New Modular Components & Hooks
 import { useNovelEditor } from '@/src/features/editor/hooks/useNovelEditor';
@@ -55,8 +59,21 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     localStorage.setItem('editor_zoom', zoomLevel.toString());
   }, [zoomLevel]);
 
+  // `zoom` menggeser posisi visual teks tetapi TIDAK memicu event scroll/resize,
+  // sehingga overlay yang memakai koordinat rect (floating menu) atau koordinat
+  // absolut (popup codex) bisa tertinggal di posisi lama. Tutup popup codex dan —
+  // setelah transisi zoom 300ms selesai — paksa floating menu menghitung ulang
+  // posisinya lewat event resize yang sudah ia dengarkan.
+  useEffect(() => {
+    setActiveCodexPopup(null);
+    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
+    return () => clearTimeout(t);
+  }, [zoomLevel]);
+
   const { isFocusMode, setIsFocusMode } = useUI();
   const { pendingHighlight, clearPendingHighlight } = useNavigation();
+  const { setActivePanel } = useEditorPanel();
+  const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,6 +88,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   }, [chapterId]);
 
   const { codexEntries, aiActions, bibleRules, relationships, isLoading } = useProjectData(projectId);
+  const { categories } = useCodexCategories(projectId);
 
   const {
     editor,
@@ -116,6 +134,22 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     containerRef
   });
 
+  // Tambah catatan revisi pada teks terpilih: bungkus selection dengan mark
+  // RevisionComment (catatan tersimpan sebagai atribut mark → ikut HTML bab),
+  // buka panel Catatan Revisi, dan tandai catatan baru agar editornya langsung aktif.
+  const handleAddComment = useCallback(() => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return; // butuh teks terpilih
+    const commentId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `c_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    editor.chain().focus().setRevisionComment({ commentId, note: '', resolved: false }).run();
+    setFocusCommentId(commentId);
+    setActivePanel('comments');
+  }, [editor, setActivePanel]);
+
   // Editor-specific Global Events (Ctrl+H, etc)
   useGlobalEvents({
     onToggleEditorSearch: () => setIsSearchOpen(!isSearchOpen),
@@ -148,7 +182,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-slate-300 bg-white dark:bg-slate-900">
         <Loader2 size={32} className="animate-spin mb-4 opacity-20" />
-        <p className="font-serif italic text-lg">Synchronising Manuscript...</p>
+        <p className="font-serif italic text-lg">Menyinkronkan naskah...</p>
       </div>
     );
   }
@@ -157,7 +191,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-slate-300 bg-white dark:bg-slate-900">
         <ScrollText size={48} className="mb-4 opacity-20" />
-        <p className="font-serif italic text-lg text-center px-8">This chapter has been removed.<br/>Please select another path from the outline.</p>
+        <p className="font-serif italic text-lg text-center px-8">Bab ini telah dihapus.<br/>Silakan pilih jalur lain dari kerangka.</p>
       </div>
     );
   }
@@ -189,6 +223,8 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
           codexEntries={codexEntries || []}
           bibleRules={bibleRules || []}
           relationships={relationships || []}
+          focusCommentId={focusCommentId}
+          onFocusCommentConsumed={() => setFocusCommentId(null)}
         />
       }
       rail={<EditorActivityRail />}
@@ -228,6 +264,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
             onAcceptRewrite={acceptRewrite}
             onInsertBelow={insertRewriteBelow}
             onDiscardRewrite={discardRewrite}
+            onAddComment={handleAddComment}
           />
         )}
         
@@ -249,14 +286,17 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
                 style={{ left: Math.min(activeCodexPopup.x + 10, window.innerWidth - 280), top: safeY }}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <span className="font-bold text-indigo-600 dark:text-indigo-400 uppercase text-[10px] tracking-widest">{entry.category}</span>
+                  <span className="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 uppercase text-[10px] tracking-widest">
+                    <CategoryIcon category={entry.category} categories={categories} size={12} />
+                    {getCategoryLabel(entry.category, categories)}
+                  </span>
                   <button onClick={() => setActiveCodexPopup(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full p-0.5"><X size={12} /></button>
                 </div>
                 <h4 className="font-bold text-base mb-1 text-slate-800 dark:text-slate-100">{entry.name}</h4>
-                <p className="font-serif italic text-slate-600 dark:text-slate-300 text-xs leading-relaxed line-clamp-4">{entry.description || 'No description available.'}</p>
+                <p className="font-serif italic text-slate-600 dark:text-slate-300 text-xs leading-relaxed line-clamp-4">{entry.description || 'Belum ada deskripsi.'}</p>
                 {entry.aliases && entry.aliases.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-1">
-                    <span className="text-[9px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 w-full mb-1">Aliases</span>
+                    <span className="text-[9px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 w-full mb-1">Alias</span>
                     {entry.aliases.map(a => <span key={a} className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{a}</span>)}
                   </div>
                 )}

@@ -15,6 +15,8 @@ import { db } from '@/src/db';
 const ScribbleAssistantPanel = React.lazy(() => import('@/src/features/assistant/components/ScribbleAssistantPanel').then(m => ({ default: m.ScribbleAssistantPanel })));
 const SnapshotPanel = React.lazy(() => import('@/src/features/editor/components/SnapshotPanel').then(m => ({ default: m.SnapshotPanel })));
 const ProseInsights = React.lazy(() => import('@/src/features/editor/components/ProseInsights').then(m => ({ default: m.ProseInsights })));
+const ChapterOutline = React.lazy(() => import('@/src/features/editor/components/ChapterOutline').then(m => ({ default: m.ChapterOutline })));
+const RevisionNotesPanel = React.lazy(() => import('@/src/features/editor/components/RevisionNotesPanel').then(m => ({ default: m.RevisionNotesPanel })));
 
 interface NovelPanelsProps {
   projectId: number;
@@ -23,9 +25,11 @@ interface NovelPanelsProps {
   codexEntries: any[];
   bibleRules: any[];
   relationships?: any[];
+  focusCommentId?: string | null;
+  onFocusCommentConsumed?: () => void;
 }
 
-export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleRules, relationships }: NovelPanelsProps) {
+export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleRules, relationships, focusCommentId, onFocusCommentConsumed }: NovelPanelsProps) {
   const { activePanel, setActivePanel } = useEditorPanel();
   
   return (
@@ -43,6 +47,18 @@ export function NovelPanels({ projectId, chapterId, editor, codexEntries, bibleR
             className="h-full absolute lg:relative right-0 top-0 z-50 lg:z-auto border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl lg:shadow-none"
           >
             <div className="h-full flex flex-col" style={{ width: window.innerWidth < 1024 && window.innerWidth < 400 ? '100%' : PANEL_WIDTH }}>
+              {activePanel === 'outline' && (
+                <ChapterOutline editor={editor} />
+              )}
+
+              {activePanel === 'comments' && (
+                <RevisionNotesPanel
+                  editor={editor}
+                  focusCommentId={focusCommentId}
+                  onFocusConsumed={onFocusCommentConsumed}
+                />
+              )}
+
               {activePanel === 'assistant' && (
                 <ScribbleAssistantPanel 
                   projectId={projectId} 

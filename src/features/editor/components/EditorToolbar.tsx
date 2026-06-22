@@ -32,12 +32,14 @@ interface EditorToolbarProps {
 // tippy — setiap kali toolbar render.
 function ToolbarButton({
   onClick,
-  isActive = false,
+  isActive,
   disabled = false,
   children,
   title
 }: {
   onClick: () => void;
+  // undefined → tombol aksi (Undo/Redo/Clear); boolean → tombol toggle (Bold, Heading, …).
+  // Dipakai untuk menentukan apakah `aria-pressed` dipancarkan.
   isActive?: boolean;
   disabled?: boolean;
   children: React.ReactNode;
@@ -66,6 +68,8 @@ function ToolbarButton({
     <button
       ref={btnRef}
       type="button"
+      aria-label={title}
+      aria-pressed={isActive}
       onClick={(e) => {
         e.preventDefault();
         onClick();

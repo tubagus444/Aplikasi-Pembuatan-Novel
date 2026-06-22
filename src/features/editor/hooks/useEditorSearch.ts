@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
+import { createAutoSnapshot } from '@/src/services/snapshotService';
 
-export function useEditorSearch(editor: Editor | null) {
+export function useEditorSearch(editor: Editor | null, chapterId?: number) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [replaceQuery, setReplaceQuery] = useState('');
@@ -94,9 +95,14 @@ export function useEditorSearch(editor: Editor | null) {
 
   const handleReplaceAll = useCallback(() => {
     if (!editor || isSemanticMode) return;
+    const total = (editor.storage as any).searchAndReplace?.results?.length || 0;
+    // Mengganti banyak kecocokan sekaligus bersifat destruktif → titik balik otomatis.
+    if (total > 0 && chapterId) {
+      createAutoSnapshot(chapterId, editor.getHTML(), `Sebelum ganti ${total}× "${searchQuery}"`);
+    }
     editor.commands.replaceAll();
     setSearchStats({ current: 0, total: 0 });
-  }, [editor, isSemanticMode]);
+  }, [editor, isSemanticMode, chapterId, searchQuery]);
 
   const handleNext = useCallback(() => {
     if (!editor || isSemanticMode) return;

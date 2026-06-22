@@ -17,6 +17,8 @@ export interface Snapshot {
   content: string;
   label: string;
   timestamp: number;
+  /** true bila dibuat otomatis sebelum aksi destruktif (rewrite AI, replace-all, restore). */
+  auto?: boolean;
 }
 
 export type TimelineEventType = 'plot' | 'character' | 'world' | 'subplot' | 'reveal' | 'other';

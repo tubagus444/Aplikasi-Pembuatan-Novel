@@ -18,6 +18,7 @@ import { cn } from '@/src/lib/utils';
 import { useToast } from '@/src/hooks/useToast';
 import { buildSearchRegex, prepareReplacement, findInHtml, replaceInHtml, MatchSnippet } from '@/src/lib/findReplace';
 import { flushActiveEditor, reloadActiveEditor } from '@/src/features/editor/editorBridge';
+import { createAutoSnapshot } from '@/src/services/snapshotService';
 
 interface CrossChapterReplaceProps {
   projectId: number;
@@ -105,12 +106,14 @@ export function CrossChapterReplace({ projectId, onSelectChapter, onClose }: Cro
       const all = await db.chapters.where('projectId').equals(projectId).toArray();
       let totalReplaced = 0;
       let chaptersChanged = 0;
+      const changed: { id: number; oldContent: string; count: number }[] = [];
       await db.transaction('rw', db.chapters, async () => {
         for (const ch of all) {
           if (onlyChapterId !== undefined && ch.id !== onlyChapterId) continue;
           regex.lastIndex = 0;
           const { html, count } = replaceInHtml(ch.content || '', regex, prepared);
           if (count > 0) {
+            changed.push({ id: ch.id!, oldContent: ch.content || '', count });
             await db.chapters.update(ch.id!, { content: html, lastModified: Date.now() });
             totalReplaced += count;
             chaptersChanged++;
@@ -118,7 +121,13 @@ export function CrossChapterReplace({ projectId, onSelectChapter, onClose }: Cro
         }
       });
 
-      // 3. Muat ulang editor aktif agar mencerminkan hasil (tanpa memicu autosave).
+      // 3. Titik balik otomatis per-bab yang berubah (konten LAMA pra-replace),
+      //    di luar transaksi db.chapters karena menulis ke tabel snapshots.
+      await Promise.all(
+        changed.map(c => createAutoSnapshot(c.id, c.oldContent, `Sebelum ganti ${c.count}× "${debouncedQuery}"`)),
+      );
+
+      // 4. Muat ulang editor aktif agar mencerminkan hasil (tanpa memicu autosave).
       await reloadActiveEditor();
 
       if (totalReplaced === 0) {

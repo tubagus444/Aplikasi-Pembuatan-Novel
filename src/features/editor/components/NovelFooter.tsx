@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Editor } from '@tiptap/core';
 import { Search, Clock } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -35,8 +35,41 @@ export function NovelFooter({
 }: NovelFooterProps) {
   const { saveStatus } = useEditorPanel();
 
-  const wordCount = editor?.state.doc.textContent.trim().split(/\s+/).filter(Boolean).length || 0;
-  const charCount = editor?.state.doc.textContent.length || 0;
+  // Hitung kata/karakter dari event editor (ter-debounce), bukan tiap render.
+  // doc.textContent men-serialize SELURUH dokumen — pada bab panjang ini mahal bila
+  // dijalankan di setiap render (mis. tiap ketukan/perubahan saveStatus).
+  const [counts, setCounts] = useState({ words: 0, chars: 0 });
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!editor) {
+      setCounts({ words: 0, chars: 0 });
+      return;
+    }
+
+    const recompute = () => {
+      const text = editor.state.doc.textContent;
+      setCounts({
+        words: text.trim().split(/\s+/).filter(Boolean).length,
+        chars: text.length,
+      });
+    };
+
+    const onUpdate = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(recompute, 400);
+    };
+
+    recompute(); // nilai awal saat editor/bab berganti
+    editor.on('update', onUpdate);
+    return () => {
+      editor.off('update', onUpdate);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [editor]);
+
+  const wordCount = counts.words;
+  const charCount = counts.chars;
   const readingMinutes = Math.max(1, Math.ceil(wordCount / 200)); // ~200 kata/menit
 
   return (
@@ -76,6 +109,8 @@ export function NovelFooter({
         <button
           type="button"
           onClick={() => setIsSearchOpen(!isSearchOpen)}
+          aria-label="Cari & Ganti"
+          aria-pressed={isSearchOpen}
           className={cn(
             "p-1.5 rounded text-slate-500 hover:text-indigo-600 transition-colors",
             isSearchOpen ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-slate-100 dark:hover:bg-slate-800"

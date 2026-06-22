@@ -11,7 +11,8 @@ import {
   Eye,
   Flame,
   Pin,
-  PinOff
+  PinOff,
+  StickyNote
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -29,6 +30,7 @@ interface SelectionFloatingMenuProps {
   onAcceptRewrite?: () => void;
   onInsertBelow?: () => void;
   onDiscardRewrite?: () => void;
+  onAddComment?: () => void;
 }
 
 export function SelectionFloatingMenu({ 
@@ -39,7 +41,8 @@ export function SelectionFloatingMenu({
   rewritePreview = null,
   onAcceptRewrite,
   onInsertBelow,
-  onDiscardRewrite
+  onDiscardRewrite,
+  onAddComment
 }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
   const [selectedText, setSelectedText] = useState('');
@@ -276,9 +279,11 @@ export function SelectionFloatingMenu({
                   <button
                     type="button"
                     onClick={() => setIsDocked(!isDocked)}
+                    aria-label="Sematkan menu di bawah layar"
+                    aria-pressed={isDocked}
                     className={cn(
                       "p-1 rounded-full transition-colors",
-                      isDocked 
+                      isDocked
                         ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40"
                         : "text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
                     )}
@@ -364,6 +369,9 @@ export function SelectionFloatingMenu({
                 <button
                   type="button"
                   onClick={() => setShowAiMenu(!showAiMenu)}
+                  aria-label="Buka menu Asisten AI"
+                  aria-expanded={showAiMenu}
+                  aria-haspopup="menu"
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 font-semibold text-xs rounded-full transition-all shrink-0",
                     showAiMenu
@@ -379,10 +387,28 @@ export function SelectionFloatingMenu({
 
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
 
+                {/* Tambah catatan revisi pada teks terpilih */}
+                {onAddComment && (
+                  <button
+                    type="button"
+                    onClick={() => onAddComment()}
+                    aria-label="Tambah catatan revisi"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 font-semibold text-xs rounded-full transition-all shrink-0 text-amber-600 dark:text-amber-400 bg-amber-50 hover:bg-amber-100/70 dark:bg-amber-500/10 dark:hover:bg-amber-500/20"
+                    title="Tambah catatan revisi pada teks terpilih"
+                  >
+                    <StickyNote size={13} />
+                    Catatan
+                  </button>
+                )}
+
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
+
                 {/* Dock toggle: pindahkan menu ke bawah layar agar tak menghalangi teks */}
                 <button
                   type="button"
                   onClick={() => setIsDocked(!isDocked)}
+                  aria-label="Sematkan menu di bawah layar"
+                  aria-pressed={isDocked}
                   className={cn(
                     "p-1.5 rounded-full transition-all flex items-center justify-center shrink-0",
                     isDocked

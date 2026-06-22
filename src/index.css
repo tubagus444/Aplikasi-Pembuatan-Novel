@@ -141,6 +141,19 @@
   @apply text-indigo-700 dark:text-indigo-400 border-b border-indigo-300 dark:border-indigo-700 border-dotted cursor-help transition-all hover:bg-indigo-100 dark:hover:bg-indigo-900/50;
 }
 
+.tiptap .revision-comment {
+  @apply bg-amber-100/70 dark:bg-amber-500/20 border-b-2 border-amber-400/80 dark:border-amber-500/60 rounded-sm cursor-pointer transition-colors;
+}
+
+.tiptap .revision-comment:hover {
+  @apply bg-amber-200/80 dark:bg-amber-500/30;
+}
+
+/* Catatan yang sudah ditandai selesai: sorotan diredam agar tak mengganggu. */
+.tiptap .revision-comment-resolved {
+  @apply bg-transparent border-b border-dotted border-slate-300 dark:border-slate-600;
+}
+
 .tippy-box[data-theme~='mention'] {
   background-color: transparent !important;
   border: none !important;

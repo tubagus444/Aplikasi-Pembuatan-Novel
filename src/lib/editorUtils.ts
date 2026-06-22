@@ -13,6 +13,25 @@ export function stripHtml(html: string): string {
 }
 
 /**
+ * Melepas mark "catatan revisi" dari HTML bab: span[data-comment-id] di-unwrap
+ * (teksnya dipertahankan, sorotan + atribut data-note dibuang). Dipakai sebelum
+ * EKSPOR agar catatan pribadi penulis tidak ikut bocor ke berkas hasil
+ * (mis. atribut data-note di sumber EPUB/XHTML). Tidak mengubah data tersimpan.
+ */
+export function stripRevisionComments(html: string): string {
+  if (!html || html.indexOf('data-comment-id') === -1) return html || '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.body.querySelectorAll('span[data-comment-id]').forEach((span) => {
+    // Ganti span dengan isi anak-anaknya (unwrap), pertahankan teks & format dalam.
+    const parent = span.parentNode;
+    if (!parent) return;
+    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    parent.removeChild(span);
+  });
+  return doc.body.innerHTML;
+}
+
+/**
  * Very basic HTML to Markdown converter for simple naskah needs.
  * Handles bold, italic, and paragraphs.
  */

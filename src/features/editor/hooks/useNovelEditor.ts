@@ -75,7 +75,7 @@ export function useNovelEditor({
   } = useEditorAI(editor, chapterId, codexEntries, bibleRules, relationships);
 
   // Search
-  const searchProps = useEditorSearch(editor);
+  const searchProps = useEditorSearch(editor, chapterId);
 
   // Keep Codex hook updated with the editor
   // (We passed null originally because we instantiated it before editor, but the effect uses `editor` dependencies in our refactored hook)

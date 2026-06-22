@@ -3,6 +3,7 @@ import { Editor } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
 import { processRewrite } from '@/src/services/ai';
+import { createAutoSnapshot } from '@/src/services/snapshotService';
 import { useToast } from '@/src/hooks/useToast';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { CodexEntry } from '@/src/types';
@@ -124,7 +125,10 @@ export function useEditorAI(
   const acceptRewrite = () => {
     if (!editor || !rewritePreview) return;
     const { from, to, rewritten } = rewritePreview;
-    
+
+    // Aksi destruktif (menimpa teks terpilih) → simpan titik balik otomatis dulu.
+    createAutoSnapshot(chapterId, editor.getHTML(), 'Sebelum tenun AI');
+
     editor.chain().focus().insertContentAt({ from, to }, rewritten).run();
     setRewritePreview(null);
     toast.success('Tulisan berhasil diperbarui!');

@@ -115,6 +115,8 @@ export function SearchReplaceBar({
             {setIsSemanticMode && (
               <button
                 onClick={() => setIsSemanticMode(!isSemanticMode)}
+                aria-label="Pencarian Semantik AI"
+                aria-pressed={isSemanticMode}
                 className={cn(
                   "p-1.5 rounded transition-colors",
                   isSemanticMode ? "bg-fuchsia-600 text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800"
@@ -128,6 +130,8 @@ export function SearchReplaceBar({
               <>
                 <button
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
+                  aria-label="Peka huruf besar/kecil"
+                  aria-pressed={isCaseSensitive}
                   className={cn(
                     "p-1.5 rounded transition-colors",
                     isCaseSensitive ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800"
@@ -138,6 +142,8 @@ export function SearchReplaceBar({
                 </button>
                 <button
                   onClick={() => setIsRegex(!isRegex)}
+                  aria-label="Gunakan Regex"
+                  aria-pressed={isRegex}
                   className={cn(
                     "p-1.5 rounded transition-colors",
                     isRegex ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800"
