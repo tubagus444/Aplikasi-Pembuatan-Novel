@@ -3,6 +3,7 @@ import { Editor } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contextEngine';
 import { processRewrite } from '@/src/services/ai';
+import { cleanRewriteOutput } from '@/src/lib/cleanRewriteOutput';
 import { createAutoSnapshot } from '@/src/services/snapshotService';
 import { useToast } from '@/src/hooks/useToast';
 import { useNavigation } from '@/src/contexts/NavigationContext';
@@ -95,7 +96,9 @@ export function useEditorAI(
       isStreamingRef.current = false;
       clearInterval(flushInterval);
       
-      const finalRewritten = streamBufferRef.current || result;
+      // Saat streaming, buffer mentah (streamBufferRef) yang dipakai untuk tampilan
+      // & disisipkan — bukan return value processRewrite — jadi bersihkan di sini juga.
+      const finalRewritten = cleanRewriteOutput(streamBufferRef.current || result);
       setRewritePreview({
         original: selectedText,
         rewritten: finalRewritten,

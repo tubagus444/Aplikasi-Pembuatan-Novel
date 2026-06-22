@@ -3,6 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Definisi rinci untuk aksi rewrite built-in. Label tombol yang pendek
+// ("Show don't tell", "Intensify", …) ambigu bila dikirim mentah ke model →
+// hasil tak konsisten. Map ini menerjemahkannya jadi instruksi eksplisit.
+// Kunci dinormalisasi (lowercase + trim). Aksi kustom/personal & "Custom prompt"
+// tidak ada di sini → lewat apa adanya, mengandalkan teks instruksi pengguna.
+export const REWRITE_ACTION_INSTRUCTIONS: Record<string, string> = {
+  "show don't tell":
+    'Convert telling/expository statements (named emotions, summarized states) into concrete action, behavior, body language, and sensory detail so the reader infers the feeling. Keep the same events, meaning, POV, and tense. Do not add new plot or facts.',
+  'focus senses':
+    'Enrich the passage with vivid, specific sensory detail (sight, sound, smell, touch, taste) and atmosphere, without changing what happens. Choose evocative details; do not overload every sentence. Keep the same events, POV, and tense.',
+  intensify:
+    'Heighten dramatic tension and emotional stakes: stronger verbs, tighter rhythm, sharper conflict and urgency. Preserve the events, characters, POV, and tense — make it hit harder, not different.',
+};
+
 export const AI_PROMPTS = {
   REWRITE: {
     SYSTEM: (contextBlock?: string) => `
@@ -11,11 +25,14 @@ You are a professional novel editor. Rewrite text based on requested actions, ad
 RULES:
 1. Maintain POV and style.
 2. Ensure Codex consistency.
-3. Return ONLY rewritten text.
+3. Write in the same language as the original text.
+4. Return ONLY rewritten text — no preamble, labels, quotes, or code fences.
 
 ${contextBlock ? `CONTEXT:\n${contextBlock}` : ''}`.trim(),
-    USER: (action: string, selection: string, additionalRequest?: string) => `
-Action: ${action}
+    USER: (action: string, selection: string, additionalRequest?: string) => {
+      const instruction = REWRITE_ACTION_INSTRUCTIONS[action.trim().toLowerCase()];
+      return `
+Action: ${action}${instruction ? `\nInstruction: ${instruction}` : ''}
 ${additionalRequest ? `Extra: ${additionalRequest}` : ''}
 
 Original:
@@ -23,7 +40,8 @@ Original:
 ${selection}
 """
 
-Rewritten:`.trim()
+Rewritten:`.trim();
+    }
   },
   CHAT: {
     SYSTEM: (contextBlock?: string, mode?: string) => {

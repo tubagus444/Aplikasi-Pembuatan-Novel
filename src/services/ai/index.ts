@@ -4,6 +4,7 @@ import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
 import { GenerateParams, ChatParams, ConsistencyParams, AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
+import { cleanRewriteOutput } from '@/src/lib/cleanRewriteOutput';
 import { formatBibleBlock } from '@/src/lib/storyBible';
 import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
 
@@ -455,7 +456,9 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       cachedContext,
       userPrompt,
       provider: provider,
-      temperature: 0.85,
+      // Tugas editor (perbaikan gaya/konsistensi), bukan generasi kreatif bebas —
+      // suhu rendah membuat hasil lebih taat instruksi & tak liar. Lihat catatan keanehan rewrite.
+      temperature: 0.5,
       maxTokens: rewriteMaxTokens,
       stream: params.stream,
       onChunk: params.onChunk,
@@ -463,7 +466,7 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       actionType: 'rewrite',
       cacheable: useCaching
     });
-    return res;
+    return cleanRewriteOutput(res);
   } catch (error) {
     if (error instanceof AIError) throw error;
     throw new AIError(error instanceof Error ? error.message : 'AI rewrite failed.', "API_ERROR");
