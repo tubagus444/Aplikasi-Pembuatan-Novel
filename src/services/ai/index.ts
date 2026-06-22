@@ -6,7 +6,7 @@ import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
 import { cleanRewriteOutput } from '@/src/lib/cleanRewriteOutput';
 import { formatBibleBlock } from '@/src/lib/storyBible';
-import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
+import { getMaxCachedLoreChars, getRewriteTemperature } from '@/src/lib/aiTuning';
 
 export class AIError extends Error {
   code: string;
@@ -457,8 +457,9 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
       userPrompt,
       provider: provider,
       // Tugas editor (perbaikan gaya/konsistensi), bukan generasi kreatif bebas —
-      // suhu rendah membuat hasil lebih taat instruksi & tak liar. Lihat catatan keanehan rewrite.
-      temperature: 0.5,
+      // suhu rendah membuat hasil lebih taat instruksi & tak liar. Default 0.5,
+      // bisa diatur pengguna di Settings → Optimasi AI Lanjutan.
+      temperature: getRewriteTemperature(),
       maxTokens: rewriteMaxTokens,
       stream: params.stream,
       onChunk: params.onChunk,

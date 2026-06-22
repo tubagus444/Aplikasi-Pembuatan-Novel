@@ -15,7 +15,7 @@ import { OpenRouterModelSelect } from '@/src/components/common/OpenRouterModelSe
 import { OllamaModelSelect } from '@/src/components/common/OllamaModelSelect';
 import { useDriveSync } from '@/src/hooks/useDriveSync';
 import { getDefaultLightModelForProvider } from '@/src/services/ai/proxy';
-import { DEFAULT_MAX_CACHED_LORE_CHARS, DEFAULT_CLAUDE_CACHE_TTL } from '@/src/lib/aiTuning';
+import { DEFAULT_MAX_CACHED_LORE_CHARS, DEFAULT_CLAUDE_CACHE_TTL, DEFAULT_REWRITE_TEMPERATURE } from '@/src/lib/aiTuning';
 
 export function SettingsPanel() {
   const [activeTab, setActiveTab] = useState<'ai' | 'backup'>('ai');
@@ -97,6 +97,7 @@ export function SettingsPanel() {
     claude: ''
   });
   const [cacheTtl, setCacheTtl] = useState<string>(DEFAULT_CLAUDE_CACHE_TTL);
+  const [rewriteTemp, setRewriteTemp] = useState<string>(String(DEFAULT_REWRITE_TEMPERATURE));
   const [isSaved, setIsSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -205,6 +206,7 @@ export function SettingsPanel() {
       claude: localStorage.getItem('ai_light_model_claude') || ''
     });
     setCacheTtl(localStorage.getItem('ai_claude_cache_ttl') === '5m' ? '5m' : DEFAULT_CLAUDE_CACHE_TTL);
+    setRewriteTemp(localStorage.getItem('ai_rewrite_temperature') || String(DEFAULT_REWRITE_TEMPERATURE));
   }, []);
 
   const handleSave = () => {
@@ -214,6 +216,7 @@ export function SettingsPanel() {
     localStorage.setItem('ollama_enabled', ollamaEnabled.toString());
     localStorage.setItem('ai_max_cached_lore_chars', maxLoreChars);
     localStorage.setItem('ai_claude_cache_ttl', cacheTtl);
+    localStorage.setItem('ai_rewrite_temperature', rewriteTemp);
 
     // Override model tugas-ringan per provider; kosong = pakai default hardcoded.
     (['google', 'groq', 'openrouter', 'claude'] as const).forEach((p) => {
@@ -544,6 +547,34 @@ export function SettingsPanel() {
                     <option value="1h">1 jam — default (sesi menulis panjang)</option>
                     <option value="5m">5 menit — pemakaian jarang / burst pendek</option>
                   </select>
+                </div>
+
+                {/* Suhu rewrite — opsi A: kontrol kreativitas khusus "Tanya AI" di editor */}
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
+                  <label htmlFor="rewrite-temp" className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                    Kreativitas Tulis Ulang
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex-1">
+                    Suhu AI untuk aksi <strong>"Tanya AI"</strong> di editor. <strong>Rendah</strong> = lebih taat instruksi & dekat naskah asli; <strong>tinggi</strong> = lebih bervariasi/kreatif tapi rawan menyimpang. Tugas analitis (cek konsistensi, ekstraksi) tak terpengaruh.
+                  </p>
+                  <input
+                    id="rewrite-temp"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={rewriteTemp}
+                    onChange={(e) => setRewriteTemp(e.target.value)}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                    <span>Presisi</span>
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                      {Number(rewriteTemp).toFixed(2)}
+                      {Number(rewriteTemp) === DEFAULT_REWRITE_TEMPERATURE && ' (default)'}
+                    </span>
+                    <span>Kreatif</span>
+                  </div>
                 </div>
               </div>
             </section>
