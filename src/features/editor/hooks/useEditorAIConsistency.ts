@@ -16,6 +16,21 @@ interface AIConsistencyData {
   relationships: Relationship[];
 }
 
+/**
+ * Cache hasil per-paragraf di level MODUL — bertahan saat editor di-unmount
+ * (pindah panel) sehingga: (1) garis bawah dipulihkan tanpa memanggil AI lagi,
+ * dan (2) paragraf yang isinya tak berubah tak pernah diperiksa ulang (nol token).
+ * Kunci: chapterId → (teks paragraf → temuan). Entri kosong tetap disimpan agar
+ * paragraf yang sudah bersih pun tak diperiksa berulang. Reset saat refresh penuh.
+ */
+const chapterCache = new Map<number, Map<string, InlineQuoteFinding[]>>();
+
+function getChapterMap(chapterId: number): Map<string, InlineQuoteFinding[]> {
+  let m = chapterCache.get(chapterId);
+  if (!m) { m = new Map(); chapterCache.set(chapterId, m); }
+  return m;
+}
+
 function isEnabled(): boolean {
   try { return localStorage.getItem(ENABLED_KEY) === 'true'; } catch { return false; }
 }
@@ -25,8 +40,9 @@ function isEnabled(): boolean {
  *
  * Saat aktif: setelah berhenti mengetik (idle), memeriksa HANYA paragraf tempat
  * kursor berada terhadap Codex/Bible via checkConsistency (KB ter-cache provider),
- * lalu mendorong kutipan kontradiktif ke garis bawah. Dibatasi ketat: per-paragraf,
- * debounce, dedup paragraf identik, dan abort key terpisah dari panel.
+ * lalu mendorong kutipan kontradiktif ke garis bawah. Hemat token: per-paragraf,
+ * debounce, hasil di-cache lintas remount (pindah panel = pulih gratis), abort key
+ * terpisah dari panel.
  */
 export function useEditorAIConsistency(
   editor: Editor | null,
@@ -42,23 +58,21 @@ export function useEditorAIConsistency(
   const [checking, setChecking] = useState(false);
   const lastCheckedRef = useRef<string>('');
 
-  // Toggle disimpan di Settings; reaksi lewat event 'storage' (di-dispatch handleSave).
+  // Toggle disimpan di Settings; reaksi lewat event 'storage' (di-dispatch saat toggle/Simpan).
   useEffect(() => {
     const onStorage = () => setEnabled(isEnabled());
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  // Bersihkan garis bawah AI saat dimatikan atau ganti bab.
+  // Bersihkan garis bawah AI saat dimatikan atau ganti bab (cache tetap disimpan).
   useEffect(() => {
     lastCheckedRef.current = '';
     if (!enabled) {
       cancelAI(ACTION_TYPE);
-      if (quoteFindingsRef.current.length && editor && !editor.isDestroyed) {
-        quoteFindingsRef.current = [];
+      quoteFindingsRef.current = [];
+      if (editor && !editor.isDestroyed) {
         editor.view.dispatch(editor.state.tr.setMeta('forceUpdateConsistency', true));
-      } else {
-        quoteFindingsRef.current = [];
       }
     }
   }, [enabled, chapterId, editor, quoteFindingsRef]);
@@ -68,12 +82,44 @@ export function useEditorAIConsistency(
     let timer: any = null;
     let cancelled = false;
 
+    /**
+     * Susun ulang quoteFindingsRef dari cache: gabungkan temuan semua paragraf yang
+     * MASIH ADA di dokumen (otomatis membuang temuan paragraf yang sudah diedit/hilang),
+     * lalu picu render garis bawah. Tanpa memanggil AI.
+     */
+    const refresh = () => {
+      if (cancelled || editor.isDestroyed) return;
+      const map = chapterCache.get(chapterId);
+      const flat: InlineQuoteFinding[] = [];
+      if (map && map.size) {
+        const present = new Set<string>();
+        editor.state.doc.descendants(node => {
+          if (node.isTextblock) {
+            const t = node.textContent.trim();
+            if (t) present.add(t);
+          }
+        });
+        for (const [paraText, findings] of map) {
+          if (present.has(paraText)) flat.push(...findings);
+        }
+      }
+      quoteFindingsRef.current = flat;
+      editor.view.dispatch(editor.state.tr.setMeta('forceUpdateConsistency', true));
+    };
+
+    // Pulihkan garis bawah dari cache saat mount/aktif — pindah panel = gratis.
+    refresh();
+
     const runCheck = async () => {
       if (cancelled || editor.isDestroyed) return;
       const para = editor.state.selection.$from.parent;
       const text = para && para.isTextblock ? para.textContent.trim() : '';
       if (text.length < MIN_PARAGRAPH || text === lastCheckedRef.current) return;
       lastCheckedRef.current = text;
+
+      const map = getChapterMap(chapterId);
+      // Cache hit (termasuk hasil kosong) → pulihkan tampilan tanpa token.
+      if (map.has(text)) { refresh(); return; }
 
       const d = dataRef.current;
       cancelAI(ACTION_TYPE); // batalkan pemeriksaan paragraf sebelumnya yang masih jalan
@@ -101,10 +147,12 @@ export function useEditorAIConsistency(
               f.suggestion ? `→ ${f.suggestion}` : '',
             ].filter(Boolean).join(' '),
           }));
-        quoteFindingsRef.current = mapped;
-        editor.view.dispatch(editor.state.tr.setMeta('forceUpdateConsistency', true));
-      } catch (e: any) {
-        // AbortError/koneksi: diam — jangan ganggu alur menulis dengan error inline.
+        map.set(text, mapped); // simpan (termasuk [] bila bersih) agar tak diperiksa ulang
+        refresh();
+      } catch {
+        // AbortError/koneksi: diam — jangan ganggu alur menulis. Jangan cache
+        // kegagalan; reset penanda agar paragraf ini bisa diperiksa ulang nanti.
+        lastCheckedRef.current = '';
       } finally {
         if (!cancelled) setChecking(false);
       }
@@ -122,7 +170,7 @@ export function useEditorAIConsistency(
       editor.off('update', onUpdate);
       cancelAI(ACTION_TYPE);
     };
-  }, [editor, enabled, quoteFindingsRef]);
+  }, [editor, enabled, chapterId, quoteFindingsRef]);
 
   return checking && enabled;
 }
