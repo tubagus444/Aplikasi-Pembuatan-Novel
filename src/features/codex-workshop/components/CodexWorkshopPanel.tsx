@@ -5,6 +5,7 @@ import { cn } from '@/src/lib/utils';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useCodexWorkshop } from '@/src/features/codex-workshop/hooks/useCodexWorkshop';
 import { WorkshopDraftPane } from '@/src/features/codex-workshop/components/WorkshopDraftPane';
+import { stripCodexDraft } from '@/src/lib/codexDraft';
 
 interface CodexWorkshopPanelProps {
   projectId: number;
@@ -125,7 +126,7 @@ export function CodexWorkshopPanel({ projectId }: CodexWorkshopPanelProps) {
                   {m.role === 'user' ? (
                     m.content
                   ) : (
-                    <div className="markdown-body"><ReactMarkdown>{m.content}</ReactMarkdown></div>
+                    <div className="markdown-body"><ReactMarkdown>{stripCodexDraft(m.content)}</ReactMarkdown></div>
                   )}
                 </div>
               </div>

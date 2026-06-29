@@ -15,6 +15,8 @@ interface UseChatSessionProps {
   contextText?: string;
   sessionMode?: SessionMode;
   provider?: string;
+  /** Instruksi system tambahan untuk tiap pesan (mis. protokol codex-draft Lokakarya). */
+  extraSystem?: string;
   initialMessages?: ChatMessage[];
   onMessageAdded?: (messages: ChatMessage[]) => void;
   onResponseReceived?: (response: string) => void;
@@ -30,6 +32,7 @@ export function useChatSession({
   contextText = '',
   sessionMode,
   provider = 'google',
+  extraSystem,
   initialMessages = [],
   onMessageAdded,
   onResponseReceived,
@@ -126,6 +129,7 @@ export function useChatSession({
         chapterId,
         provider,
         sessionMode,
+        extraSystem,
         stream: true,
         onRetry: (attempt, error, currentProvider) => {
           setRetryStatus(`Koneksi melambat (${currentProvider}). Percobaan ulang ke-${attempt}...`);
@@ -182,10 +186,11 @@ export function useChatSession({
     projectId, 
     chapterId, 
     codexEntries, 
-    bibleRules, 
-    contextText, 
-    provider, 
-    onMessageAdded, 
+    bibleRules,
+    contextText,
+    provider,
+    extraSystem,
+    onMessageAdded,
     onResponseReceived, 
     onError
   ]);

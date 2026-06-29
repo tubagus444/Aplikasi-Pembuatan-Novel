@@ -534,6 +534,11 @@ export async function processChat(params: ChatParams): Promise<string> {
     const contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
     systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
   }
+  // Instruksi khusus pemanggil (mis. protokol blok codex-draft Lokakarya) di akhir,
+  // setelah instruksi mode — KB tetap di cachedContext sehingga cache-nya tak terpengaruh.
+  if (params.extraSystem) {
+    systemInstruction += '\n\n' + params.extraSystem;
+  }
   const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, draftSnippet);
 
   // Pemangkasan riwayat dilakukan SATU kali di proxy (MAX_PROXY_HISTORY) sebagai gerbang

@@ -89,4 +89,10 @@ export interface ChatParams {
   stream?: boolean;
   onChunk?: (chunk: string) => void;
   onRetry?: (attempt: number, error: any, provider: string) => void;
+  /**
+   * Instruksi tambahan yang ditempelkan di AKHIR systemInstruction (mis. protokol
+   * blok `codex-draft` di Lokakarya). Sengaja terpisah dari knowledge base agar
+   * cache KB (cachedContext) tetap byte-identik lintas-aksi.
+   */
+  extraSystem?: string;
 }

@@ -9,6 +9,7 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useToast } from '@/src/hooks/useToast';
 import { enrichEntities } from '@/src/services/ai';
 import { invalidateContextCache } from '@/src/services/contextEngine';
+import { WORKSHOP_DRAFT_INSTRUCTION, parseCodexDraft, stripCodexDraft } from '@/src/lib/codexDraft';
 
 /** Satu field yang berubah antara entri asli dan draf, untuk konfirmasi diff sebelum menimpa. */
 export interface FieldDiff {
@@ -106,12 +107,12 @@ export function useCodexWorkshop(projectId: number) {
     let content: string;
     if (mode === 'edit') {
       content = name
-        ? `Mari tinjau & sempurnakan **${name}**. Datanya sudah saya muat di kanan. Tanyakan apakah ada yang janggal, minta saya perhalus deskripsi, atau bahas hubungannya dengan tokoh lain. Saat siap, **Tarik dari diskusi** lalu **Simpan perubahan**.`
+        ? `Mari tinjau & sempurnakan **${name}**. Datanya sudah saya muat di kanan. Tanyakan apakah ada yang janggal, minta saya perhalus deskripsi, atau bahas hubungannya dengan tokoh lain. Field di kanan ikut diperbarui otomatis sambil kita berdiskusi — saat siap, **Simpan perubahan**.`
         : `Mari tinjau & sempurnakan entri ini. Datanya sudah dimuat di kanan — tanyakan atau minta perbaikan apa saja.`;
     } else {
       content = name
-        ? `Mari kita kembangkan **${name}** untuk Kamus Data. Ceritakan siapa dia, perannya, latar belakang, atau hubungan dengan tokoh lain — saya bantu rapikan. Saat sudah cukup, tekan **Tarik dari diskusi** untuk mengisi field, lalu **Simpan ke Codex**.`
-        : `Mari rancang entri Codex baru lewat diskusi. Mulailah dengan nama dan gambaran singkat entitasnya — karakter, lokasi, item, atau konsep. Kita perdalam bersama, lalu tarik hasilnya ke field di kanan.`;
+        ? `Mari kita kembangkan **${name}** untuk Kamus Data. Ceritakan siapa dia, perannya, latar belakang, atau hubungan dengan tokoh lain. Field di kanan terisi otomatis sambil kita berdiskusi — sesuaikan bila perlu, lalu **Simpan ke Codex**.`
+        : `Mari rancang entri Codex baru lewat diskusi. Mulailah dengan nama dan gambaran singkat entitasnya — karakter, lokasi, item, atau konsep. Field di kanan akan terisi otomatis seiring obrolan.`;
     }
     return { id: 'workshop-welcome', role: 'model', content, isWelcome: true, timestamp: Date.now() };
   }, [mode, workshopTarget?.seedName]);
@@ -122,9 +123,26 @@ export function useCodexWorkshop(projectId: number) {
     bibleRules: bibleRules || [],
     relationships: relationships || [],
     provider: selectedProvider,
+    extraSystem: WORKSHOP_DRAFT_INSTRUCTION,
     initialMessages: [welcomeMessage],
     onError: (msg) => reportAIError(msg),
   });
+
+  // Live-fill: saat sebuah balasan AI selesai, panen blok codex-draft (bila ada)
+  // dan terapkan ke draf. Diproses sekali per pesan (id ditandai), termasuk pesan
+  // yang tak punya blok agar tak diperiksa ulang.
+  const appliedRef = useRef<Set<string>>(new Set());
+  const allowedCategorySlugs = useMemo(() => categories.map((c) => c.slug), [categories]);
+  useEffect(() => {
+    if (chat.isLoading) return;
+    const last = chat.messages[chat.messages.length - 1];
+    if (!last || last.role !== 'model' || last.isWelcome || last.isError || !last.id) return;
+    if (appliedRef.current.has(last.id)) return;
+    appliedRef.current.add(last.id);
+    const fields = parseCodexDraft(last.content, allowedCategorySlugs);
+    // parseCodexDraft hanya menaruh key yang ada → spread aman, tak menimpa dgn undefined.
+    if (fields) setDraft((prev) => ({ ...prev, ...fields }));
+  }, [chat.isLoading, chat.messages, allowedCategorySlugs]);
 
   // Ringkasan draf sebagai konteks dinamis supaya AI tahu apa yang sedang dibangun.
   const draftContext = useCallback(() => {
@@ -166,7 +184,9 @@ export function useCodexWorkshop(projectId: number) {
     }
     const transcript = chat.messages
       .filter((m) => !m.isWelcome && !m.isError && m.content.trim())
-      .map((m) => `${m.role === 'user' ? 'Penulis' : 'AI'}: ${m.content.trim()}`)
+      // Buang blok codex-draft dari balasan AI agar JSON tak ikut diumpankan ke enrichEntities.
+      .map((m) => `${m.role === 'user' ? 'Penulis' : 'AI'}: ${(m.role === 'model' ? stripCodexDraft(m.content) : m.content).trim()}`)
+      .filter((line) => line.replace(/^(Penulis|AI):\s*/, '').length > 0)
       .join('\n\n');
     if (!transcript) {
       toast.error('Belum ada diskusi yang bisa ditarik. Mulai mengobrol dulu dengan AI.');
