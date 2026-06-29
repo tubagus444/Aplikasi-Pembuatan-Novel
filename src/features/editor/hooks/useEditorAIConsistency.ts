@@ -35,10 +35,68 @@ export interface InlineAIConsistency {
  */
 const chapterCache = new Map<number, Map<string, InlineQuoteFinding[]>>();
 
+/**
+ * Persistensi ke localStorage agar garis bawah ungu BERTAHAN melintasi reload
+ * halaman (chapterCache di atas hanya hidup selama tab terbuka; refresh halaman
+ * mengosongkannya). Hanya temuan NON-KOSONG yang masih ada di dokumen yang
+ * disimpan → storage tetap ramping dan paragraf yang sudah diedit/bersih otomatis
+ * terbuang. Memuat ulang dari sini murni membaca hasil lama — NOL token.
+ */
+const STORE_PREFIX = 'ai_inline_consistency_cache_';
+const MAX_PERSISTED_PER_CHAPTER = 300;
+const hydratedChapters = new Set<number>();
+
+function storeKey(chapterId: number): string {
+  return STORE_PREFIX + chapterId;
+}
+
+function loadPersisted(chapterId: number): Map<string, InlineQuoteFinding[]> | null {
+  try {
+    const raw = localStorage.getItem(storeKey(chapterId));
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return null;
+    return new Map(arr as [string, InlineQuoteFinding[]][]);
+  } catch { return null; }
+}
+
+function persistChapter(
+  chapterId: number,
+  map: Map<string, InlineQuoteFinding[]>,
+  presentTexts: Set<string>,
+): void {
+  try {
+    const entries: [string, InlineQuoteFinding[]][] = [];
+    for (const [text, findings] of map) {
+      if (findings.length > 0 && presentTexts.has(text)) entries.push([text, findings]);
+    }
+    if (entries.length === 0) { localStorage.removeItem(storeKey(chapterId)); return; }
+    localStorage.setItem(storeKey(chapterId), JSON.stringify(entries.slice(-MAX_PERSISTED_PER_CHAPTER)));
+  } catch { /* storage penuh / tak tersedia → abaikan, cache memori tetap jalan */ }
+}
+
 function getChapterMap(chapterId: number): Map<string, InlineQuoteFinding[]> {
   let m = chapterCache.get(chapterId);
   if (!m) { m = new Map(); chapterCache.set(chapterId, m); }
+  // Hidrasi sekali per tab dari localStorage (tanpa menimpa hasil sesi yang lebih baru).
+  if (!hydratedChapters.has(chapterId)) {
+    hydratedChapters.add(chapterId);
+    const persisted = loadPersisted(chapterId);
+    if (persisted) for (const [k, v] of persisted) if (!m.has(k)) m.set(k, v);
+  }
   return m;
+}
+
+/** Kumpulkan teks paragraf yang sedang ada di dokumen (untuk pruning & display). */
+function collectPresentTexts(ed: Editor): Set<string> {
+  const present = new Set<string>();
+  ed.state.doc.descendants(node => {
+    if (node.isTextblock) {
+      const t = node.textContent.trim();
+      if (t) present.add(t);
+    }
+  });
+  return present;
 }
 
 function isEnabled(): boolean {
@@ -86,16 +144,10 @@ export function useEditorAIConsistency(
   const refresh = useCallback(() => {
     const ed = editorRef.current;
     if (!ed || ed.isDestroyed) return;
-    const map = chapterCache.get(chapterIdRef.current);
+    const map = getChapterMap(chapterIdRef.current); // memicu hidrasi localStorage bila perlu
     const flat: InlineQuoteFinding[] = [];
-    if (map && map.size) {
-      const present = new Set<string>();
-      ed.state.doc.descendants(node => {
-        if (node.isTextblock) {
-          const t = node.textContent.trim();
-          if (t) present.add(t);
-        }
-      });
+    if (map.size) {
+      const present = collectPresentTexts(ed);
       for (const [paraText, findings] of map) {
         if (present.has(paraText)) flat.push(...findings);
       }
@@ -138,6 +190,9 @@ export function useEditorAIConsistency(
         }));
       map.set(text, mapped); // simpan (termasuk []) agar tak diperiksa ulang
       refresh();
+      // Tulis ke localStorage agar garis bawah bertahan setelah reload halaman.
+      const edNow = editorRef.current;
+      if (edNow && !edNow.isDestroyed) persistChapter(chapterIdRef.current, map, collectPresentTexts(edNow));
       return mapped.length;
     } finally {
       if (!editorRef.current?.isDestroyed) setChecking(false);
