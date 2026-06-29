@@ -64,7 +64,20 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'workshop';
+
+/**
+ * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
+ * untuk membuat/menyempurnakan satu entri Codex. Bersifat in-memory (tidak dipersist
+ * ke localStorage) — refresh halaman akan kembali ke panel sebelumnya.
+ */
+export interface WorkshopTarget {
+  mode: 'create' | 'edit';
+  /** Diisi pada mode 'edit' (Fase 2): id entri Codex yang sedang dibahas. */
+  entryId?: number;
+  /** Prefill nama saat membuka dari deteksi chat atau tombol cepat. */
+  seedName?: string;
+}
 
 /**
  * Satu temuan dari pengecek konsistensi: sebuah bagian bab yang berpotensi

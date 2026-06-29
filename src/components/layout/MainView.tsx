@@ -28,6 +28,7 @@ const ContinuityDashboard = lazy(() => import('@/src/features/consistency/compon
 const CharacterArcPanel = lazy(() => import('@/src/features/consistency/components/CharacterArcPanel').then(m => ({ default: m.CharacterArcPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
+const CodexWorkshopPanel = lazy(() => import('@/src/features/codex-workshop/components/CodexWorkshopPanel').then(m => ({ default: m.CodexWorkshopPanel })));
 
 function LoadingFallback() {
   return (
@@ -201,6 +202,12 @@ export function MainView() {
                 <ErrorLogPanel />
               </Suspense>
             </ViewContainer>
+          )}
+
+          {viewMode === 'workshop' && projectId && (
+            <Suspense key="workshop" fallback={<LoadingFallback />}>
+              <CodexWorkshopPanel projectId={projectId} />
+            </Suspense>
           )}
         </AnimatePresence>
       </div>

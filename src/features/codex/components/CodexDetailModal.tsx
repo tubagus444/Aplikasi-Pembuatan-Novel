@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2 } from 'lucide-react';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical } from 'lucide-react';
 import { CodexEntry, Relationship } from '@/src/types';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
@@ -39,6 +40,7 @@ export function CodexDetailModal({
   const accent = getCategoryAccent(entry.category, categories);
   const linkTargets = entries.filter(e => e.id !== entry.id);
 
+  const { openWorkshop } = useNavigation();
   const [bondType, setBondType] = useState('Friend');
   const [bondTarget, setBondTarget] = useState<number | ''>('');
 
@@ -83,7 +85,14 @@ export function CodexDetailModal({
           </div>
           
           <div className="flex items-center gap-2">
-            <button 
+            <button
+              onClick={() => { onClose(); openWorkshop({ mode: 'edit', entryId: entry.id!, seedName: entry.name }); }}
+              className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-xl transition-all"
+              title="Diskusikan & sempurnakan dengan AI (Lokakarya)"
+            >
+              <FlaskConical size={20} />
+            </button>
+            <button
               onClick={() => { onClose(); onEdit(entry); }}
               className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-xl transition-all"
               title="Ubah Entri"
