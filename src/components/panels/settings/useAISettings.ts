@@ -40,6 +40,8 @@ export function useAISettings() {
   });
   const [cacheTtl, setCacheTtl] = useState<string>(DEFAULT_CLAUDE_CACHE_TTL);
   const [rewriteTemp, setRewriteTemp] = useState<string>(String(DEFAULT_REWRITE_TEMPERATURE));
+  // Konsistensi inline berbasis AI (opsional; default mati = nol token).
+  const [inlineConsistencyAI, setInlineConsistencyAI] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export function useAISettings() {
     });
     setCacheTtl(localStorage.getItem('ai_claude_cache_ttl') === '5m' ? '5m' : DEFAULT_CLAUDE_CACHE_TTL);
     setRewriteTemp(localStorage.getItem('ai_rewrite_temperature') || String(DEFAULT_REWRITE_TEMPERATURE));
+    setInlineConsistencyAI(localStorage.getItem('ai_inline_consistency') === 'true');
   }, []);
 
   const handleSave = () => {
@@ -96,6 +99,7 @@ export function useAISettings() {
     localStorage.setItem('ai_max_cached_lore_chars', maxLoreChars);
     localStorage.setItem('ai_claude_cache_ttl', cacheTtl);
     localStorage.setItem('ai_rewrite_temperature', rewriteTemp);
+    localStorage.setItem('ai_inline_consistency', inlineConsistencyAI ? 'true' : 'false');
 
     // Override model tugas-ringan per provider; kosong = pakai default hardcoded.
     (['google', 'groq', 'openrouter', 'claude', 'huggingface'] as const).forEach((p) => {
@@ -153,6 +157,7 @@ export function useAISettings() {
     lightModels, setLightModels,
     cacheTtl, setCacheTtl,
     rewriteTemp, setRewriteTemp,
+    inlineConsistencyAI, setInlineConsistencyAI,
     isSaved,
     handleSave,
   };

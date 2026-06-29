@@ -27,6 +27,8 @@ export function AISettingsTab() {
         setCacheTtl={s.setCacheTtl}
         rewriteTemp={s.rewriteTemp}
         setRewriteTemp={s.setRewriteTemp}
+        inlineConsistencyAI={s.inlineConsistencyAI}
+        setInlineConsistencyAI={s.setInlineConsistencyAI}
       />
 
       <ApiCredentials

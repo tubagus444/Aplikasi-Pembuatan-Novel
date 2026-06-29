@@ -8,11 +8,12 @@ import { useEditorSetup } from '@/src/features/editor/hooks/useEditorSetup';
 import { useEditorSave } from '@/src/features/editor/hooks/useEditorSave';
 import { useEditorCodexSync } from '@/src/features/editor/hooks/useEditorCodex';
 import { useEditorConsistency } from '@/src/features/editor/hooks/useEditorConsistency';
+import { useEditorAIConsistency } from '@/src/features/editor/hooks/useEditorAIConsistency';
 import { useTypewriterMode } from '@/src/features/editor/hooks/useTypewriterMode';
 import { useEditorAI } from '@/src/features/editor/hooks/useEditorAI';
 import { useEditorSearch } from '@/src/features/editor/hooks/useEditorSearch';
 import { CodexEntry, TimelineEvent } from '@/src/types';
-import { InlineChapterRef, InlineConsistencyFlag } from '@/src/lib/inlineConsistency';
+import { InlineChapterRef, InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsistency';
 
 interface UseNovelEditorProps {
   chapterId: number;
@@ -51,6 +52,9 @@ export function useNovelEditor({
   // Tanda konsistensi inline dibaca extension lewat accessor stabil ini.
   const consistencyFlagsRef = useRef<Map<number, InlineConsistencyFlag>>(new Map());
   const getConsistencyFlags = useCallback(() => consistencyFlagsRef.current, []);
+  // Temuan kutipan dari lapisan AI inline opsional (Fase 2).
+  const consistencyQuotesRef = useRef<InlineQuoteFinding[]>([]);
+  const getConsistencyQuotes = useCallback(() => consistencyQuotesRef.current, []);
 
   const editor = useEditorSetup({
     chapterId,
@@ -59,10 +63,17 @@ export function useNovelEditor({
     onCodexClick: (id, e) => setActiveCodexPopup({ id, x: e.clientX, y: e.clientY }),
     onUpdate: handleEditorUpdate,
     getConsistencyFlags,
+    getConsistencyQuotes,
   });
 
   useEditorCodexSync(editor, codexEntries);
   useEditorConsistency(editor, consistencyFlagsRef, chapterId, chapters, codexEntries, timeline);
+  useEditorAIConsistency(editor, consistencyQuotesRef, chapterId, {
+    chapterTitle: chapter?.title,
+    codexEntries,
+    bibleRules,
+    relationships,
+  });
 
   const { title, handleTitleChange, onEditorUpdate } = useEditorSave({
     chapterId,

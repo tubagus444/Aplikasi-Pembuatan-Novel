@@ -68,6 +68,11 @@ export interface ConsistencyParams {
    */
   timelineSummary?: string;
   provider?: string;
+  /**
+   * Override kunci abort & label actionType. Default 'consistency'. Pengecekan
+   * inline memakai 'consistency-inline' agar tak saling membatalkan dengan panel.
+   */
+  actionType?: string;
   onRetry?: (attempt: number, error: any, provider: string) => void;
 }
 

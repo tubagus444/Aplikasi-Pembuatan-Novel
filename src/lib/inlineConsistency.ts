@@ -24,6 +24,18 @@ export interface InlineConsistencyFlag {
   message: string;
 }
 
+/**
+ * Temuan berbasis KUTIPAN dari lapisan AI opsional (Fase 2). Berbeda dari flag
+ * deterministik (yang menggarisbawahi nama karakter), ini menggarisbawahi potongan
+ * teks verbatim yang dianggap kontradiktif oleh AI.
+ */
+export interface InlineQuoteFinding {
+  /** Potongan teks verbatim dari paragraf yang ditandai. */
+  quote: string;
+  severity: 'high' | 'medium' | 'low';
+  message: string;
+}
+
 export interface InlineChapterRef {
   id: number;
   order: number;

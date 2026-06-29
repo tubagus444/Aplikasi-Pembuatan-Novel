@@ -13,6 +13,8 @@ interface Props {
   setCacheTtl: (v: string) => void;
   rewriteTemp: string;
   setRewriteTemp: (v: string) => void;
+  inlineConsistencyAI: boolean;
+  setInlineConsistencyAI: (v: boolean) => void;
 }
 
 export function AdvancedAIOptimization({
@@ -21,6 +23,7 @@ export function AdvancedAIOptimization({
   lightModels, setLightModels,
   cacheTtl, setCacheTtl,
   rewriteTemp, setRewriteTemp,
+  inlineConsistencyAI, setInlineConsistencyAI,
 }: Props) {
   return (
     <section className="space-y-4">
@@ -119,6 +122,29 @@ export function AdvancedAIOptimization({
               {Number(rewriteTemp) === DEFAULT_REWRITE_TEMPERATURE && ' (default)'}
             </span>
             <span>Kreatif</span>
+          </div>
+        </div>
+
+        {/* Konsistensi inline berbasis AI (opsional) */}
+        <div className="md:col-span-2 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <label htmlFor="inline-consistency-ai" className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                Konsistensi Inline AI <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 align-middle">Boros token</span>
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Saat menulis, AI memeriksa <strong>paragraf yang sedang kamu ketik</strong> terhadap Codex/Bible setelah jeda berhenti mengetik, lalu menggarisbawahi kalimat yang berpotensi kontradiktif (warna ungu). <strong>Memakai token tiap paragraf</strong> yang diperiksa. Garis bawah deterministik (timeline) tetap aktif gratis meski ini dimatikan.
+              </p>
+            </div>
+            <button
+              id="inline-consistency-ai"
+              role="switch"
+              aria-checked={inlineConsistencyAI}
+              onClick={() => setInlineConsistencyAI(!inlineConsistencyAI)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${inlineConsistencyAI ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${inlineConsistencyAI ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
           </div>
         </div>
       </div>

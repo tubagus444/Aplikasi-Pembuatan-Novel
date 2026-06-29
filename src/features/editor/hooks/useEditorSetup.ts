@@ -14,7 +14,7 @@ import { CustomAIKeymap } from '@/src/features/editor/hooks/useEditorAI';
 import tippy from 'tippy.js';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry } from '@/src/types';
-import { InlineConsistencyFlag } from '@/src/lib/inlineConsistency';
+import { InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsistency';
 import { useRef, useEffect } from 'react';
 
 interface UseEditorSetupProps {
@@ -25,6 +25,8 @@ interface UseEditorSetupProps {
   onUpdate: (props: { editor: Editor }) => void;
   /** Akses peta tanda konsistensi inline (codexId → flag), stabil identitasnya. */
   getConsistencyFlags?: () => Map<number, InlineConsistencyFlag>;
+  /** Akses temuan kutipan dari lapisan AI inline (Fase 2), stabil identitasnya. */
+  getConsistencyQuotes?: () => InlineQuoteFinding[];
 }
 
 const CustomMention = Mention.extend({
@@ -40,11 +42,12 @@ const CustomMention = Mention.extend({
   },
 });
 
-export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags }: UseEditorSetupProps) {
+export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags, getConsistencyQuotes }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   const onUpdateRef = useRef(onUpdate);
-  // Akses flag konsistensi lewat ref agar closure extension selalu baca versi terkini.
+  // Akses flag/temuan konsistensi lewat ref agar closure extension selalu baca versi terkini.
   const getFlagsRef = useRef(getConsistencyFlags);
+  const getQuotesRef = useRef(getConsistencyQuotes);
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;
@@ -53,6 +56,10 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
   useEffect(() => {
     getFlagsRef.current = getConsistencyFlags;
   }, [getConsistencyFlags]);
+
+  useEffect(() => {
+    getQuotesRef.current = getConsistencyQuotes;
+  }, [getConsistencyQuotes]);
 
   useEffect(() => {
     onUpdateRef.current = onUpdate;
@@ -73,6 +80,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
       ConsistencyUnderline.configure({
         getEntries: () => codexEntriesRef.current,
         getFlags: () => getFlagsRef.current?.() ?? new Map(),
+        getQuoteFindings: () => getQuotesRef.current?.() ?? [],
         onOpenCodex: (entryId, event) => onCodexClick(entryId, event),
       }),
       RevisionComment,

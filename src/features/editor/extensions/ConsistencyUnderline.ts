@@ -1,24 +1,27 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
+import { Node as PMNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { getCodexMatches } from '@/src/services/contextEngine';
-import { InlineConsistencyFlag } from '@/src/lib/inlineConsistency';
+import { InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsistency';
 
 /**
- * Konsistensi inline — plumbing garis bawah di editor (Fase 1).
+ * Konsistensi inline — plumbing garis bawah di editor.
  *
- * Menggambar garis bawah bergelombang pada nama karakter yang ditandai oleh
- * lapisan deterministik (`getFlags`), dengan tooltip pesan + klik untuk membuka
- * Codex. Posisi nama diperoleh lewat worker Aho-Corasick (`getCodexMatches`) yang
- * sama dengan PassiveCodexHighlight, jadi pencocokan & boundary konsisten.
+ * Dua sumber dekorasi memakai plumbing yang sama:
+ *   • DETERMINISTIK (Fase 1) — `getFlags`: codexId → flag. Menggarisbawahi
+ *     kemunculan nama karakter (posisi via getCodexMatches/Aho-Corasick).
+ *   • AI OPSIONAL (Fase 2) — `getQuoteFindings`: kutipan verbatim yang ditandai
+ *     AI. Menggarisbawahi potongan teks itu (warna ungu, dibedakan dari
+ *     deterministik). Hanya terisi bila toggle AI inline aktif.
  *
- * Lapisan AI opsional (Fase 2) cukup menambah entri ke peta `getFlags` — tak
- * perlu menyentuh extension ini.
+ * Klik nama (deterministik) membuka Codex; garis bawah AI bersifat tooltip.
  */
 
 interface ConsistencyUnderlineOptions {
   getEntries: () => { id?: number; name: string; aliases?: string[] }[];
   getFlags: () => Map<number, InlineConsistencyFlag>;
+  getQuoteFindings?: () => InlineQuoteFinding[];
   onOpenCodex?: (entryId: number, event: MouseEvent) => void;
 }
 
@@ -30,15 +33,60 @@ const SEVERITY_COLOR: Record<InlineConsistencyFlag['severity'], string> = {
   low: '#0ea5e9',    // biru langit
 };
 
-function decoStyle(severity: InlineConsistencyFlag['severity']): string {
-  return [
+function decoStyle(severity: InlineConsistencyFlag['severity'], ai = false): string {
+  const color = ai ? '#8b5cf6' /* ungu: bedakan temuan AI */ : SEVERITY_COLOR[severity];
+  const base = [
     'text-decoration: underline',
     'text-decoration-style: wavy',
-    `text-decoration-color: ${SEVERITY_COLOR[severity]}`,
+    `text-decoration-color: ${color}`,
     'text-decoration-skip-ink: none',
     'text-underline-offset: 3px',
     'cursor: help',
-  ].join('; ');
+  ];
+  if (ai) base.push('background-color: rgba(139, 92, 246, 0.08)');
+  return base.join('; ');
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Dekorasi berbasis kutipan verbatim (temuan AI) — pencarian literal di dokumen. */
+function buildQuoteDecorations(doc: PMNode, findings: InlineQuoteFinding[]): Decoration[] {
+  const decorations: Decoration[] = [];
+  for (const f of findings) {
+    const quote = (f.quote || '').trim();
+    if (quote.length < 3) continue;
+    let regex: RegExp;
+    try {
+      regex = new RegExp(escapeRegExp(quote), 'gi');
+    } catch {
+      continue;
+    }
+    let occurrences = 0;
+    doc.descendants((node, pos) => {
+      if (!node.isText || !node.text || occurrences >= 10) return;
+      let m: RegExpExecArray | null;
+      regex.lastIndex = 0;
+      while ((m = regex.exec(node.text)) !== null && occurrences < 10) {
+        const start = pos + m.index;
+        const end = start + m[0].length;
+        if (start < doc.content.size && end <= doc.content.size) {
+          decorations.push(
+            Decoration.inline(start, end, {
+              nodeName: 'span',
+              class: 'consistency-underline consistency-ai',
+              style: decoStyle(f.severity, true),
+              title: f.message,
+            })
+          );
+          occurrences++;
+        }
+        if (m.index === regex.lastIndex) regex.lastIndex++; // jaga match nol-panjang
+      }
+    });
+  }
+  return decorations;
 }
 
 export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions>({
@@ -48,6 +96,7 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
     return {
       getEntries: () => [],
       getFlags: () => new Map(),
+      getQuoteFindings: () => [],
       onOpenCodex: undefined,
     };
   },
@@ -109,13 +158,22 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
 
               debounceTimer = setTimeout(async () => {
                 const flags = options.getFlags();
+                const quoteFindings = options.getQuoteFindings?.() ?? [];
                 const entries = options.getEntries();
                 const flagged = entries.filter(e => e.id != null && flags.has(e.id!));
 
+                // Dekorasi kutipan AI (sinkron) dihitung di akhir terhadap doc terkini.
+                const dispatchAll = (nameDecos: Decoration[]) => {
+                  if (view.isDestroyed || myGeneration !== runGeneration) return;
+                  const quoteDecos = buildQuoteDecorations(view.state.doc, quoteFindings);
+                  view.dispatch(view.state.tr.setMeta(
+                    'updateConsistencyDecos',
+                    DecorationSet.create(view.state.doc, [...nameDecos, ...quoteDecos])
+                  ));
+                };
+
                 if (flagged.length === 0) {
-                  if (!view.isDestroyed) {
-                    view.dispatch(view.state.tr.setMeta('updateConsistencyDecos', DecorationSet.empty));
-                  }
+                  dispatchAll([]);
                   return;
                 }
 
@@ -128,12 +186,12 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
                   const matches = await getCodexMatches(chunks, flagged as any);
                   if (view.isDestroyed || myGeneration !== runGeneration) return;
 
-                  const decorations: Decoration[] = [];
+                  const nameDecos: Decoration[] = [];
                   matches.forEach(m => {
                     const flag = flags.get(m.codexId);
                     if (!flag) return;
                     if (m.start < view.state.doc.content.size && m.end <= view.state.doc.content.size) {
-                      decorations.push(
+                      nameDecos.push(
                         Decoration.inline(m.start, m.end, {
                           nodeName: 'span',
                           class: 'consistency-underline',
@@ -145,7 +203,7 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
                     }
                   });
 
-                  view.dispatch(view.state.tr.setMeta('updateConsistencyDecos', DecorationSet.create(view.state.doc, decorations)));
+                  dispatchAll(nameDecos);
                 } catch (err) {
                   console.error('Failed to compute consistency underlines', err);
                 }

@@ -625,8 +625,12 @@ export async function checkConsistency(params: ConsistencyParams): Promise<{ fin
 
   const userPrompt = AI_PROMPTS.CONSISTENCY.USER(params.chapterTitle || '', chapterText);
 
+  // Kunci abort terpisah (mis. 'consistency-inline') agar pengecekan inline & panel
+  // tak saling membatalkan. Label actionType callAI tetap 'consistency' (routing
+  // model analitis + logging sama).
+  const abortKey = params.actionType || 'consistency';
   const controller = new AbortController();
-  registerAbort('consistency', controller);
+  registerAbort(abortKey, controller);
   try {
     const res = await callAI({
       systemInstruction,
@@ -648,7 +652,7 @@ export async function checkConsistency(params: ConsistencyParams): Promise<{ fin
     if (error instanceof AIError) throw error;
     throw new AIError(error instanceof Error ? error.message : 'Pengecekan konsistensi gagal.', 'API_ERROR');
   } finally {
-    unregisterAbort('consistency', controller);
+    unregisterAbort(abortKey, controller);
   }
 }
 
