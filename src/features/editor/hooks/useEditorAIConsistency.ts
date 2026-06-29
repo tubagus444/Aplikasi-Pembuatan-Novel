@@ -200,8 +200,25 @@ export function useEditorAIConsistency(
   }, [refresh]);
 
   // Pulihkan garis bawah dari cache setiap editor/bab termuat — pindah panel = gratis.
+  // Saat RELOAD halaman, konten bab dimuat async via setContent(emitUpdate:false)
+  // SETELAH editor dibuat, jadi refresh pertama bisa kena dokumen kosong (tak ada
+  // paragraf → tak ada garis bawah). Pasang listener 'transaction' sekali untuk
+  // menggambar ulang begitu konten benar-benar masuk.
   useEffect(() => {
-    if (editor && !editor.isDestroyed) refresh();
+    if (!editor || editor.isDestroyed) return;
+    refresh(); // coba langsung — cukup bila konten sudah tersedia (mis. pindah panel)
+    let done = false;
+    const onTx = () => {
+      if (done || editor.isDestroyed) return;
+      if (editor.state.doc.content.size > 2) { // dokumen sudah berisi
+        done = true;
+        editor.off('transaction', onTx);
+        // tunda agar tak dispatch di tengah handler transaksi (cegah re-entrancy)
+        Promise.resolve().then(() => { if (!editor.isDestroyed) refresh(); });
+      }
+    };
+    editor.on('transaction', onTx);
+    return () => { editor.off('transaction', onTx); };
   }, [editor, chapterId, refresh]);
 
   // Mode OTOMATIS (opsional): cek paragraf aktif setelah idle saat menulis.
