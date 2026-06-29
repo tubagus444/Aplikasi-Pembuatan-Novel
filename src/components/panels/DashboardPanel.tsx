@@ -17,6 +17,20 @@ interface DashboardPanelProps {
   projectId: number;
 }
 
+// Label manusiawi untuk tiap actionType yang dicatat di aiUsageLogs (proxy.ts).
+// Catatan: 'chat' mencakup Studio Asisten DAN Scribble — keduanya memakai processChat.
+const ACTION_LABELS: Record<string, string> = {
+  rewrite: 'Tulis Ulang',
+  chat: 'Asisten (Studio & Scribble)',
+  consistency: 'Cek Konsistensi',
+  'consistency-inline': 'Konsistensi Inline',
+  extract: 'Saran Entitas',
+  expand: 'Perluas Codex',
+  summarize: 'Auto-Ringkasan',
+  other: 'Lainnya',
+};
+const actionLabel = (t: string) => ACTION_LABELS[t] || t;
+
 export function DashboardPanel({ projectId }: DashboardPanelProps) {
   const [storageInfo, setStorageInfo] = useState<{ usage: number, quota: number } | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -49,6 +63,10 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
     let promptTokensThisWeek = 0;
     let cachedTokensThisWeek = 0;
     const modelUsage: Record<string, number> = {};
+    // Rincian per fitur (actionType). prompt = input, completion = output,
+    // cached = bagian input yang dilayani dari cache (subset prompt).
+    type ActionAgg = { total: number; prompt: number; completion: number; cached: number; count: number };
+    const actionUsage: Record<string, ActionAgg> = {};
 
     logs.forEach(log => {
         if (log.timestamp > oneWeekAgo) {
@@ -65,10 +83,19 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
 
             const label = `${pName} (${log.model})`;
             modelUsage[label] = (modelUsage[label] || 0) + log.totalTokens;
+
+            const at = log.actionType || 'other';
+            const a = actionUsage[at] || (actionUsage[at] = { total: 0, prompt: 0, completion: 0, cached: 0, count: 0 });
+            a.total += log.totalTokens;
+            a.prompt += log.promptTokens || 0;
+            a.completion += log.completionTokens || 0;
+            a.cached += log.cachedTokens || 0;
+            a.count += 1;
         }
     });
 
     const topModels = Object.entries(modelUsage).sort((a,b) => b[1] - a[1]).slice(0, 3);
+    const actionBreakdown = Object.entries(actionUsage).sort((a, b) => b[1].total - a[1].total);
     // Rasio token input yang dilayani dari prompt cache (semakin tinggi = semakin hemat).
     const cacheHitRate = promptTokensThisWeek > 0
       ? Math.round((cachedTokensThisWeek / promptTokensThisWeek) * 100)
@@ -80,7 +107,8 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
       totalTokensThisWeek,
       cachedTokensThisWeek,
       cacheHitRate,
-      topModels
+      topModels,
+      actionBreakdown
     };
   }, [projectId]);
 
@@ -250,7 +278,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
         </motion.div>
 
         {/* Content Metrics */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-6 lg:col-span-6 flex flex-col">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-12 flex flex-col">
            <div className="flex items-center gap-4 mb-6">
              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl shadow-inner border border-amber-200/50 dark:border-amber-700/30">
                <Book size={24} />
@@ -261,7 +289,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
              </div>
            </div>
            
-           <div className="grid grid-cols-2 gap-4 flex-1 auto-rows-fr">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
                 <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{codexEntries.length}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Entri Codex</div>
@@ -282,7 +310,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
         </motion.div>
 
         {/* AI Metrics */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-6 lg:col-span-6 flex flex-col">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-12 flex flex-col">
            <div className="flex items-center justify-between mb-6">
              <div className="flex items-center gap-4">
                <div className="p-3 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 rounded-xl shadow-inner border border-fuchsia-200/50 dark:border-fuchsia-700/30">
@@ -295,24 +323,26 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
              </div>
            </div>
            
-           <div className="space-y-4 flex-1">
-             <div className="bg-fuchsia-50/50 dark:bg-fuchsia-900/10 rounded-2xl p-4 flex justify-between items-center border border-fuchsia-100 dark:border-fuchsia-900/20">
-               <div>
-                 <div className="text-2xl font-black text-fuchsia-700 dark:text-fuchsia-300">{(aiStats?.totalTokensThisWeek || 0).toLocaleString()}</div>
-                 <div className="text-xs font-semibold text-fuchsia-600/70 dark:text-fuchsia-400/70">Total Token (7 Hari Terakhir)</div>
-               </div>
-               <Network size={32} className="text-fuchsia-300/50 dark:text-fuchsia-700/50 stroke-1" />
-             </div>
-
-             <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-4 flex justify-between items-center border border-emerald-100 dark:border-emerald-900/20">
-               <div>
-                 <div className="flex items-baseline gap-2">
-                   <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{(aiStats?.cachedTokensThisWeek || 0).toLocaleString()}</span>
-                   <span className="text-sm font-bold text-emerald-600/80 dark:text-emerald-400/80">({aiStats?.cacheHitRate ?? 0}%)</span>
+           <div className="flex flex-col gap-4 flex-1">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="bg-fuchsia-50/50 dark:bg-fuchsia-900/10 rounded-2xl p-4 flex justify-between items-center border border-fuchsia-100 dark:border-fuchsia-900/20">
+                 <div>
+                   <div className="text-2xl font-black text-fuchsia-700 dark:text-fuchsia-300">{(aiStats?.totalTokensThisWeek || 0).toLocaleString()}</div>
+                   <div className="text-xs font-semibold text-fuchsia-600/70 dark:text-fuchsia-400/70">Total Token (7 Hari Terakhir)</div>
                  </div>
-                 <div className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70">Token dari Cache (Hemat Biaya Input)</div>
+                 <Network size={32} className="text-fuchsia-300/50 dark:text-fuchsia-700/50 stroke-1" />
                </div>
-               <Database size={32} className="text-emerald-300/50 dark:text-emerald-700/50 stroke-1" />
+
+               <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-4 flex justify-between items-center border border-emerald-100 dark:border-emerald-900/20">
+                 <div>
+                   <div className="flex items-baseline gap-2">
+                     <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{(aiStats?.cachedTokensThisWeek || 0).toLocaleString()}</span>
+                     <span className="text-sm font-bold text-emerald-600/80 dark:text-emerald-400/80">({aiStats?.cacheHitRate ?? 0}%)</span>
+                   </div>
+                   <div className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70">Token dari Cache (Hemat Biaya Input)</div>
+                 </div>
+                 <Database size={32} className="text-emerald-300/50 dark:text-emerald-700/50 stroke-1" />
+               </div>
              </div>
 
              <div className="grid grid-cols-3 gap-3">
@@ -330,6 +360,8 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
                 </div>
              </div>
 
+             {/* Dua panel rincian bersebelahan di layar lebar (kartu kini full-width). */}
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
              {/* #2 Model teratas (datanya sudah dihitung; sebelumnya tak ditampilkan) */}
              {aiStats?.topModels && aiStats.topModels.length > 0 && (
                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/80">
@@ -353,9 +385,40 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
                  </div>
                </div>
              )}
+
+             {/* Rincian token per fitur (actionType). Datanya sudah dicatat per-aksi di
+                 aiUsageLogs — di sini dikelompokkan agar tiap fitur AI terlihat porsinya. */}
+             {aiStats?.actionBreakdown && aiStats.actionBreakdown.length > 0 && (
+               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/80">
+                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Token per Fitur (7 Hari)</p>
+                 <div className="space-y-3">
+                   {aiStats.actionBreakdown.map(([type, agg]) => {
+                     const max = aiStats.actionBreakdown[0][1].total || 1;
+                     const pct = Math.max(5, Math.round((agg.total / max) * 100));
+                     return (
+                       <div key={type}>
+                         <div className="flex items-baseline justify-between gap-2 mb-1">
+                           <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate" title={`${agg.count}× pemanggilan`}>{actionLabel(type)}</span>
+                           <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400 shrink-0 tabular-nums">{agg.total.toLocaleString()}</span>
+                         </div>
+                         <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-1">
+                           <div className="h-full bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                         </div>
+                         <div className="flex items-center gap-x-3 text-[10px] font-mono text-slate-400 dark:text-slate-500 tabular-nums">
+                           <span title="Token input (prompt)">in {agg.prompt.toLocaleString()}</span>
+                           <span title="Token output (jawaban)">out {agg.completion.toLocaleString()}</span>
+                           {agg.cached > 0 && <span className="text-emerald-500/80" title="Token input dari cache">cache {agg.cached.toLocaleString()}</span>}
+                         </div>
+                       </div>
+                     );
+                   })}
+                 </div>
+               </div>
+             )}
+             </div>
            </div>
         </motion.div>
-        
+
         {/* System Details — di-de-emphasize jadi strip ringkas full-width (#4).
             Catatan: backups/snapshots/errors di-count seluruh DB (bukan per-proyek). */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }} className="col-span-1 md:col-span-12 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/60 px-5 py-4">
