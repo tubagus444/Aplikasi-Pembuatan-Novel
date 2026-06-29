@@ -68,7 +68,7 @@ export function useNovelEditor({
 
   useEditorCodexSync(editor, codexEntries);
   useEditorConsistency(editor, consistencyFlagsRef, chapterId, chapters, codexEntries, timeline);
-  useEditorAIConsistency(editor, consistencyQuotesRef, chapterId, {
+  const aiInlineChecking = useEditorAIConsistency(editor, consistencyQuotesRef, chapterId, {
     chapterTitle: chapter?.title,
     codexEntries,
     bibleRules,
@@ -111,6 +111,7 @@ export function useNovelEditor({
     title,
     handleTitleChange,
     isAiProcessing,
+    aiInlineChecking,
     retryStatus,
     rewritePreview,
     setRewritePreview,

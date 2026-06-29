@@ -14,7 +14,7 @@ interface Props {
   rewriteTemp: string;
   setRewriteTemp: (v: string) => void;
   inlineConsistencyAI: boolean;
-  setInlineConsistencyAI: (v: boolean) => void;
+  onToggleInlineConsistencyAI: () => void;
 }
 
 export function AdvancedAIOptimization({
@@ -23,7 +23,7 @@ export function AdvancedAIOptimization({
   lightModels, setLightModels,
   cacheTtl, setCacheTtl,
   rewriteTemp, setRewriteTemp,
-  inlineConsistencyAI, setInlineConsistencyAI,
+  inlineConsistencyAI, onToggleInlineConsistencyAI,
 }: Props) {
   return (
     <section className="space-y-4">
@@ -135,16 +135,24 @@ export function AdvancedAIOptimization({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Saat menulis, AI memeriksa <strong>paragraf yang sedang kamu ketik</strong> terhadap Codex/Bible setelah jeda berhenti mengetik, lalu menggarisbawahi kalimat yang berpotensi kontradiktif (warna ungu). <strong>Memakai token tiap paragraf</strong> yang diperiksa. Garis bawah deterministik (timeline) tetap aktif gratis meski ini dimatikan.
               </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 italic">
+                Tersimpan otomatis saat diklik (tak perlu tombol Simpan). Saat aktif & memeriksa, indikator muncul di editor.
+              </p>
             </div>
-            <button
-              id="inline-consistency-ai"
-              role="switch"
-              aria-checked={inlineConsistencyAI}
-              onClick={() => setInlineConsistencyAI(!inlineConsistencyAI)}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${inlineConsistencyAI ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${inlineConsistencyAI ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
+            <div className="flex flex-col items-center gap-1.5 shrink-0">
+              <button
+                id="inline-consistency-ai"
+                role="switch"
+                aria-checked={inlineConsistencyAI}
+                onClick={onToggleInlineConsistencyAI}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${inlineConsistencyAI ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${inlineConsistencyAI ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${inlineConsistencyAI ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                {inlineConsistencyAI ? 'Aktif' : 'Nonaktif'}
+              </span>
+            </div>
           </div>
         </div>
       </div>

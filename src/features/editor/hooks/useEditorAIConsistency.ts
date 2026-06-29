@@ -33,11 +33,13 @@ export function useEditorAIConsistency(
   quoteFindingsRef: React.MutableRefObject<InlineQuoteFinding[]>,
   chapterId: number,
   data: AIConsistencyData,
-) {
+): boolean {
   const dataRef = useRef(data);
   dataRef.current = data;
 
   const [enabled, setEnabled] = useState<boolean>(isEnabled);
+  /** true selagi AI memeriksa paragraf — dipakai untuk indikator di editor. */
+  const [checking, setChecking] = useState(false);
   const lastCheckedRef = useRef<string>('');
 
   // Toggle disimpan di Settings; reaksi lewat event 'storage' (di-dispatch handleSave).
@@ -75,6 +77,7 @@ export function useEditorAIConsistency(
 
       const d = dataRef.current;
       cancelAI(ACTION_TYPE); // batalkan pemeriksaan paragraf sebelumnya yang masih jalan
+      setChecking(true);
       try {
         const { findings } = await checkConsistency({
           chapterText: text,
@@ -102,6 +105,8 @@ export function useEditorAIConsistency(
         editor.view.dispatch(editor.state.tr.setMeta('forceUpdateConsistency', true));
       } catch (e: any) {
         // AbortError/koneksi: diam — jangan ganggu alur menulis dengan error inline.
+      } finally {
+        if (!cancelled) setChecking(false);
       }
     };
 
@@ -118,4 +123,6 @@ export function useEditorAIConsistency(
       cancelAI(ACTION_TYPE);
     };
   }, [editor, enabled, quoteFindingsRef]);
+
+  return checking && enabled;
 }

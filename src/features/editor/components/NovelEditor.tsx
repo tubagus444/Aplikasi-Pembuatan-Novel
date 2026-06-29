@@ -104,6 +104,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     title,
     handleTitleChange,
     isAiProcessing,
+    aiInlineChecking,
     retryStatus,
     rewritePreview,
     setRewritePreview,
@@ -321,6 +322,21 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
         </div>
 
         <AiProcessingOverlay isProcessing={isAiProcessing} retryStatus={retryStatus} />
+
+        {/* Indikator lapisan konsistensi inline AI sedang memeriksa paragraf */}
+        <AnimatePresence>
+          {aiInlineChecking && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="fixed bottom-20 right-4 sm:right-6 z-[90] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60 shadow-sm text-[11px] font-medium pointer-events-none"
+            >
+              <Loader2 size={12} className="animate-spin" />
+              Memeriksa konsistensi…
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </EditorLayout>
   );

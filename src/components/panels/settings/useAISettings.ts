@@ -91,6 +91,20 @@ export function useAISettings() {
     setInlineConsistencyAI(localStorage.getItem('ai_inline_consistency') === 'true');
   }, []);
 
+  // Toggle yang TERSIMPAN SEKETIKA (tanpa tombol Simpan) — switch on/off lebih
+  // intuitif bila langsung berlaku. Event 'storage' memberi tahu editor agar
+  // lapisan AI inline langsung aktif/nonaktif tanpa perlu refresh.
+  const toggleInlineConsistencyAI = () => {
+    setInlineConsistencyAI(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ai_inline_consistency', next ? 'true' : 'false');
+        window.dispatchEvent(new Event('storage'));
+      } catch { /* abaikan kuota/privasi */ }
+      return next;
+    });
+  };
+
   const handleSave = () => {
     localStorage.setItem('ai_provider', provider);
     localStorage.setItem('ai_context_depth', contextDepth);
@@ -157,7 +171,7 @@ export function useAISettings() {
     lightModels, setLightModels,
     cacheTtl, setCacheTtl,
     rewriteTemp, setRewriteTemp,
-    inlineConsistencyAI, setInlineConsistencyAI,
+    inlineConsistencyAI, setInlineConsistencyAI, toggleInlineConsistencyAI,
     isSaved,
     handleSave,
   };

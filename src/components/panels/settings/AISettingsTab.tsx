@@ -28,7 +28,7 @@ export function AISettingsTab() {
         rewriteTemp={s.rewriteTemp}
         setRewriteTemp={s.setRewriteTemp}
         inlineConsistencyAI={s.inlineConsistencyAI}
-        setInlineConsistencyAI={s.setInlineConsistencyAI}
+        onToggleInlineConsistencyAI={s.toggleInlineConsistencyAI}
       />
 
       <ApiCredentials
