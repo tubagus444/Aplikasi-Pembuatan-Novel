@@ -12,7 +12,8 @@ import {
   Flame,
   Pin,
   PinOff,
-  StickyNote
+  StickyNote,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -31,18 +32,24 @@ interface SelectionFloatingMenuProps {
   onInsertBelow?: () => void;
   onDiscardRewrite?: () => void;
   onAddComment?: () => void;
+  /** Cek konsistensi AI pada paragraf di posisi seleksi (manual, on-demand). */
+  onCheckConsistency?: () => void;
+  /** true selagi cek konsistensi berjalan (untuk spinner pada tombol). */
+  isCheckingConsistency?: boolean;
 }
 
-export function SelectionFloatingMenu({ 
-  editor, 
-  onAiAction, 
+export function SelectionFloatingMenu({
+  editor,
+  onAiAction,
   customActions = [],
   isAiProcessing = false,
   rewritePreview = null,
   onAcceptRewrite,
   onInsertBelow,
   onDiscardRewrite,
-  onAddComment
+  onAddComment,
+  onCheckConsistency,
+  isCheckingConsistency = false
 }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
   const [selectedText, setSelectedText] = useState('');
@@ -386,6 +393,24 @@ export function SelectionFloatingMenu({
                 </button>
 
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
+
+                {/* Cek konsistensi AI pada paragraf di posisi seleksi (on-demand) */}
+                {onCheckConsistency && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onCheckConsistency()}
+                      disabled={isCheckingConsistency}
+                      aria-label="Cek konsistensi paragraf ini dengan AI"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 font-semibold text-xs rounded-full transition-all shrink-0 text-violet-600 dark:text-violet-400 bg-violet-50 hover:bg-violet-100/70 dark:bg-violet-500/10 dark:hover:bg-violet-500/20 disabled:opacity-60"
+                      title="Periksa konsistensi paragraf ini terhadap Codex & Buku Cerita (pakai token)"
+                    >
+                      {isCheckingConsistency ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                      Cek Konsistensi
+                    </button>
+                    <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-0.5 shrink-0" />
+                  </>
+                )}
 
                 {/* Tambah catatan revisi pada teks terpilih */}
                 {onAddComment && (

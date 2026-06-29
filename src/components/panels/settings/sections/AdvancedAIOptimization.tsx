@@ -130,13 +130,13 @@ export function AdvancedAIOptimization({
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <label htmlFor="inline-consistency-ai" className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
-                Konsistensi Inline AI <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 align-middle">Boros token</span>
+                Cek Konsistensi Otomatis <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 align-middle">Boros token</span>
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Saat menulis, AI memeriksa <strong>paragraf yang sedang kamu ketik</strong> terhadap Codex/Bible setelah jeda berhenti mengetik, lalu menggarisbawahi kalimat yang berpotensi kontradiktif (warna ungu). <strong>Memakai token tiap paragraf</strong> yang diperiksa. Garis bawah deterministik (timeline) tetap aktif gratis meski ini dimatikan.
+                Bila aktif, AI memeriksa <strong>paragraf yang sedang kamu ketik</strong> terhadap Codex/Bible setelah jeda berhenti mengetik, lalu menggarisbawahi kalimat berpotensi kontradiktif (ungu). <strong>Memakai token tiap paragraf</strong> yang diperiksa. Kalau dimatikan, kamu tetap bisa memeriksa kapan saja lewat tombol <strong>"Cek Konsistensi"</strong> di menu seleksi teks (pilih teks → klik). Garis bawah deterministik (timeline) selalu aktif & gratis.
               </p>
               <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 italic">
-                Tersimpan otomatis saat diklik (tak perlu tombol Simpan). Saat aktif & memeriksa, indikator muncul di editor.
+                Tersimpan otomatis saat diklik (tak perlu tombol Simpan). Saat memeriksa, indikator muncul di editor.
               </p>
             </div>
             <div className="flex flex-col items-center gap-1.5 shrink-0">

@@ -68,12 +68,14 @@ export function useNovelEditor({
 
   useEditorCodexSync(editor, codexEntries);
   useEditorConsistency(editor, consistencyFlagsRef, chapterId, chapters, codexEntries, timeline);
-  const aiInlineChecking = useEditorAIConsistency(editor, consistencyQuotesRef, chapterId, {
-    chapterTitle: chapter?.title,
-    codexEntries,
-    bibleRules,
-    relationships,
-  });
+  const { checking: aiInlineChecking, checkAtSelection: checkConsistencySelection } = useEditorAIConsistency(
+    editor, consistencyQuotesRef, chapterId, {
+      chapterTitle: chapter?.title,
+      codexEntries,
+      bibleRules,
+      relationships,
+    }
+  );
 
   const { title, handleTitleChange, onEditorUpdate } = useEditorSave({
     chapterId,
@@ -112,6 +114,7 @@ export function useNovelEditor({
     handleTitleChange,
     isAiProcessing,
     aiInlineChecking,
+    checkConsistencySelection,
     retryStatus,
     rewritePreview,
     setRewritePreview,

@@ -19,6 +19,7 @@ import { EditorContent } from '@tiptap/react';
 import { SelectionFloatingMenu } from '@/src/features/editor/components/SelectionFloatingMenu';
 import { EditorPanelProvider } from '@/src/contexts/EditorPanelContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
+import { useToast } from '@/src/hooks/useToast';
 import { useGlobalEvents } from '@/src/hooks/useGlobalEvents';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 import { getCategoryLabel } from '@/src/lib/codexCategories';
@@ -74,6 +75,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   const { isFocusMode, setIsFocusMode } = useUI();
   const { pendingHighlight, clearPendingHighlight } = useNavigation();
   const { setActivePanel } = useEditorPanel();
+  const { toast } = useToast();
   const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -105,6 +107,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     handleTitleChange,
     isAiProcessing,
     aiInlineChecking,
+    checkConsistencySelection,
     retryStatus,
     rewritePreview,
     setRewritePreview,
@@ -161,6 +164,22 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     setFocusCommentId(commentId);
     setActivePanel('comments');
   }, [editor, setActivePanel]);
+
+  // Cek konsistensi AI manual pada paragraf terpilih (on-demand, hemat token).
+  const handleCheckConsistency = useCallback(async () => {
+    try {
+      const n = await checkConsistencySelection();
+      if (n < 0) {
+        toast.info('Pilih teks pada sebuah paragraf untuk diperiksa.');
+      } else if (n === 0) {
+        toast.success('Tidak ada potensi kontradiksi pada bagian ini.');
+      } else {
+        toast.warning(`${n} potensi kontradiksi ditemukan — lihat garis bawah ungu.`);
+      }
+    } catch {
+      toast.error('Gagal memeriksa konsistensi. Coba lagi.');
+    }
+  }, [checkConsistencySelection, toast]);
 
   // Editor-specific Global Events (Ctrl+H, etc)
   useGlobalEvents({
@@ -277,6 +296,8 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
             onInsertBelow={insertRewriteBelow}
             onDiscardRewrite={discardRewrite}
             onAddComment={handleAddComment}
+            onCheckConsistency={handleCheckConsistency}
+            isCheckingConsistency={aiInlineChecking}
           />
         )}
         
