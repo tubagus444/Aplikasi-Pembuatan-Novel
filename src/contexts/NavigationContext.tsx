@@ -12,7 +12,7 @@ import { useProject } from '@/src/contexts/ProjectContext';
 const VIEW_MODE_STORAGE_KEY = 'aether_view_mode';
 const VALID_VIEW_MODES: ViewMode[] = [
   'write', 'outline', 'codex', 'bible', 'settings', 'actions', 'relationships',
-  'guide', 'errors', 'brainstorm', 'dashboard', 'consistency', 'timeline', 'orphans',
+  'guide', 'errors', 'brainstorm', 'dashboard', 'consistency', 'timeline', 'orphans', 'continuity',
 ];
 
 /** Baca panel terakhir dari localStorage; fallback ke 'write' bila kosong/tidak valid. */
