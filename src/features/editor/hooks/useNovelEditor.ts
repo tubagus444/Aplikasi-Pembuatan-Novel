@@ -7,10 +7,12 @@ import { useState, useRef, useCallback } from 'react';
 import { useEditorSetup } from '@/src/features/editor/hooks/useEditorSetup';
 import { useEditorSave } from '@/src/features/editor/hooks/useEditorSave';
 import { useEditorCodexSync } from '@/src/features/editor/hooks/useEditorCodex';
+import { useEditorConsistency } from '@/src/features/editor/hooks/useEditorConsistency';
 import { useTypewriterMode } from '@/src/features/editor/hooks/useTypewriterMode';
 import { useEditorAI } from '@/src/features/editor/hooks/useEditorAI';
 import { useEditorSearch } from '@/src/features/editor/hooks/useEditorSearch';
-import { CodexEntry } from '@/src/types';
+import { CodexEntry, TimelineEvent } from '@/src/types';
+import { InlineChapterRef, InlineConsistencyFlag } from '@/src/lib/inlineConsistency';
 
 interface UseNovelEditorProps {
   chapterId: number;
@@ -21,6 +23,10 @@ interface UseNovelEditorProps {
   aiActions: any[];
   isTypewriterMode: boolean;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  /** Semua bab proyek (untuk konsistensi inline berbasis urutan). */
+  chapters?: InlineChapterRef[];
+  /** Peristiwa Timeline proyek (untuk konsistensi inline). */
+  timeline?: TimelineEvent[];
 }
 
 export function useNovelEditor({
@@ -31,7 +37,9 @@ export function useNovelEditor({
   relationships = [],
   aiActions,
   isTypewriterMode,
-  containerRef
+  containerRef,
+  chapters = [],
+  timeline = []
 }: UseNovelEditorProps) {
 
   const [activeCodexPopup, setActiveCodexPopup] = useState<{ id: number; x: number; y: number } | null>(null);
@@ -40,15 +48,21 @@ export function useNovelEditor({
   const onEditorUpdateRef = useRef<((props: any) => void) | null>(null);
   const handleEditorUpdate = useCallback((props: any) => onEditorUpdateRef.current?.(props), []);
 
+  // Tanda konsistensi inline dibaca extension lewat accessor stabil ini.
+  const consistencyFlagsRef = useRef<Map<number, InlineConsistencyFlag>>(new Map());
+  const getConsistencyFlags = useCallback(() => consistencyFlagsRef.current, []);
+
   const editor = useEditorSetup({
     chapterId,
     initialContent: chapter?.content,
     codexEntries,
     onCodexClick: (id, e) => setActiveCodexPopup({ id, x: e.clientX, y: e.clientY }),
     onUpdate: handleEditorUpdate,
+    getConsistencyFlags,
   });
 
   useEditorCodexSync(editor, codexEntries);
+  useEditorConsistency(editor, consistencyFlagsRef, chapterId, chapters, codexEntries, timeline);
 
   const { title, handleTitleChange, onEditorUpdate } = useEditorSave({
     chapterId,

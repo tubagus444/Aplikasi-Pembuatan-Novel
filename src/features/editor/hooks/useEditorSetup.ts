@@ -7,12 +7,14 @@ import TextAlign from '@tiptap/extension-text-align';
 import { SearchAndReplace } from '@/src/features/editor/extensions/SearchAndReplace';
 import { PassiveCodexHighlight } from '@/src/features/editor/extensions/PassiveCodexHighlight';
 import { SemanticHighlight } from '@/src/features/editor/extensions/SemanticHighlight';
+import { ConsistencyUnderline } from '@/src/features/editor/extensions/ConsistencyUnderline';
 import { RevisionComment } from '@/src/features/editor/extensions/RevisionComment';
 import { MentionList } from '@/src/features/editor/components/MentionList';
 import { CustomAIKeymap } from '@/src/features/editor/hooks/useEditorAI';
 import tippy from 'tippy.js';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry } from '@/src/types';
+import { InlineConsistencyFlag } from '@/src/lib/inlineConsistency';
 import { useRef, useEffect } from 'react';
 
 interface UseEditorSetupProps {
@@ -21,6 +23,8 @@ interface UseEditorSetupProps {
   codexEntries: CodexEntry[];
   onCodexClick: (entryId: number, event: MouseEvent) => void;
   onUpdate: (props: { editor: Editor }) => void;
+  /** Akses peta tanda konsistensi inline (codexId → flag), stabil identitasnya. */
+  getConsistencyFlags?: () => Map<number, InlineConsistencyFlag>;
 }
 
 const CustomMention = Mention.extend({
@@ -36,13 +40,19 @@ const CustomMention = Mention.extend({
   },
 });
 
-export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate }: UseEditorSetupProps) {
+export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   const onUpdateRef = useRef(onUpdate);
+  // Akses flag konsistensi lewat ref agar closure extension selalu baca versi terkini.
+  const getFlagsRef = useRef(getConsistencyFlags);
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;
   }, [codexEntries]);
+
+  useEffect(() => {
+    getFlagsRef.current = getConsistencyFlags;
+  }, [getConsistencyFlags]);
 
   useEffect(() => {
     onUpdateRef.current = onUpdate;
@@ -60,6 +70,11 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
         caseSensitive: false,
       }),
       SemanticHighlight,
+      ConsistencyUnderline.configure({
+        getEntries: () => codexEntriesRef.current,
+        getFlags: () => getFlagsRef.current?.() ?? new Map(),
+        onOpenCodex: (entryId, event) => onCodexClick(entryId, event),
+      }),
       RevisionComment,
       PassiveCodexHighlight.configure({
         getCodexEntries: () => codexEntriesRef.current,

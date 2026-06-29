@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { db } from '@/src/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   Loader2, 
   X, 
@@ -90,6 +91,14 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   const { codexEntries, aiActions, bibleRules, relationships, isLoading } = useProjectData(projectId);
   const { categories } = useCodexCategories(projectId);
 
+  // Data untuk konsistensi inline (Fase 1, deterministik): urutan bab + timeline.
+  const allChapters = useLiveQuery(() => db.chapters.where('projectId').equals(projectId).toArray(), [projectId]);
+  const timelineEvents = useLiveQuery(() => db.timeline.where('projectId').equals(projectId).toArray(), [projectId]);
+  const chapterRefs = useMemo(
+    () => (allChapters || []).filter(c => c.id != null).map(c => ({ id: c.id!, order: c.order, title: c.title })),
+    [allChapters]
+  );
+
   const {
     editor,
     title,
@@ -131,7 +140,9 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     relationships: relationships || [],
     aiActions: aiActions || [],
     isTypewriterMode,
-    containerRef
+    containerRef,
+    chapters: chapterRefs,
+    timeline: timelineEvents || []
   });
 
   // Tambah catatan revisi pada teks terpilih: bungkus selection dengan mark
