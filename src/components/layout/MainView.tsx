@@ -25,6 +25,7 @@ const AIAssistantPanel = lazy(() => import('@/src/features/assistant/components/
 const DashboardPanel = lazy(() => import('@/src/components/panels/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const ConsistencyPanel = lazy(() => import('@/src/features/consistency/components/ConsistencyPanel').then(m => ({ default: m.ConsistencyPanel })));
 const ContinuityDashboard = lazy(() => import('@/src/features/consistency/components/ContinuityDashboard').then(m => ({ default: m.ContinuityDashboard })));
+const CharacterArcPanel = lazy(() => import('@/src/features/consistency/components/CharacterArcPanel').then(m => ({ default: m.CharacterArcPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
 
@@ -182,6 +183,14 @@ export function MainView() {
             <ViewContainer key="continuity" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <ContinuityDashboard projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'arc' && projectId && (
+            <ViewContainer key="arc" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <CharacterArcPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

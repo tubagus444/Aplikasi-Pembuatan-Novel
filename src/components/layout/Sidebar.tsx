@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -106,6 +106,12 @@ export function Sidebar() {
                 onClick={() => handleViewChange('continuity')}
                 icon={<Network size={14} />}
                 label="Peta Kontinuitas"
+              />
+              <NavItem
+                active={viewMode === 'arc'}
+                onClick={() => handleViewChange('arc')}
+                icon={<Activity size={14} />}
+                label="Lensa Karakter"
               />
               <NavItem 
                 active={viewMode === 'actions'} 

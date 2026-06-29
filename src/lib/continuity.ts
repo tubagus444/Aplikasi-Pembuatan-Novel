@@ -72,6 +72,53 @@ export interface ContinuityOptions {
   gapThreshold?: number;
 }
 
+/** Indeks kemunculan entitas Codex di seluruh bab — dasar bersama analitik lokal. */
+export interface PresenceIndex {
+  /** Per bab (selaras urutan `chapters`): Map entityId → jumlah kemunculan di bab itu. */
+  perChapterCounts: Map<number, number>[];
+  /** Per entitas: indeks bab (unik, urut) tempat ia muncul + total kemunculan. */
+  byEntity: Map<number, { indices: number[]; mentions: number }>;
+}
+
+/**
+ * Pindai bab (teks polos) dengan Aho-Corasick atas nama+alias Codex, sekali jalan.
+ * Dipakai bersama oleh analisis kontinuitas dan lensa karakter agar tak ada
+ * divergensi pencocokan / scan ganda.
+ */
+export function buildPresenceIndex(chapters: ContinuityChapter[], codexEntries: CodexEntry[]): PresenceIndex {
+  const keywords: { word: string; data: number }[] = [];
+  for (const e of codexEntries) {
+    if (e.id == null) continue;
+    for (const term of [e.name, ...(e.aliases || [])]) {
+      const w = (term || '').trim();
+      if (w.length >= 2) keywords.push({ word: w, data: e.id });
+    }
+  }
+
+  const ac = keywords.length ? new AhoCorasick(keywords) : null;
+  const perChapterCounts: Map<number, number>[] = [];
+  const byEntity = new Map<number, { indices: number[]; mentions: number }>();
+
+  chapters.forEach((ch, idx) => {
+    const counts = new Map<number, number>();
+    if (ac && ch.content) {
+      for (const m of ac.search(ch.content)) {
+        const id = m.data as number;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    for (const [id, c] of counts) {
+      let p = byEntity.get(id);
+      if (!p) { p = { indices: [], mentions: 0 }; byEntity.set(id, p); }
+      p.indices.push(idx);
+      p.mentions += c;
+    }
+    perChapterCounts.push(counts);
+  });
+
+  return { perChapterCounts, byEntity };
+}
+
 /** Bangun laporan kontinuitas dari bab (terurut) + data Codex/relasi/timeline. */
 export function analyzeContinuity(
   chapters: ContinuityChapter[],
@@ -82,39 +129,12 @@ export function analyzeContinuity(
 ): ContinuityReport {
   const gapThreshold = options?.gapThreshold ?? 4;
 
-  // Kamus id→entri + keyword Aho-Corasick (nama & alias, min 2 huruf).
   const byId = new Map<number, CodexEntry>();
-  const keywords: { word: string; data: number }[] = [];
   for (const e of codexEntries) {
-    if (e.id == null) continue;
-    byId.set(e.id, e);
-    for (const term of [e.name, ...(e.aliases || [])]) {
-      const w = (term || '').trim();
-      if (w.length >= 2) keywords.push({ word: w, data: e.id });
-    }
+    if (e.id != null) byId.set(e.id, e);
   }
 
-  const ac = keywords.length ? new AhoCorasick(keywords) : null;
-
-  // presence: entityId → { indeks bab (unik, urut), total mention }
-  const presenceMap = new Map<number, { indices: number[]; mentions: number }>();
-  // Himpunan entitas per bab (untuk cek timeline & relasi).
-  const chapterEntities: Set<number>[] = [];
-
-  chapters.forEach((ch, idx) => {
-    const ids = new Set<number>();
-    if (ac && ch.content) {
-      for (const m of ac.search(ch.content)) {
-        const id = m.data as number;
-        ids.add(id);
-        let p = presenceMap.get(id);
-        if (!p) { p = { indices: [], mentions: 0 }; presenceMap.set(id, p); }
-        p.mentions++;
-      }
-    }
-    for (const id of ids) presenceMap.get(id)!.indices.push(idx);
-    chapterEntities.push(ids);
-  });
+  const { perChapterCounts, byEntity: presenceMap } = buildPresenceIndex(chapters, codexEntries);
 
   const presence: EntityPresence[] = [];
   for (const [id, info] of presenceMap) {
@@ -192,7 +212,7 @@ export function analyzeContinuity(
     if (ev.chapterId == null || !ev.characterIds?.length) continue;
     const chIdx = chapters.findIndex(c => c.id === ev.chapterId);
     if (chIdx < 0) continue;
-    const present = chapterEntities[chIdx];
+    const present = perChapterCounts[chIdx];
     const missing = ev.characterIds.filter(cid => !present.has(cid));
     const names = missing.map(cid => byId.get(cid)?.name).filter(Boolean) as string[];
     if (!names.length) continue;
