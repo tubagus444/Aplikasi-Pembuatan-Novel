@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Book, FileText, Database, LayoutList, Share2,
   Zap, Cpu, Target, PenTool, Key, Sparkles, Coins, Lightbulb,
-  BrainCircuit, ChevronRight, Info, BookOpen,
+  BrainCircuit, ChevronRight, ChevronDown, Info, BookOpen,
   MousePointer2, Command, ShieldCheck, ArrowRight,
   ReplaceAll, History, CalendarClock, UserSearch, MessagesSquare,
   Gauge, Cloud, FileDown, Wand2, AtSign, Layers,
@@ -31,11 +31,21 @@ interface FeatureItem {
 
 export function GuidePanel() {
   const [activeSection, setActiveSection] = useState('getting-started');
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const { setViewMode } = useNavigation();
   const { setIsReplaceOpen, setIsExportOpen } = useUI();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const go = (view: ViewMode) => () => setViewMode(view);
+
+  const toggleCard = (id: string) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const sections = [
     { id: 'getting-started', title: 'Mulai di Sini', icon: <Zap size={16} />, sub: false },
@@ -315,7 +325,7 @@ export function GuidePanel() {
       howItWorks: 'Aplikasi memakai prinsip BYOK — kunci API disimpan lokal di browser Anda, tidak di server. Bila satu penyedia bermasalah, sistem otomatis mencoba penyedia cadangan.',
       howToUse: (
         <ul className="list-disc pl-5 space-y-2 mt-2 text-slate-700 dark:text-slate-300 font-medium">
-          <li>Masukkan kunci untuk penyedia pilihan (mis. Google/Gemini, Claude, Groq, OpenRouter) dan pilih modelnya.</li>
+          <li>Masukkan kunci untuk penyedia pilihan (mis. Google/Gemini, Claude, Groq, OpenRouter, Hugging Face) dan pilih modelnya.</li>
           <li>Atur <strong>"Kedalaman Konteks"</strong> untuk menyeimbangkan kualitas vs hemat token.</li>
           <li>Di <strong>"Optimasi AI Lanjutan"</strong>: batasi lore yang di-cache, pilih model tugas-ringan, dan atur masa hidup cache.</li>
         </ul>
@@ -458,91 +468,85 @@ export function GuidePanel() {
     { key: 'Esc', action: 'Tutup panel / keluar mode' },
   ];
 
-  // Scroll spy
-  useEffect(() => {
-    const scrollContainer = containerRef.current?.parentElement;
-    if (!scrollContainer) return;
-
-    const handleScroll = () => {
-      const scrollPosition = scrollContainer.scrollTop + 150;
-      const scrollSections = sections
-        .map(s => {
-          const element = document.getElementById(s.id);
-          return element ? { id: s.id, offset: element.offsetTop } : null;
-        })
-        .filter(Boolean) as { id: string; offset: number }[];
-
-      for (let i = scrollSections.length - 1; i >= 0; i--) {
-        if (scrollPosition >= scrollSections[i].offset) {
-          setActiveSection(scrollSections[i].id);
-          break;
-        }
-      }
-    };
-
-    scrollContainer.addEventListener('scroll', handleScroll);
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [sections]);
-
-  const scrollTo = (id: string) => {
-    const element = document.getElementById(id);
-    const scrollContainer = containerRef.current?.parentElement;
-    if (element && scrollContainer) {
-      scrollContainer.scrollTo({ top: element.offsetTop - 40, behavior: 'smooth' });
-    }
-  };
-
-  const handleBackToTop = () => {
+  const selectTab = (id: string) => {
+    setActiveSection(id);
     containerRef.current?.parentElement?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const renderFeatureCard = (item: FeatureItem) => (
-    <motion.div
-      key={item.id} id={item.id}
-      initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }}
-      className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group overflow-hidden scroll-mt-24"
-    >
-      <div className="p-8 md:p-10 flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/3 flex flex-col">
-          <div className={cn('w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-inner', item.bg)}>
+  const renderFeatureCard = (item: FeatureItem) => {
+    const isOpen = expandedCards.has(item.id);
+    return (
+      <motion.div
+        key={item.id} id={item.id}
+        initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }}
+        className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-sm hover:shadow-md transition-shadow group overflow-hidden scroll-mt-24"
+      >
+        {/* Header — selalu tampil, klik untuk expand */}
+        <button
+          type="button"
+          onClick={() => toggleCard(item.id)}
+          aria-expanded={isOpen}
+          className="w-full text-left p-6 md:p-8 flex items-start gap-5"
+        >
+          <div className={cn('w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center shadow-inner', item.bg)}>
             {item.icon}
           </div>
-          <span className="inline-block self-start text-[10px] font-bold uppercase tracking-tighter text-slate-500 dark:text-slate-400 mb-3 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
-            {item.badge}
-          </span>
-          <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-tight mb-4">{item.title}</h3>
-          <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{item.description}</p>
-        </div>
-
-        <div className="flex-1 space-y-6">
-          <div className="bg-slate-50 dark:bg-slate-800/20 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-800 relative">
-            <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
-              <Info size={14} className="text-indigo-500" /> Bagaimana ia bekerja?
-            </div>
-            <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm font-medium">{item.howItWorks}</p>
-
-            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
-                <MousePointer2 size={14} className="text-indigo-500" /> Panduan Penggunaan
-              </div>
-              <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">{item.howToUse}</div>
-            </div>
-
-            <div className="mt-8 pt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={item.action}
-                className="flex items-center gap-2 text-xs font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md group/try"
-              >
-                {item.actionLabel}
-                <ChevronRight size={14} className="group-hover/try:translate-x-1 transition-transform" />
-              </button>
-            </div>
+          <div className="flex-1 min-w-0">
+            <span className="inline-block text-[10px] font-bold uppercase tracking-tighter text-slate-500 dark:text-slate-400 mb-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
+              {item.badge}
+            </span>
+            <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight mb-2">{item.title}</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed text-sm">{item.description}</p>
           </div>
-        </div>
-      </div>
-    </motion.div>
-  );
+          <ChevronDown
+            size={22}
+            className={cn('shrink-0 mt-1 text-slate-400 transition-transform duration-300', isOpen && 'rotate-180')}
+          />
+        </button>
+
+        {/* Detail — collapsible */}
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <motion.div
+              key="body"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="px-6 md:px-8 pb-6 md:pb-8">
+                <div className="bg-slate-50 dark:bg-slate-800/20 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+                    <Info size={14} className="text-indigo-500" /> Bagaimana ia bekerja?
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm font-medium">{item.howItWorks}</p>
+
+                  <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+                      <MousePointer2 size={14} className="text-indigo-500" /> Panduan Penggunaan
+                    </div>
+                    <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">{item.howToUse}</div>
+                  </div>
+
+                  <div className="mt-8 pt-6 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={item.action}
+                      className="flex items-center gap-2 text-xs font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md group/try"
+                    >
+                      {item.actionLabel}
+                      <ChevronRight size={14} className="group-hover/try:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  };
 
   return (
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto px-4 sm:px-6 pb-24 pt-4 lg:pt-8 min-h-screen">
@@ -557,7 +561,7 @@ export function GuidePanel() {
             <button
               key={s.id}
               type="button"
-              onClick={() => scrollTo(s.id)}
+              onClick={() => selectTab(s.id)}
               className={cn(
                 'w-full flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all group',
                 s.sub ? 'pl-7 pr-4' : 'px-4',
@@ -597,7 +601,30 @@ export function GuidePanel() {
       {/* Main Content */}
       <main className="flex-1 max-w-4xl space-y-24">
 
+        {/* Tab bar (mobile) */}
+        <div className="lg:hidden -mx-4 sm:-mx-6 px-4 sm:px-6 sticky top-0 z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {sections.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => selectTab(s.id)}
+                className={cn(
+                  'flex items-center gap-2 shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all',
+                  activeSection === s.id
+                    ? 'bg-indigo-500 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                )}
+              >
+                {s.icon}
+                {s.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Hero */}
+        {activeSection === 'getting-started' && (
         <header id="getting-started" className="relative scroll-mt-24">
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -644,9 +671,10 @@ export function GuidePanel() {
             <div className="hidden lg:block absolute top-[40%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-800 to-transparent -z-10" />
           </div>
         </header>
+        )}
 
         {/* Feature groups */}
-        {groups.map((g) => (
+        {groups.filter(g => g.id === activeSection).map((g) => (
           <section key={g.id} id={g.id} className="space-y-10 scroll-mt-24">
             <div className="flex items-center gap-4">
               <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg', g.color)}>
@@ -665,6 +693,7 @@ export function GuidePanel() {
         ))}
 
         {/* Tips */}
+        {activeSection === 'tips' && (
         <section id="tips" className="space-y-12 scroll-mt-24">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
@@ -693,8 +722,10 @@ export function GuidePanel() {
             ))}
           </div>
         </section>
+        )}
 
         {/* Shortcuts & technical */}
+        {activeSection === 'shortcuts' && (
         <section id="shortcuts" className="space-y-12 scroll-mt-24">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
@@ -747,6 +778,7 @@ export function GuidePanel() {
             </div>
           </div>
         </section>
+        )}
 
         {/* Footer */}
         <footer className="text-center py-12 px-8 bg-gradient-to-b from-transparent to-slate-50 dark:to-slate-900/50 rounded-b-[3rem]">
@@ -757,10 +789,10 @@ export function GuidePanel() {
           </p>
           <button
             type="button"
-            onClick={handleBackToTop}
+            onClick={() => selectTab('getting-started')}
             className="inline-flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-2xl font-bold transition-all hover:scale-105 active:scale-95 shadow-xl hover:shadow-indigo-500/20"
           >
-            Kembali ke Atas
+            Kembali ke Mulai
           </button>
         </footer>
 
