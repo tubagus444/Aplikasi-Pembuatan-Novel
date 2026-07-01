@@ -7,140 +7,21 @@ import React, { useMemo, useState } from 'react';
 import { ProseMetrics } from '@/src/types';
 import { Gauge, BookOpen, AlertCircle, Sparkles, Wand2, Globe } from 'lucide-react';
 import { stripHtml } from '@/src/lib/editorUtils';
+import { analyzeProse, ProseLanguage } from '@/src/lib/proseAnalysis';
 
 interface ProseInsightsProps {
   content: string;
 }
 
-type Language = 'en' | 'id';
-
-// --- Heuristik bahasa Indonesia (tanpa kamus/library) ---
-// Tujuannya presisi, bukan kelengkapan: lebih baik melewatkan beberapa daripada
-// salah menandai kata umum sebagai pasif (false positive).
-
-// Kata berawalan "di-" yang BUKAN verba pasif (nomina/adjektiva/keterangan umum).
-const DI_NON_PASSIVE = new Set([
-  'dingin', 'dinding', 'dinas', 'dini', 'diam', 'diktator', 'dilema', 'dimensi',
-  'direktur', 'diskusi', 'diskon', 'distrik', 'divisi', 'dividen', 'dialog',
-  'diagram', 'diameter', 'diare', 'diet', 'dirinya', 'diktE', 'dingklik',
-  'dinamis', 'dinosaurus', 'diploma', 'diktat', 'diksi'
-]);
-
-// Kata berawalan "ter-" yang BUKAN verba pasif (superlatif/adjektiva/keterangan).
-const TER_NON_PASSIVE = new Set([
-  // superlatif (ter- + adjektiva)
-  'terbaik', 'terbesar', 'tertinggi', 'terkecil', 'tercepat', 'terindah',
-  'terburuk', 'terkuat', 'terlemah', 'termuda', 'tertua', 'terpanjang',
-  'terpendek', 'terbanyak', 'terdekat', 'terjauh', 'termahal', 'termurah',
-  'terbaru', 'terlama', 'terdahulu', 'terhebat', 'ternama', 'terkemuka',
-  'terpenting', 'terkenal',
-  // adjektiva/keterangan umum
-  'terang', 'teratur', 'terampil', 'terlalu', 'terutama', 'tertentu',
-  'terima', 'teringat', 'teras', 'teropong', 'terompet', 'teratai',
-  'terminal', 'teritori', 'terjemah', 'teri', 'teh'
-]);
-
-// Verba pasif "di-" tanpa sufiks -kan/-i yang sering muncul dalam prosa.
-const DI_COMMON_PASSIVE = new Set([
-  'dimakan', 'diminum', 'dibaca', 'ditulis', 'dilihat', 'didengar', 'dibawa',
-  'diambil', 'dibuat', 'dikirim', 'ditemukan', 'dipakai', 'digunakan',
-  'dipukul', 'ditendang', 'dipegang', 'dibunuh', 'diserang', 'dikejar',
-  'ditangkap', 'dibuang', 'ditarik', 'didorong', 'dipanggil', 'dikenal',
-  'ditahan', 'dijaga', 'dijual', 'dibeli', 'dikunci', 'ditutup', 'dibuka'
-]);
-
-// Verba pasif/resultatif "ter-" umum (ter- sangat ambigu, jadi pakai daftar).
-const TER_COMMON_PASSIVE = new Set([
-  'terbawa', 'terjatuh', 'terlihat', 'terdengar', 'tertidur', 'terbangun',
-  'terluka', 'terlempar', 'terhempas', 'tersandung', 'tergeletak', 'terbaring',
-  'terjebak', 'terperangkap', 'tertangkap', 'terbunuh', 'tertusuk', 'terkena',
-  'tersentuh', 'terdorong', 'terangkat', 'terhapus', 'tertulis', 'terpasang',
-  'terbakar', 'tersisa', 'terpaksa', 'terhanyut', 'terseret', 'tertimpa'
-]);
-
-// Buang tanda baca di awal/akhir, pertahankan tanda hubung internal (mis. "benar-benar").
-function cleanToken(w: string): string {
-  return w.toLowerCase().replace(/^[^a-z]+|[^a-z]+$/g, '');
-}
-
-function isPassiveID(w: string): boolean {
-  if (w.length < 5) return false; // "dia", "diri", "diam", "dini" tersaring di sini
-  if (w.startsWith('di')) {
-    if (DI_NON_PASSIVE.has(w)) return false;
-    // di- + sufiks verba (-kan/-i) → hampir pasti pasif; atau verba pasif umum
-    if (/^di[a-z]{2,}(kan|i)$/.test(w)) return true;
-    return DI_COMMON_PASSIVE.has(w);
-  }
-  if (w.startsWith('ter') && w.length >= 6) {
-    if (TER_NON_PASSIVE.has(w)) return false;
-    // ter- + sufiks verba, atau verba resultatif umum (daftar)
-    return /^ter[a-z]{2,}(kan|i)$/.test(w) || TER_COMMON_PASSIVE.has(w);
-  }
-  return false;
-}
-
-const ID_ADVERBS = new Set([
-  'sangat', 'amat', 'sekali', 'agak', 'paling', 'sungguh', 'begitu', 'terlalu',
-  'cukup', 'hampir', 'selalu', 'sering', 'jarang', 'kadang', 'kadang-kadang',
-  'biasanya', 'segera', 'tiba-tiba', 'perlahan', 'diam-diam', 'benar-benar',
-  'betul-betul', 'secara', 'rupanya', 'tampaknya', 'sepertinya'
-]);
+type Language = ProseLanguage;
 
 export function ProseInsights({ content }: ProseInsightsProps) {
   const [language, setLanguage] = useState<Language>('id');
 
-  const metrics = useMemo<ProseMetrics>(() => {
-    const text = stripHtml(content).trim();
-    if (!text) return {
-      wordCount: 0,
-      sentenceCount: 0,
-      avgSentenceLength: 0,
-      longSentences: 0,
-      passiveVoiceCount: 0,
-      adverbCount: 0,
-      readabilityScore: 0
-    };
-
-    const words = text.split(/\s+/);
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    const cleanWords = words.map(cleanToken).filter(Boolean);
-
-    let adverbs = 0;
-    let passiveCount = 0;
-
-    if (language === 'en') {
-      // Simple adverb detection (ending in 'ly')
-      adverbs = cleanWords.filter(w => w.endsWith('ly')).length;
-
-      // Simple passive voice detection
-      const passiveWords = ['was', 'were', 'been', 'being', 'is', 'am', 'are'];
-      passiveCount = cleanWords.filter((w, i) =>
-        passiveWords.includes(w) &&
-        cleanWords[i + 1]?.endsWith('ed')
-      ).length;
-    } else {
-      adverbs = cleanWords.filter(w => ID_ADVERBS.has(w)).length;
-      passiveCount = cleanWords.filter(isPassiveID).length;
-    }
-
-    const longSentences = sentences.filter(s => s.trim().split(/\s+/).length > 25).length;
-    
-    // Flesch Reading Ease (simplified)
-    const syllables = text.toLowerCase().match(/[aeiouy]+/g)?.length || 0;
-    const readability = Math.max(0, Math.min(100, Math.round(
-      206.835 - 1.015 * (words.length / (sentences.length || 1)) - 84.6 * (syllables / words.length)
-    )));
-
-    return {
-      wordCount: words.length,
-      sentenceCount: sentences.length,
-      avgSentenceLength: Math.round(words.length / (sentences.length || 1)),
-      longSentences,
-      passiveVoiceCount: passiveCount,
-      adverbCount: adverbs,
-      readabilityScore: readability
-    };
-  }, [content, language]);
+  const metrics = useMemo<ProseMetrics>(
+    () => analyzeProse(stripHtml(content), language),
+    [content, language],
+  );
 
   const getReadabilityColor = (score: number) => {
     if (score >= 80) return 'text-emerald-500';

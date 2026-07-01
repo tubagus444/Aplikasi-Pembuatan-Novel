@@ -26,6 +26,7 @@ const DashboardPanel = lazy(() => import('@/src/components/panels/DashboardPanel
 const ConsistencyPanel = lazy(() => import('@/src/features/consistency/components/ConsistencyPanel').then(m => ({ default: m.ConsistencyPanel })));
 const ContinuityDashboard = lazy(() => import('@/src/features/consistency/components/ContinuityDashboard').then(m => ({ default: m.ContinuityDashboard })));
 const CharacterArcPanel = lazy(() => import('@/src/features/consistency/components/CharacterArcPanel').then(m => ({ default: m.CharacterArcPanel })));
+const ProseReportPanel = lazy(() => import('@/src/features/consistency/components/ProseReportPanel').then(m => ({ default: m.ProseReportPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
 const CodexWorkshopPanel = lazy(() => import('@/src/features/codex-workshop/components/CodexWorkshopPanel').then(m => ({ default: m.CodexWorkshopPanel })));
@@ -192,6 +193,14 @@ export function MainView() {
             <ViewContainer key="arc" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <CharacterArcPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'prose' && projectId && (
+            <ViewContainer key="prose" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <ProseReportPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}
