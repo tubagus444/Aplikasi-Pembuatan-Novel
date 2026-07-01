@@ -127,9 +127,10 @@ export function Sidebar() {
               role="navigation"
               className={cn(
                 "px-4 pt-4 space-y-3 min-h-0 overflow-y-auto scrollbar-hover",
-                // In write mode the chapter list needs room, so nav only takes what it needs
-                // (and scrolls when squeezed); otherwise nav fills the column and scrolls.
-                showChapterList ? "shrink" : "flex-1"
+                // In write mode nav is capped at half the column so the chapter list always
+                // keeps room (and its own scroll); nav scrolls internally when it overflows.
+                // Otherwise nav fills the whole column and scrolls.
+                showChapterList ? "max-h-[50%]" : "flex-1"
               )}
             >
               {NAV_GROUPS.map((grp) => {
