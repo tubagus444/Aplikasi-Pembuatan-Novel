@@ -1,9 +1,12 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Loader2, Sparkles, Hash, RefreshCw, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { ChatMessage } from '@/src/types';
+import { ChatMessage, CodexEntry } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { parseMentionTags } from '@/src/lib/loreUtils';
+import { scanNewEntities } from '@/src/lib/chatEntityScan';
+import { EntitySuggestionChips } from '@/src/features/codex-workshop/components/EntitySuggestionChips';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 
 interface AssistantMessageListProps {
   messages: ChatMessage[];
@@ -12,9 +15,23 @@ interface AssistantMessageListProps {
   onSelectPrompt?: (prompt: string) => void;
   onRegenerate?: () => void;
   onRetry?: () => void;
+  /** Untuk mendeteksi nama-diri baru (belum di Codex) di balasan AI → chip Lokakarya. */
+  codexEntries?: CodexEntry[];
 }
 
-export function AssistantMessageList({ messages, isLoading, retryStatus, onSelectPrompt, onRegenerate, onRetry }: AssistantMessageListProps) {
+export function AssistantMessageList({ messages, isLoading, retryStatus, onSelectPrompt, onRegenerate, onRetry, codexEntries }: AssistantMessageListProps) {
+  const { openWorkshop } = useNavigation();
+  // Peta id-pesan → nama entitas baru yang terdeteksi (dihitung sekali per perubahan).
+  const detections = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!codexEntries) return map;
+    for (const m of messages) {
+      if (m.role !== 'model' || m.isError || m.isWelcome || !m.content) continue;
+      const names = scanNewEntities(m.content, codexEntries);
+      if (names.length) map.set(m.id ?? '', names);
+    }
+    return map;
+  }, [messages, codexEntries]);
   const lastMessage = messages[messages.length - 1];
   const canRegenerate = !isLoading && !!onRegenerate && lastMessage?.role === 'model' && !lastMessage.isError;
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -147,6 +164,13 @@ export function AssistantMessageList({ messages, isLoading, retryStatus, onSelec
                     <><Copy size={13} /> Salin</>
                   )}
                 </button>
+              )}
+
+              {m.role === 'model' && !m.isError && (
+                <EntitySuggestionChips
+                  names={detections.get(m.id ?? '') ?? []}
+                  onOpen={(name) => openWorkshop({ mode: 'create', seedName: name })}
+                />
               )}
             </div>
           </div>

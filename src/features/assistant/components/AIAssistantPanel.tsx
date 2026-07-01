@@ -151,6 +151,7 @@ export function AIAssistantPanel() {
               onSelectPrompt={(prompt) => setInput(prompt)}
               onRegenerate={handleRegenerate}
               onRetry={handleRegenerate}
+              codexEntries={codexEntries}
             />
 
             <AssistantInputArea

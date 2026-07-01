@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, X, Copy, Check, Hash, Trash2, Square, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { PANEL_WIDTH } from '@/src/lib/constants';
@@ -13,6 +13,9 @@ import { CodexEntry, StoryBibleRule, Relationship } from '@/src/types';
 import { parseMentionTags } from '@/src/lib/loreUtils';
 import { MentionDropdown } from '@/src/components/common/MentionDropdown';
 import { useScribbleAssistantPanel } from '@/src/features/assistant/hooks/useScribbleAssistantPanel';
+import { scanNewEntities } from '@/src/lib/chatEntityScan';
+import { EntitySuggestionChips } from '@/src/features/codex-workshop/components/EntitySuggestionChips';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 
 interface ScribbleAssistantPanelProps {
   projectId: number;
@@ -77,6 +80,18 @@ export function ScribbleAssistantPanel({
     handleKeyDown: handleMentionKeyDown,
     selectMention
   } = mentionState;
+
+  const { openWorkshop } = useNavigation();
+  // Nama-diri baru (belum di Codex) per balasan AI → chip "Buka di Lokakarya".
+  const detections = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const m of messages) {
+      if (m.role !== 'model' || m.isError || m.isWelcome || !m.content) continue;
+      const names = scanNewEntities(m.content, codexEntries);
+      if (names.length) map.set(m.id ?? '', names);
+    }
+    return map;
+  }, [messages, codexEntries]);
 
   return (
     <div style={{ width: PANEL_WIDTH }} className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-2xl relative z-30 shrink-0">
@@ -200,6 +215,12 @@ export function ScribbleAssistantPanel({
                       >
                         Coba Lagi
                       </button>
+                    )}
+                    {!m.isError && (
+                      <EntitySuggestionChips
+                        names={detections.get(m.id ?? '') ?? []}
+                        onOpen={(name) => openWorkshop({ mode: 'create', seedName: name })}
+                      />
                     )}
                  </div>
                )}
