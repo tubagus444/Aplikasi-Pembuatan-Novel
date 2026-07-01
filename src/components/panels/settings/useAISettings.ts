@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { ContextDepth } from '@/src/types';
 import { DEFAULT_MAX_CACHED_LORE_CHARS, DEFAULT_CLAUDE_CACHE_TTL, DEFAULT_REWRITE_TEMPERATURE } from '@/src/lib/aiTuning';
 
-export type ProviderKeys = { google: string; groq: string; openrouter: string; claude: string; huggingface: string };
-export type ProviderModels = { google: string; groq: string; openrouter: string; claude: string; huggingface: string; ollama: string };
+export type ProviderKeys = { google: string; groq: string; openrouter: string; claude: string; huggingface: string; openai: string };
+export type ProviderModels = { google: string; groq: string; openrouter: string; claude: string; huggingface: string; openai: string; ollama: string };
 
 /**
  * Sumber tunggal pemuatan & penyimpanan pengaturan AI ke localStorage.
@@ -17,7 +17,8 @@ export function useAISettings() {
     groq: '',
     openrouter: '',
     claude: '',
-    huggingface: ''
+    huggingface: '',
+    openai: ''
   });
   const [models, setModels] = useState<ProviderModels>({
     google: '',
@@ -25,6 +26,7 @@ export function useAISettings() {
     openrouter: '',
     claude: '',
     huggingface: '',
+    openai: '',
     ollama: ''
   });
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState('');
@@ -36,7 +38,8 @@ export function useAISettings() {
     groq: '',
     openrouter: '',
     claude: '',
-    huggingface: ''
+    huggingface: '',
+    openai: ''
   });
   const [cacheTtl, setCacheTtl] = useState<string>(DEFAULT_CLAUDE_CACHE_TTL);
   const [rewriteTemp, setRewriteTemp] = useState<string>(String(DEFAULT_REWRITE_TEMPERATURE));
@@ -66,7 +69,8 @@ export function useAISettings() {
       groq: loadKey('groq'),
       openrouter: loadKey('openrouter'),
       claude: loadKey('claude'),
-      huggingface: loadKey('huggingface')
+      huggingface: loadKey('huggingface'),
+      openai: loadKey('openai')
     });
     setModels({
       google: loadModel('google'),
@@ -74,6 +78,7 @@ export function useAISettings() {
       openrouter: loadModel('openrouter'),
       claude: loadModel('claude'),
       huggingface: loadModel('huggingface'),
+      openai: loadModel('openai'),
       ollama: loadModel('ollama')
     });
     setOllamaBaseUrl(localStorage.getItem('ollama_base_url') || 'http://localhost:11434');
@@ -84,7 +89,8 @@ export function useAISettings() {
       groq: localStorage.getItem('ai_light_model_groq') || '',
       openrouter: localStorage.getItem('ai_light_model_openrouter') || '',
       claude: localStorage.getItem('ai_light_model_claude') || '',
-      huggingface: localStorage.getItem('ai_light_model_huggingface') || ''
+      huggingface: localStorage.getItem('ai_light_model_huggingface') || '',
+      openai: localStorage.getItem('ai_light_model_openai') || ''
     });
     setCacheTtl(localStorage.getItem('ai_claude_cache_ttl') === '5m' ? '5m' : DEFAULT_CLAUDE_CACHE_TTL);
     setRewriteTemp(localStorage.getItem('ai_rewrite_temperature') || String(DEFAULT_REWRITE_TEMPERATURE));
@@ -116,7 +122,7 @@ export function useAISettings() {
     localStorage.setItem('ai_inline_consistency', inlineConsistencyAI ? 'true' : 'false');
 
     // Override model tugas-ringan per provider; kosong = pakai default hardcoded.
-    (['google', 'groq', 'openrouter', 'claude', 'huggingface'] as const).forEach((p) => {
+    (['google', 'groq', 'openrouter', 'claude', 'huggingface', 'openai'] as const).forEach((p) => {
       const val = lightModels[p]?.trim();
       if (val) localStorage.setItem(`ai_light_model_${p}`, val);
       else localStorage.removeItem(`ai_light_model_${p}`);
@@ -146,12 +152,14 @@ export function useAISettings() {
     saveKey('openrouter', keys.openrouter);
     saveKey('claude', keys.claude);
     saveKey('huggingface', keys.huggingface);
+    saveKey('openai', keys.openai);
 
     saveModel('google', models.google);
     saveModel('groq', models.groq);
     saveModel('openrouter', models.openrouter);
     saveModel('claude', models.claude);
     saveModel('huggingface', models.huggingface);
+    saveModel('openai', models.openai);
     saveModel('ollama', models.ollama);
 
     setIsSaved(true);

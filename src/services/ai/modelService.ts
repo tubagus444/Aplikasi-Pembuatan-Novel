@@ -17,7 +17,7 @@ export interface ProviderModel {
   description?: string; // keterangan tambahan (opsional)
 }
 
-export type ModelListProvider = 'google' | 'groq' | 'openrouter' | 'claude' | 'huggingface';
+export type ModelListProvider = 'google' | 'groq' | 'openrouter' | 'claude' | 'huggingface' | 'openai';
 
 export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
   const cached = localStorage.getItem(MODEL_CACHE_KEY);
@@ -149,6 +149,22 @@ export async function fetchModelsForProvider(
         id: m.id,
         name: m.id,
       }));
+    }
+
+    case 'openai': {
+      const data = await postModelListing('/api/ai/openai-models', apiKey);
+      if (!Array.isArray(data.data)) {
+        throw new Error(data.error || 'Format data dari OpenAI API tidak sesuai.');
+      }
+      // Hanya model chat/GPT yang relevan; buang embedding/tts/whisper/dll.
+      return data.data
+        .filter((m: any) => typeof m.id === 'string' && (m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3') || m.id.startsWith('o4') || m.id.startsWith('chatgpt')))
+        .sort((a: any, b: any) => a.id.localeCompare(b.id))
+        .map((m: any) => ({
+          id: m.id,
+          name: m.id,
+          description: m.owned_by ? `oleh ${m.owned_by}` : '',
+        }));
     }
 
     default:

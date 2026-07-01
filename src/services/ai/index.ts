@@ -72,6 +72,7 @@ const PROVIDER_CONTEXT_WINDOW: Record<string, number> = {
   google: 1_000_000,
   claude: 200_000,
   openrouter: 128_000,
+  openai: 128_000,
   groq: 32_000,
   huggingface: 32_000,
   ollama: 8_192,
@@ -136,6 +137,7 @@ function getSettings() {
       openrouter: loadKey('openrouter'),
       claude: loadKey('claude'),
       huggingface: loadKey('huggingface'),
+      openai: loadKey('openai'),
       ollama: '' // Ollama doesn't use API key
     },
     models: {
@@ -144,6 +146,7 @@ function getSettings() {
       openrouter: localStorage.getItem('ai_model_openrouter') || '',
       claude: localStorage.getItem('ai_model_claude') || '',
       huggingface: localStorage.getItem('ai_model_huggingface') || '',
+      openai: localStorage.getItem('ai_model_openai') || '',
       ollama: localStorage.getItem('ai_model_ollama') || ''
     }
   };
@@ -209,7 +212,7 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
 }
 
 const MAX_RETRIES = 3;
-const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq', 'huggingface']; // Ordered preference for fallback
+const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq', 'huggingface', 'openai']; // Ordered preference for fallback
 
 // Tugas mekanis (bukan penulisan kreatif) dirutekan ke model tier-murah provider
 // yang sama. rewrite/chat/expand tetap memakai model pilihan pengguna demi kualitas.

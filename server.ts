@@ -51,6 +51,11 @@ async function startServer() {
         url = 'https://api.groq.com/openai/v1/chat/completions';
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
         break;
+      case 'openai':
+        apiKey = clientApiKey || process.env.OPENAI_API_KEY || '';
+        url = 'https://api.openai.com/v1/chat/completions';
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        break;
       case 'openrouter':
         apiKey = clientApiKey || process.env.OPENROUTER_API_KEY || '';
         url = 'https://openrouter.ai/api/v1/chat/completions';
@@ -197,6 +202,31 @@ async function startServer() {
       res.status(response.status).json(data);
     } catch (error: any) {
       sendError(res, 500, error, 'Groq models listing error');
+    }
+  });
+
+  // Query Allowed OpenAI Models
+  app.post("/api/ai/openai-models", async (req, res) => {
+    const clientApiKey = (req.headers['x-api-key'] as string) || '';
+    const apiKey = clientApiKey || process.env.OPENAI_API_KEY || '';
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "OpenAI API Key diperlukan. Pastikan sudah dimasukkan." });
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error: any) {
+      sendError(res, 500, error, 'OpenAI models listing error');
     }
   });
 

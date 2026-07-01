@@ -80,6 +80,7 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
             if (pName === 'google') pName = 'Gemini';
             else if (pName === 'openrouter') pName = 'OpenR';
             else if (pName === 'huggingface') pName = 'HF';
+            else if (pName === 'openai') pName = 'OpenAI';
 
             const label = `${pName} (${log.model})`;
             modelUsage[label] = (modelUsage[label] || 0) + log.totalTokens;

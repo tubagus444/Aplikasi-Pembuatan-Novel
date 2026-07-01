@@ -60,6 +60,9 @@ export function ContextMeter() {
       } else if (selectedProvider === 'huggingface') {
         m = localStorage.getItem('ai_model_huggingface') || 'meta-llama/Llama-3.3-70B-Instruct';
         limit = 32000; // perkiraan konservatif (sejalan dgn PROVIDER_CONTEXT_WINDOW)
+      } else if (selectedProvider === 'openai') {
+        m = localStorage.getItem('ai_model_openai') || 'gpt-4o-mini';
+        limit = 128000; // perkiraan konservatif (sejalan dgn PROVIDER_CONTEXT_WINDOW)
       }
       
       setModelConfig({ model: m, modelContextLimit: limit });
