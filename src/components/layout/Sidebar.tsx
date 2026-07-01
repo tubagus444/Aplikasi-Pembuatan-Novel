@@ -4,13 +4,69 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity, Gauge, Telescope } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity, Gauge, Telescope, ChevronDown } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
 import { db } from '@/src/db';
 import { cn } from '@/src/lib/utils';
 import { ChapterList } from '@/src/features/chapters/components/ChapterList';
+
+type NavItemDef = { mode: string; icon: React.ReactNode; label: string };
+type NavGroupDef = { label: string; defaultOpen: boolean; items: NavItemDef[] };
+
+const NAV_GROUPS: NavGroupDef[] = [
+  {
+    label: 'Menulis',
+    defaultOpen: true,
+    items: [
+      { mode: 'dashboard', icon: <BarChart2 size={14} />, label: 'Dashboard' },
+      { mode: 'write', icon: <FileText size={14} />, label: 'Editor' },
+      { mode: 'outline', icon: <LayoutList size={14} />, label: 'Papan Rencana' },
+    ],
+  },
+  {
+    label: 'Dunia & Lore',
+    defaultOpen: false,
+    items: [
+      { mode: 'codex', icon: <Database size={14} />, label: 'Kamus Data' },
+      { mode: 'bible', icon: <Book size={14} />, label: 'Buku Cerita' },
+      { mode: 'relationships', icon: <Share2 size={14} />, label: 'Relasi Karakter' },
+      { mode: 'timeline', icon: <CalendarClock size={14} />, label: 'Timeline Cerita' },
+      { mode: 'orphans', icon: <UserSearch size={14} />, label: 'Saran Entitas' },
+    ],
+  },
+  {
+    label: 'Analisis',
+    defaultOpen: false,
+    items: [
+      { mode: 'consistency', icon: <ShieldCheck size={14} />, label: 'Cek Konsistensi' },
+      { mode: 'continuity', icon: <Network size={14} />, label: 'Peta Kontinuitas' },
+      { mode: 'arc', icon: <Activity size={14} />, label: 'Lensa Karakter' },
+      { mode: 'prose', icon: <Gauge size={14} />, label: 'Wawasan Prosa' },
+      { mode: 'search', icon: <Telescope size={14} />, label: 'Cari Adegan' },
+    ],
+  },
+  {
+    label: 'Asisten AI',
+    defaultOpen: false,
+    items: [
+      { mode: 'brainstorm', icon: <BrainCircuit size={14} />, label: 'Studio Asisten' },
+      { mode: 'actions', icon: <Sparkles size={14} />, label: 'Snippet AI' },
+    ],
+  },
+  {
+    label: 'Sistem',
+    defaultOpen: false,
+    items: [
+      { mode: 'settings', icon: <Settings size={14} />, label: 'Pengaturan' },
+      { mode: 'guide', icon: <HelpCircle size={14} />, label: 'Panduan' },
+      { mode: 'errors', icon: <AlertTriangle size={14} />, label: 'Log Error' },
+    ],
+  },
+];
+
+const NAV_GROUPS_STORAGE_KEY = 'sidebar_nav_groups';
 
 export function Sidebar() {
   const { projectId, project } = useProject();
@@ -25,150 +81,115 @@ export function Sidebar() {
     }
   };
 
+  // Collapsible nav groups; open/closed state persisted per user.
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(NAV_GROUPS_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const showChapterList = viewMode === 'write' && projectId != null;
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) => {
+      const fallback = NAV_GROUPS.find((g) => g.label === label)?.defaultOpen ?? true;
+      const next = { ...prev, [label]: !(prev[label] ?? fallback) };
+      try {
+        localStorage.setItem(NAV_GROUPS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore quota/serialization errors */
+      }
+      return next;
+    });
+  };
+
   return (
     <aside className="w-[260px] h-full flex flex-col relative shrink-0">
-      <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white shrink-0 shadow-sm">
                 <ScrollText size={18} />
               </div>
-              <input 
+              <input
                 className="font-bold text-sm tracking-tight bg-transparent focus:outline-none w-full border-none p-0 h-auto text-slate-900 dark:text-slate-100"
                 value={project?.name || ''}
                 onChange={(e) => projectId && db.projects.update(projectId, { name: e.target.value })}
               />
             </div>
             <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em] ml-10">Writer Pro v1.0</p>
-            
-            <nav role="navigation" className="mt-6 space-y-1">
-              <NavItem 
-                active={viewMode === 'dashboard'} 
-                onClick={() => handleViewChange('dashboard')} 
-                icon={<BarChart2 size={14} />} 
-                label="Dashboard" 
-              />
-              <NavItem 
-                active={viewMode === 'write'} 
-                onClick={() => handleViewChange('write')} 
-                icon={<FileText size={14} />} 
-                label="Editor" 
-              />
-              <NavItem
-                active={viewMode === 'brainstorm'}
-                onClick={() => handleViewChange('brainstorm')}
-                icon={<BrainCircuit size={14} />}
-                label="Studio Asisten"
-              />
-              <NavItem
-                active={viewMode === 'search'}
-                onClick={() => handleViewChange('search')}
-                icon={<Telescope size={14} />}
-                label="Cari Adegan"
-              />
-              <NavItem 
-                active={viewMode === 'outline'} 
-                onClick={() => handleViewChange('outline')} 
-                icon={<LayoutList size={14} />} 
-                label="Papan Rencana" 
-              />
-              <NavItem
-                active={viewMode === 'codex'}
-                onClick={() => handleViewChange('codex')}
-                icon={<Database size={14} />}
-                label="Kamus Data"
-              />
-              <NavItem
-                active={viewMode === 'orphans'}
-                onClick={() => handleViewChange('orphans')}
-                icon={<UserSearch size={14} />}
-                label="Saran Entitas"
-              />
-              <NavItem 
-                active={viewMode === 'bible'} 
-                onClick={() => handleViewChange('bible')} 
-                icon={<Book size={14} />} 
-                label="Buku Cerita" 
-              />
-              <NavItem
-                active={viewMode === 'relationships'}
-                onClick={() => handleViewChange('relationships')}
-                icon={<Share2 size={14} />}
-                label="Relasi Karakter"
-              />
-              <NavItem
-                active={viewMode === 'timeline'}
-                onClick={() => handleViewChange('timeline')}
-                icon={<CalendarClock size={14} />}
-                label="Timeline Cerita"
-              />
-              <NavItem
-                active={viewMode === 'consistency'}
-                onClick={() => handleViewChange('consistency')}
-                icon={<ShieldCheck size={14} />}
-                label="Cek Konsistensi"
-              />
-              <NavItem
-                active={viewMode === 'continuity'}
-                onClick={() => handleViewChange('continuity')}
-                icon={<Network size={14} />}
-                label="Peta Kontinuitas"
-              />
-              <NavItem
-                active={viewMode === 'arc'}
-                onClick={() => handleViewChange('arc')}
-                icon={<Activity size={14} />}
-                label="Lensa Karakter"
-              />
-              <NavItem
-                active={viewMode === 'prose'}
-                onClick={() => handleViewChange('prose')}
-                icon={<Gauge size={14} />}
-                label="Wawasan Prosa"
-              />
-              <NavItem 
-                active={viewMode === 'actions'} 
-                onClick={() => handleViewChange('actions')} 
-                icon={<Sparkles size={14} />} 
-                label="Snippet AI" 
-              />
-              <NavItem 
-                active={viewMode === 'guide'} 
-                onClick={() => handleViewChange('guide')} 
-                icon={<HelpCircle size={14} />} 
-                label="Panduan Panduan" 
-              />
-              <NavItem 
-                active={viewMode === 'settings'} 
-                onClick={() => handleViewChange('settings')} 
-                icon={<Settings size={14} />} 
-                label="Pengaturan" 
-              />
-              <NavItem 
-                active={viewMode === 'errors'} 
-                onClick={() => handleViewChange('errors')} 
-                icon={<AlertTriangle size={14} />} 
-                label="Log Error" 
-              />
-            </nav>
           </div>
 
-          <div className="flex-1 flex flex-col px-2 py-4 overflow-hidden">
-            {viewMode === 'write' && projectId && (
-              <ChapterList 
-                projectId={projectId} 
-                activeChapterId={activeChapterId} 
-                onSelect={(id) => {
-                  setActiveChapterId(id);
-                  if (window.innerWidth < 768) {
-                    setSidebarOpen(false);
-                  }
-                }} 
-              />
+          <div className="flex-1 min-h-0 flex flex-col">
+            <nav
+              role="navigation"
+              className={cn(
+                "px-4 pt-4 space-y-3 min-h-0 overflow-y-auto scrollbar-hover",
+                // In write mode the chapter list needs room, so nav only takes what it needs
+                // (and scrolls when squeezed); otherwise nav fills the column and scrolls.
+                showChapterList ? "shrink" : "flex-1"
+              )}
+            >
+              {NAV_GROUPS.map((grp) => {
+                const containsActive = grp.items.some((it) => it.mode === viewMode);
+                const open = (openGroups[grp.label] ?? grp.defaultOpen) || containsActive;
+                return (
+                  <NavGroup
+                    key={grp.label}
+                    label={grp.label}
+                    open={open}
+                    onToggle={() => toggleGroup(grp.label)}
+                  >
+                    {grp.items.map((it) => (
+                      <NavItem
+                        key={it.mode}
+                        active={viewMode === it.mode}
+                        onClick={() => handleViewChange(it.mode)}
+                        icon={it.icon}
+                        label={it.label}
+                      />
+                    ))}
+                  </NavGroup>
+                );
+              })}
+            </nav>
+
+            {showChapterList && (
+              <div className="flex-1 min-h-0 px-2 py-4">
+                <ChapterList
+                  projectId={projectId!}
+                  activeChapterId={activeChapterId}
+                  onSelect={(id) => {
+                    setActiveChapterId(id);
+                    if (window.innerWidth < 768) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                />
+              </div>
             )}
-            {viewMode === 'codex' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4 overflow-y-auto">Data Dunia</p>}
-            {viewMode === 'bible' && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-4 px-4 overflow-y-auto">Aturan Dasar</p>}
+            {viewMode === 'codex' && <p className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-2 px-4 pb-4">Data Dunia</p>}
+            {viewMode === 'bible' && <p className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-2 px-4 pb-4">Aturan Dasar</p>}
           </div>
     </aside>
+  );
+}
+
+function NavGroup({ label, open, onToggle, children }: { label: string, open: boolean, onToggle: () => void, children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between px-3 py-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors group/nav"
+      >
+        <span className="text-[9px] font-bold uppercase tracking-[0.15em]">{label}</span>
+        <ChevronDown size={12} className={cn("transition-transform opacity-60 group-hover/nav:opacity-100", open ? "" : "-rotate-90")} />
+      </button>
+      {open && <div className="space-y-1">{children}</div>}
+    </div>
   );
 }
 
