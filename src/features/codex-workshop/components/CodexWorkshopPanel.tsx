@@ -208,6 +208,9 @@ export function CodexWorkshopPanel({ projectId }: CodexWorkshopPanelProps) {
           isSaving={ws.isSaving}
           canSave={ws.canSave}
           onSave={handleSaveClick}
+          isAuditing={ws.isAuditing}
+          canAudit={ws.canAudit}
+          onAudit={ws.auditEntry}
           mode={ws.mode}
           changedFields={changedFields}
         />

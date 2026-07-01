@@ -7,9 +7,25 @@ import { useAvailableProviders } from '@/src/hooks/useAvailableProviders';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useToast } from '@/src/hooks/useToast';
-import { enrichEntities } from '@/src/services/ai';
+import { enrichEntities, auditCodexEntry, type CodexAuditFinding } from '@/src/services/ai';
 import { invalidateContextCache } from '@/src/services/contextEngine';
 import { WORKSHOP_DRAFT_INSTRUCTION, parseCodexDraft, stripCodexDraft } from '@/src/lib/codexDraft';
+
+const SEVERITY_LABEL: Record<string, string> = { high: '🔴 Tinggi', medium: '🟠 Sedang', low: '🟡 Rendah' };
+
+/** Format temuan audit jadi pesan markdown untuk ditempel ke kolom chat Lokakarya. */
+function formatAuditMessage(findings: CodexAuditFinding[]): string {
+  if (!findings.length) {
+    return '✅ **Audit konsistensi:** tidak ada masalah terdeteksi terhadap lore saat ini.';
+  }
+  const lines = findings.map((f, i) => {
+    let s = `${i + 1}. **${SEVERITY_LABEL[f.severity] || f.severity} · ${f.type}** — ${f.issue}`;
+    if (f.conflictsWith) s += `\n   - Berbenturan dengan: ${f.conflictsWith}`;
+    if (f.suggestion) s += `\n   - Saran: ${f.suggestion}`;
+    return s;
+  });
+  return `### 🔍 Audit Konsistensi (${findings.length} temuan)\n\n${lines.join('\n')}\n\n_Diskusikan atau minta saya perbaiki temuan di atas, lalu simpan._`;
+}
 
 /** Satu field yang berubah antara entri asli dan draf, untuk konfirmasi diff sebelum menimpa. */
 export interface FieldDiff {
@@ -98,6 +114,7 @@ export function useCodexWorkshop(projectId: number) {
 
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
 
   // Pesan pembuka — dibuat sekali agar tidak ter-reset saat re-render.
   // Nama diambil dari seedName (mode edit MENGIRIM nama entri saat dibuka) agar
@@ -268,6 +285,41 @@ export function useCodexWorkshop(projectId: number) {
     }
   }, [draft, mode, entryId, projectId, toast, closeWorkshop]);
 
+  const canAudit = !!draft.name?.trim() && !!draft.description?.trim() && !isAuditing && !chat.isLoading;
+
+  // Audit lapis 1: entri (draf saat ini) vs lore terstruktur. Temuan ditempel ke chat.
+  const auditEntry = useCallback(async () => {
+    const name = draftRef.current.name?.trim();
+    const description = draftRef.current.description?.trim();
+    if (!name || !description) {
+      toast.error('Isi Nama & Deskripsi dulu sebelum mengaudit.');
+      return;
+    }
+    setIsAuditing(true);
+    try {
+      const findings = await auditCodexEntry({
+        entry: {
+          name,
+          category: draftRef.current.category || 'character',
+          aliases: draftRef.current.aliases || [],
+          description,
+        },
+        codexEntries: entries || [],
+        bibleRules: bibleRules || [],
+        relationships: relationships || [],
+        provider: selectedProvider,
+      });
+      chat.setMessages((prev) => [
+        ...prev,
+        { id: `audit-${Date.now()}`, role: 'model', content: formatAuditMessage(findings), timestamp: Date.now() },
+      ]);
+    } catch (e: any) {
+      reportAIError(e?.message || 'Audit konsistensi gagal.', e?.code);
+    } finally {
+      setIsAuditing(false);
+    }
+  }, [entries, bibleRules, relationships, selectedProvider, chat, toast]);
+
   return {
     // data
     entries: entries || [],
@@ -292,6 +344,9 @@ export function useCodexWorkshop(projectId: number) {
     // aksi
     isHarvesting,
     harvestFromDiscussion,
+    isAuditing,
+    canAudit,
+    auditEntry,
     isSaving,
     canSave,
     save,

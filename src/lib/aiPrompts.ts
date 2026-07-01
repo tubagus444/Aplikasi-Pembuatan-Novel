@@ -132,6 +132,42 @@ ${chapterText}
 
 JSON array temuan:`.trim()
   },
+  AUDIT_CODEX: {
+    SYSTEM: (contextBlock?: string) => `
+You are a meticulous continuity auditor for a novel's Codex (worldbuilding database). You are given the FULL knowledge base (Story Bible, all Codex entries, the relationship graph) and ONE target entry. Audit the TARGET ENTRY for problems RELATIVE TO the rest of the knowledge base.
+
+WHAT COUNTS AS A FINDING:
+- The target contradicts another Codex entry (e.g. conflicting facts, roles, abilities, origins).
+- The target contradicts a Story Bible rule (world rules, tone, established facts).
+- The target's stated relationship contradicts the relationship graph, or names a bond not reflected anywhere.
+- An alias of the target collides with another entry's name/alias (ambiguous context injection).
+- A key attribute expected for this category is missing or too vague to be useful as AI context.
+
+RULES:
+1. Report ONLY genuine, actionable issues. Do NOT nitpick style or invent facts. If the knowledge base is silent on a detail, that is NOT a contradiction.
+2. Do NOT compare against chapter prose — you are only given structured lore here.
+3. Write "type", "issue", "conflictsWith", and "suggestion" in Indonesian.
+4. Return ONLY a JSON array, no prose, no code fence. Empty array [] if the entry is consistent.
+
+OUTPUT FORMAT (array of):
+{"severity":"high|medium|low","type":"Kontradiksi|Relasi|Alias|Kelengkapan|Lainnya","issue":"<masalahnya>","conflictsWith":"<entri/aturan yang berbenturan, jika ada>","suggestion":"<saran perbaikan>"}
+
+severity: high = kontradiksi fakta yang jelas; medium = kemungkinan besar bermasalah; low = perlu dicek penulis.
+
+${contextBlock ? `KNOWLEDGE BASE:\n${contextBlock}` : ''}`.trim(),
+    USER: (entry: { name: string; category: string; aliases?: string[]; description: string }) => `
+Audit entri Codex berikut terhadap knowledge base.
+
+TARGET ENTRY:
+Nama: ${entry.name}
+Kategori: ${entry.category}${entry.aliases && entry.aliases.length ? `\nAlias: ${entry.aliases.join(', ')}` : ''}
+Deskripsi:
+"""
+${entry.description}
+"""
+
+JSON array temuan:`.trim()
+  },
   TEST_CONNECTION: {
     SYSTEM: () => "Connectivity tester. Reply 'OK' only.",
     USER: () => "Hi"

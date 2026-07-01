@@ -661,6 +661,88 @@ export async function checkConsistency(params: ConsistencyParams): Promise<{ fin
   }
 }
 
+/** Satu temuan audit konsistensi untuk SATU entri Codex (lapis 1: vs lore terstruktur). */
+export interface CodexAuditFinding {
+  severity: 'high' | 'medium' | 'low';
+  type: string;
+  issue: string;
+  conflictsWith?: string;
+  suggestion?: string;
+}
+
+function sanitizeAuditFinding(raw: any): CodexAuditFinding | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const issue = typeof raw.issue === 'string' ? raw.issue.trim() : '';
+  if (!issue) return null; // tanpa deskripsi masalah, temuan tak bermakna
+  const severity = ['high', 'medium', 'low'].includes(raw.severity) ? raw.severity : 'medium';
+  return {
+    severity,
+    type: typeof raw.type === 'string' && raw.type.trim() ? raw.type.trim() : 'Lainnya',
+    issue: issue.slice(0, 1000),
+    conflictsWith: typeof raw.conflictsWith === 'string' ? raw.conflictsWith.trim().slice(0, 500) : undefined,
+    suggestion: typeof raw.suggestion === 'string' ? raw.suggestion.trim().slice(0, 1000) : undefined,
+  };
+}
+
+export interface CodexAuditParams {
+  entry: { name: string; category: string; aliases?: string[]; description: string };
+  codexEntries: CodexEntry[];
+  bibleRules: StoryBibleRule[];
+  relationships?: Relationship[];
+  provider?: string;
+  onRetry?: (attempt: number, error: any, provider: string) => void;
+}
+
+/**
+ * Audit konsistensi LAPIS 1 untuk satu entri Codex: bandingkan entri target dengan
+ * SELURUH knowledge base terstruktur (Story Bible + Codex + relasi) dan kembalikan
+ * temuan. Tidak membaca teks bab (itu lapis 2). Saudara dari checkConsistency dengan
+ * abort key terpisah ('codex-audit') agar tak saling membatalkan dengan audit bab.
+ */
+export async function auditCodexEntry(params: CodexAuditParams): Promise<CodexAuditFinding[]> {
+  const settings = getSettings();
+  const provider = params.provider || settings.provider;
+
+  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
+  const kbSegments = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
+
+  let cachedContext: string[] | undefined;
+  let systemInstruction: string;
+  if (useCaching) {
+    cachedContext = kbSegments;
+    systemInstruction = AI_PROMPTS.AUDIT_CODEX.SYSTEM();
+  } else {
+    systemInstruction = AI_PROMPTS.AUDIT_CODEX.SYSTEM(kbSegments.join('\n\n'));
+  }
+
+  const userPrompt = AI_PROMPTS.AUDIT_CODEX.USER(params.entry);
+
+  const controller = new AbortController();
+  registerAbort('codex-audit', controller);
+  try {
+    const res = await callAI({
+      systemInstruction,
+      cachedContext,
+      userPrompt,
+      provider,
+      temperature: 0.2, // analitis: minim kreativitas
+      maxTokens: 1500,
+      signal: controller.signal,
+      actionType: 'consistency',
+      cacheable: useCaching,
+      onRetry: params.onRetry,
+    });
+    return parseJsonArray(res)
+      .map(sanitizeAuditFinding)
+      .filter((f): f is CodexAuditFinding => f !== null);
+  } catch (error) {
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : 'Audit entri Codex gagal.', 'API_ERROR');
+  } finally {
+    unregisterAbort('codex-audit', controller);
+  }
+}
+
 const ENRICH_CATEGORIES = new Set(['character', 'location', 'item', 'magic', 'event', 'other']);
 
 export interface EnrichedEntity {
