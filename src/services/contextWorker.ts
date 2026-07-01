@@ -8,6 +8,8 @@ import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
 import { formatBibleBlock } from '@/src/lib/storyBible';
+import { chunkChapter, hashChunk } from '@/src/lib/manuscriptChunker';
+import { SceneEmbedding } from '@/src/types';
 import { pipeline, env } from '@xenova/transformers';
 import { getEncoding, encodingForModel } from 'js-tiktoken';
 
@@ -442,6 +444,127 @@ function condenseCoreRules(rules: StoryBibleRule[]): StoryBibleRule[] {
   }];
 }
 
+// ---- Pencarian Semantik naskah (fitur "cari adegan per makna") --------------
+// Indexing chunk bab jalan sebagai tugas latar fire-and-forget (bisa makan menit
+// untuk naskah panjang → tak boleh terikat timeout request 30d). Progres & selesai
+// disiarkan lewat event 'PROGRESS' bertipe 'manuscript_index_*'.
+
+let manuscriptIndexing = false; // cegah indexing naskah ganda berjalan bersamaan
+
+interface IndexChapterInput { id: number; content: string }
+
+async function indexManuscript(projectId: number, chapters: IndexChapterInput[]): Promise<void> {
+  if (manuscriptIndexing) return;
+  manuscriptIndexing = true;
+  try {
+    await getEmbedder();
+
+    // 1. Susun daftar chunk yang DIINGINKAN dari kondisi bab saat ini.
+    type Desired = { id: string; chapterId: number; chunkIndex: number; hash: string; text: string };
+    const desired: Desired[] = [];
+    for (const ch of chapters) {
+      if (ch.id === undefined || ch.id === null) continue;
+      const chunks = chunkChapter(ch.content || '');
+      for (const c of chunks) {
+        desired.push({
+          id: `${projectId}_${ch.id}_${c.index}`,
+          chapterId: ch.id,
+          chunkIndex: c.index,
+          hash: hashChunk(c.text),
+          text: c.text,
+        });
+      }
+    }
+
+    // 2. Muat baris tersimpan untuk proyek ini → tentukan mana yang perlu di-embed
+    //    (baru / hash berubah) dan mana yang basi (chunk/bab terhapus → prune).
+    let existing: SceneEmbedding[] = [];
+    try {
+      existing = await db.sceneEmbeddings.where('projectId').equals(projectId).toArray();
+    } catch (err) {
+      console.warn('Gagal memuat sceneEmbeddings tersimpan', err);
+    }
+    const existingById = new Map(existing.map(r => [r.id, r]));
+    const desiredIds = new Set(desired.map(d => d.id));
+
+    const toEmbed = desired.filter(d => {
+      const row = existingById.get(d.id);
+      return !row || row.contentHash !== d.hash;
+    });
+    const staleIds = existing.filter(r => !desiredIds.has(r.id)).map(r => r.id);
+
+    self.postMessage({ type: 'PROGRESS', payload: { type: 'manuscript_index_start', total: toEmbed.length, completed: 0, totalChunks: desired.length } });
+
+    // 3. Embed yang perlu, simpan berkala.
+    const toSave: SceneEmbedding[] = [];
+    let done = 0;
+    for (const d of toEmbed) {
+      try {
+        const embedding = await getSemanticEmbedding(d.text);
+        toSave.push({
+          id: d.id,
+          projectId,
+          chapterId: d.chapterId,
+          chunkIndex: d.chunkIndex,
+          contentHash: d.hash,
+          snippet: d.text.slice(0, 300),
+          embedding,
+          lastUpdated: Date.now(),
+        });
+      } catch (err) {
+        console.error('Gagal meng-embed chunk', d.id, err);
+      }
+      done++;
+      if (done % 5 === 0 || done === toEmbed.length) {
+        self.postMessage({ type: 'PROGRESS', payload: { type: 'manuscript_index_progress', total: toEmbed.length, completed: done } });
+      }
+      // Yield tiap 10 embedding agar pesan lain (mis. SEARCH) tetap terlayani.
+      if (done % 10 === 0) {
+        if (toSave.length > 0) {
+          db.sceneEmbeddings.bulkPut(toSave.splice(0)).catch(e => console.warn('Gagal menyimpan sceneEmbeddings', e));
+        }
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+
+    if (toSave.length > 0) {
+      await db.sceneEmbeddings.bulkPut(toSave).catch(e => console.warn('Gagal menyimpan sceneEmbeddings', e));
+    }
+    if (staleIds.length > 0) {
+      await db.sceneEmbeddings.bulkDelete(staleIds).catch(e => console.warn('Gagal memangkas sceneEmbeddings basi', e));
+    }
+
+    self.postMessage({ type: 'PROGRESS', payload: { type: 'manuscript_index_done', totalChunks: desired.length, embedded: toEmbed.length, pruned: staleIds.length } });
+  } catch (error: any) {
+    console.error('Indexing naskah gagal', error);
+    self.postMessage({ type: 'PROGRESS', payload: { type: 'manuscript_index_error', message: error?.message || String(error) } });
+  } finally {
+    manuscriptIndexing = false;
+  }
+}
+
+interface SceneSearchHit { chapterId: number; chunkIndex: number; snippet: string; score: number }
+
+async function searchManuscript(projectId: number, query: string, topK: number, reqId?: number): Promise<SceneSearchHit[]> {
+  const q = (query || '').trim();
+  if (!q) return [];
+  await getEmbedder();
+  const queryEmbedding = await getSemanticEmbedding(q);
+  checkCancelled(reqId);
+
+  const rows = await db.sceneEmbeddings.where('projectId').equals(projectId).toArray();
+  checkCancelled(reqId);
+
+  const scored = rows.map(r => ({
+    chapterId: r.chapterId,
+    chunkIndex: r.chunkIndex,
+    snippet: r.snippet,
+    score: cosineSimilarity(queryEmbedding, r.embedding),
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, Math.max(1, topK));
+}
+
 // Worker message listener
 self.onmessage = async (e: MessageEvent) => {
   const { type, id, payload } = e.data;
@@ -461,9 +584,19 @@ self.onmessage = async (e: MessageEvent) => {
     return;
   }
 
+  // Fire-and-forget: indexing naskah tak boleh terikat timeout request 30d.
+  // Progres & selesai disiarkan lewat event 'PROGRESS'. Tak ada balasan id.
+  if (type === 'INDEX_MANUSCRIPT') {
+    void indexManuscript(payload.projectId, payload.chapters);
+    return;
+  }
+
   try {
     let result;
     switch (type) {
+      case 'SEARCH_MANUSCRIPT':
+        result = await searchManuscript(payload.projectId, payload.query, payload.topK ?? 12, id);
+        break;
       case 'GET_RELEVANT_CONTEXT':
         result = await getRelevantContext(payload.text, payload.allCodex, id);
         break;

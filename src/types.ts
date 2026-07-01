@@ -64,7 +64,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -242,6 +242,24 @@ export interface VectorEmbedding {
   projectId: number;
   codexId: number | string;
   contentHash: string;
+  embedding: Float32Array;
+  lastUpdated: number;
+}
+
+/**
+ * Embedding semantik satu potongan (chunk) prosa naskah, untuk fitur
+ * "Pencarian Semantik" (cari adegan berdasarkan makna, nol token).
+ * id = `${projectId}_${chapterId}_${chunkIndex}`; contentHash = hash teks chunk
+ * sehingga hanya bab/adegan yang berubah yang di-embed ulang (inkremental).
+ */
+export interface SceneEmbedding {
+  id: string;
+  projectId: number;
+  chapterId: number;
+  chunkIndex: number;
+  contentHash: string;
+  /** Cuplikan teks polos chunk (untuk ditampilkan di hasil, tanpa membuka bab). */
+  snippet: string;
   embedding: Float32Array;
   lastUpdated: number;
 }

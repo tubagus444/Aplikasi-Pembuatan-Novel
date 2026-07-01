@@ -29,6 +29,7 @@ const CharacterArcPanel = lazy(() => import('@/src/features/consistency/componen
 const ProseReportPanel = lazy(() => import('@/src/features/consistency/components/ProseReportPanel').then(m => ({ default: m.ProseReportPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
+const SemanticSearchPanel = lazy(() => import('@/src/features/search/components/SemanticSearchPanel').then(m => ({ default: m.SemanticSearchPanel })));
 const CodexWorkshopPanel = lazy(() => import('@/src/features/codex-workshop/components/CodexWorkshopPanel').then(m => ({ default: m.CodexWorkshopPanel })));
 
 function LoadingFallback() {
@@ -169,6 +170,14 @@ export function MainView() {
             <ViewContainer key="orphans" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <OrphanScanPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'search' && projectId && (
+            <ViewContainer key="search" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <SemanticSearchPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

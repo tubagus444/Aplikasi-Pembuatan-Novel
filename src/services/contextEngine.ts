@@ -163,6 +163,47 @@ export async function getRelevantBibleRules(
   return sendToWorker('GET_RELEVANT_BIBLE_RULES', { text, allRules, maxChars });
 }
 
+// ---- Pencarian Semantik naskah ---------------------------------------------
+
+export interface SceneSearchHit {
+  chapterId: number;
+  chunkIndex: number;
+  snippet: string;
+  score: number;
+}
+
+/**
+ * Memicu indexing embedding seluruh adegan naskah (fire-and-forget). Aman dipanggil
+ * berulang: worker mengabaikan bila indexing sedang berjalan, dan hanya meng-embed
+ * chunk yang baru/berubah (inkremental via contentHash). Progres disiarkan sebagai
+ * window event 'semantic-indexing-progress' bertipe 'manuscript_index_*'.
+ */
+export async function indexManuscript(projectId: number): Promise<void> {
+  const chapters = await db.chapters.where('projectId').equals(projectId).toArray();
+  const payload = {
+    projectId,
+    chapters: chapters.map(c => ({ id: c.id, content: c.content || '' })),
+  };
+  // Fire-and-forget: TANPA id → worker tak membalas & tak terikat timeout 30d.
+  getWorker().postMessage({ type: 'INDEX_MANUSCRIPT', payload });
+}
+
+/** Mencari adegan yang paling dekat maknanya dengan query (nol token, lokal). */
+export async function searchManuscript(projectId: number, query: string, topK = 12): Promise<SceneSearchHit[]> {
+  if (!query || !query.trim()) return [];
+  return sendToWorker('SEARCH_MANUSCRIPT', { projectId, query, topK });
+}
+
+/** Menghapus indeks embedding adegan sebuah proyek (mis. untuk membangun ulang). */
+export async function clearManuscriptIndex(projectId: number): Promise<void> {
+  await db.sceneEmbeddings.where('projectId').equals(projectId).delete();
+}
+
+/** Jumlah chunk adegan yang sudah terindeks untuk proyek (untuk status panel). */
+export async function countIndexedScenes(projectId: number): Promise<number> {
+  return db.sceneEmbeddings.where('projectId').equals(projectId).count();
+}
+
 export async function countTokens(text: string, model?: string): Promise<number> {
   if (!text) return 0;
   return sendToWorker('COUNT_TOKENS', { text, model });
