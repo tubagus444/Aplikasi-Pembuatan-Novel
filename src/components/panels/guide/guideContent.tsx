@@ -1,0 +1,616 @@
+/**
+ * Konten Panduan (data-driven) — dipisah dari GuidePanel.tsx agar komponen tetap
+ * ramping dan konten mudah tumbuh.
+ *
+ * Menambah fitur baru = tambahkan satu objek ke FEATURES (atau SMALL_FEATURES untuk
+ * fitur mikro). Isi:
+ *   - what   : ringkasan 1 kalimat (tampil sebagai pembuka saat kartu dibuka)
+ *   - steps  : "Cara pakai" langkah demi langkah
+ *   - detail : "Detail & catatan" — nuansa, jebakan, kaitan antar-fitur, hal kecil
+ *   - tip    : catatan hemat token (opsional)
+ *   - view   : mengaktifkan tombol "Buka <panel>"; actionKey untuk fitur berupa modal
+ */
+
+import {
+  type LucideIcon,
+  Book, FileText, Database, LayoutList, Share2, Zap, Cpu, Target, Key,
+  Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
+  MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
+  BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library,
+} from 'lucide-react';
+import { ViewMode } from '@/src/types';
+
+export type GroupId = 'write' | 'world' | 'analysis' | 'ai' | 'output';
+export type ColorKey =
+  | 'indigo' | 'amber' | 'teal' | 'emerald' | 'lime' | 'rose' | 'sky'
+  | 'violet' | 'green' | 'purple' | 'fuchsia' | 'yellow' | 'slate' | 'cyan'
+  | 'blue' | 'orange';
+
+// Kelas Tailwind harus utuh (tidak boleh dirakit dinamis) agar tidak ter-purge.
+export const PALETTE: Record<ColorKey, { icon: string; tint: string }> = {
+  indigo:  { icon: 'text-indigo-500',  tint: 'bg-indigo-50 dark:bg-indigo-500/10' },
+  amber:   { icon: 'text-amber-500',   tint: 'bg-amber-50 dark:bg-amber-500/10' },
+  teal:    { icon: 'text-teal-500',    tint: 'bg-teal-50 dark:bg-teal-500/10' },
+  emerald: { icon: 'text-emerald-500', tint: 'bg-emerald-50 dark:bg-emerald-500/10' },
+  lime:    { icon: 'text-lime-600',    tint: 'bg-lime-50 dark:bg-lime-500/10' },
+  rose:    { icon: 'text-rose-500',    tint: 'bg-rose-50 dark:bg-rose-500/10' },
+  sky:     { icon: 'text-sky-500',     tint: 'bg-sky-50 dark:bg-sky-500/10' },
+  violet:  { icon: 'text-violet-500',  tint: 'bg-violet-50 dark:bg-violet-500/10' },
+  green:   { icon: 'text-green-600',   tint: 'bg-green-50 dark:bg-green-500/10' },
+  purple:  { icon: 'text-purple-500',  tint: 'bg-purple-50 dark:bg-purple-500/10' },
+  fuchsia: { icon: 'text-fuchsia-500', tint: 'bg-fuchsia-50 dark:bg-fuchsia-500/10' },
+  yellow:  { icon: 'text-yellow-500',  tint: 'bg-yellow-50 dark:bg-yellow-500/10' },
+  slate:   { icon: 'text-slate-500',   tint: 'bg-slate-100 dark:bg-slate-500/10' },
+  cyan:    { icon: 'text-cyan-500',    tint: 'bg-cyan-50 dark:bg-cyan-500/10' },
+  blue:    { icon: 'text-blue-500',    tint: 'bg-blue-50 dark:bg-blue-500/10' },
+  orange:  { icon: 'text-orange-500',  tint: 'bg-orange-50 dark:bg-orange-500/10' },
+};
+
+export interface Feature {
+  id: string;
+  group: GroupId;
+  title: string;
+  where: string;          // lokasi/menu tempat fitur diakses
+  what: string;           // apa gunanya (ringkas)
+  steps: string[];        // cara pakai
+  detail?: string[];      // detail & catatan mendalam
+  tip?: string;           // tips hemat token (opsional)
+  Icon: LucideIcon;
+  color: ColorKey;
+  view?: ViewMode;        // untuk tombol "Buka <panel>"
+  actionKey?: 'replace' | 'export' | 'project'; // fitur berupa modal
+  openLabel?: string;
+}
+
+export interface SmallFeature {
+  title: string;
+  where: string;
+  desc: string;
+}
+
+export const GROUPS: { id: GroupId; title: string; subtitle: string; Icon: LucideIcon; color: string }[] = [
+  { id: 'write',    title: 'Menulis & Editor',        subtitle: 'Kanvas utama dan semua alat penyuntingan.',                Icon: FileText,    color: 'bg-indigo-600' },
+  { id: 'world',    title: 'Dunia, Lore & Codex',     subtitle: 'Bangun kanon cerita: karakter, tempat, aturan.',           Icon: Database,    color: 'bg-emerald-600' },
+  { id: 'analysis', title: 'Analisis & Konsistensi',  subtitle: 'Deteksi plot hole & analitik naskah — sebagian nol token.', Icon: ShieldCheck, color: 'bg-green-600' },
+  { id: 'ai',       title: 'AI & Asisten',            subtitle: 'Partner kreatif, otomasi, dan pengaturan kecerdasan.',     Icon: Wand2,       color: 'bg-purple-600' },
+  { id: 'output',   title: 'Progres, Data & Ekspor',  subtitle: 'Lacak target, cadangkan, dan terbitkan.',                  Icon: FileDown,    color: 'bg-orange-600' },
+];
+
+export const FEATURES: Feature[] = [
+  // ── MENULIS & EDITOR ───────────────────────────────────────────────────────
+  {
+    id: 'editor', group: 'write', Icon: FileText, color: 'indigo', view: 'write',
+    title: 'Editor & Magic Edit (Tanya AI)',
+    where: 'Menu: Editor',
+    what: 'Kanvas rich-text bebas distraksi. Menyorot teks memunculkan menu mengambang yang jadi pusat semua aksi: AI, konsistensi, dan catatan.',
+    steps: [
+      'Sorot teks (minimal 5 karakter) → muncul menu mengambang berbentuk pil.',
+      'Klik "Tanya AI" untuk membuka Asisten Editor: ketik instruksi bebas di kotak (mis. "buat lebih puitis"), atau pilih aksi cepat bawaan.',
+      'Tiga aksi bawaan: "Show, don\'t tell" (ubah kalimat pasif jadi aksi), "Senses" (perkaya deskripsi indra), "Intensify" (tingkatkan ketegangan).',
+      'Setelah AI memproses, muncul pratinjau "Naskah Asli" vs "Hasil Tenunan". Pilih: "Ganti Teks" (timpa), "Sisipkan di Bawah" (tambah di bawah), atau "Abaikan".',
+    ],
+    detail: [
+      'Selain "Tanya AI", pil menu mengambang juga memuat tombol "Cek Konsistensi" (ungu) dan "Catatan" (amber) — lihat fitur terpisahnya di bawah.',
+      'Snippet AI kustom Anda muncul di menu AI pada bagian "Kustom (Personal)", di bawah aksi bawaan.',
+      'Bila beberapa kunci provider aktif, ada pemilih provider mini (huruf awal tiap provider) di kanan atas menu AI — kirim aksi ini ke provider tertentu tanpa mengubah setelan global.',
+      'Ikon pin (Dock) menyematkan menu di bawah layar agar tak menutupi teks yang sedang Anda baca; posisi ini diingat.',
+      'Footer editor menampilkan jumlah kata, karakter, perkiraan waktu baca (~200 kata/menit), dan status simpan (Menyimpan…/Tersimpan).',
+    ],
+    tip: 'Magic Edit hanya memproses teks yang disorot — sorot seperlunya untuk menghemat token. Instruksi eksplisit ("dalam 50 kata") menekan panjang output.',
+  },
+  {
+    id: 'mentions', group: 'write', Icon: AtSign, color: 'amber', view: 'write',
+    title: 'Mentions (@) & Sorotan Codex',
+    where: 'Di dalam Editor',
+    what: 'Cara tercepat mengarahkan perhatian AI ke karakter/lore tertentu tanpa keluar dari layar ketik.',
+    steps: [
+      'Ketik @ di editor → daftar muncul; pilih karakter, entri Codex, atau bab.',
+      'Kata yang cocok dengan nama/alias Codex otomatis bergaris-titik saat Anda mengetik.',
+      'Arahkan mouse ke kata bergaris-titik untuk membaca biografinya (tooltip) tanpa membuka menu apa pun.',
+    ],
+    detail: [
+      'Perbedaan penting: sorotan garis-titik itu deterministik (pencocokan nama, gratis). @mention lebih kuat — memaksa AI membaca SELURUH profil entitas itu saat aksi berikutnya.',
+      'Karena itu, saat menyuruh AI menulis/mengubah dialog tokoh yang di-@mention, ia sudah tahu kepribadian, gaya bahasa, dan relasinya.',
+      'Agar semua variasi nama terdeteksi (mis. "Budi", "Bos Budi", "si Bos"), daftarkan Alias di entri Codex-nya.',
+    ],
+    tip: '@mention adalah cara paling terfokus menyuntik konteks: AI hanya membaca profil yang Anda tunjuk, bukan seluruh dunia — hemat token sekaligus akurat.',
+  },
+  {
+    id: 'revision-notes', group: 'write', Icon: StickyNote, color: 'amber', view: 'write',
+    title: 'Catatan Revisi (margin notes)',
+    where: 'Editor: tombol "Catatan" di menu seleksi → panel "Catatan Revisi"',
+    what: 'Tempel catatan pada bagian teks tertentu ("perbaiki tempo di sini", "cek nama") tanpa mengotori naskah. Cocok untuk pass revisi.',
+    steps: [
+      'Sorot teks → klik "Catatan" (ikon nota kuning) di menu mengambang. Bagian teks itu ditandai.',
+      'Panel "Catatan Revisi" terbuka dengan editor catatan; tulis isinya, simpan dengan tombol Simpan atau Ctrl+Enter.',
+      'Klik kutipan sebuah catatan untuk melompat & menyorot teksnya di editor.',
+      'Tandai selesai (ikon centang ganda) — catatan jadi tercoret & redup; hitungan "N terbuka" di header berkurang.',
+    ],
+    detail: [
+      'Catatan menempel pada teks (bukan posisi tetap), jadi tetap benar walau Anda menyunting bagian lain.',
+      'Setiap catatan bisa diedit ulang, ditandai selesai/belum, atau dihapus dari panel.',
+      'Berbeda dari Snapshots (menyimpan versi) — Catatan Revisi hanya penanda tugas untuk diri sendiri, tidak mengubah isi bab.',
+    ],
+  },
+  {
+    id: 'inline-consistency', group: 'write', Icon: SpellCheck, color: 'violet', view: 'write',
+    title: 'Konsistensi Inline (garis bawah)',
+    where: 'Di dalam Editor',
+    what: 'Menandai potensi kontradiksi langsung di bawah teks. Dua warna, dua sumber: amber (deterministik, nol token) & ungu (AI).',
+    steps: [
+      'Garis bawah AMBER = cek deterministik gratis (mis. tokoh "muncul sebelum diperkenalkan" menurut Timeline). Selalu aktif, tanpa token.',
+      'Garis bawah UNGU = temuan AI. Pemicu utama: sorot teks → tombol "Cek Konsistensi" di menu mengambang (on-demand, pakai token).',
+      'Arahkan mouse ke garis bawah untuk membaca penjelasan temuannya.',
+    ],
+    detail: [
+      'Mode otomatis-saat-idle (memeriksa paragraf sendiri saat Anda berhenti mengetik) TERSEDIA tapi default MATI. Nyalakan di Pengaturan (toggle "ai_inline_consistency") hanya bila Anda siap dengan konsumsi token pasif.',
+      'Hasil AI di-cache per-paragraf dan tidak diperiksa ulang selama teksnya tak berubah — jadi mengulang buka bab tidak membakar token lagi.',
+      'Cache ungu juga bertahan setelah refresh halaman (disimpan lokal), sehingga garis bawah muncul lagi tanpa memanggil AI ulang.',
+    ],
+    tip: 'Biarkan mode otomatis mati; jalankan "Cek Konsistensi" hanya pada paragraf yang Anda ragukan. Itu memberi kendali penuh atas token.',
+  },
+  {
+    id: 'replace', group: 'write', Icon: ReplaceAll, color: 'sky', actionKey: 'replace', openLabel: 'Buka Ganti Global',
+    title: 'Cari & Ganti Seluruh Naskah',
+    where: 'Ikon ⇄ di bilah atas (Header)',
+    what: 'Ganti sebuah kata/nama di SEMUA bab sekaligus — bukan hanya bab yang sedang dibuka.',
+    steps: [
+      'Klik ikon ⇄ di header → ketik kata yang dicari dan penggantinya. Modal menampilkan jumlah kecocokan per bab beserta cuplikan konteks.',
+      'Aktifkan "Aa" (case-sensitive) atau ".*" (regex) bila perlu. Mode regex mendukung backref seperti $1.',
+      'Klik "Ganti Semua" untuk seluruh bab, atau tombol "Ganti" per bab untuk kendali lebih halus. Klik judul bab untuk melompat ke sana.',
+    ],
+    detail: [
+      'Aman terhadap data-loss: bab yang sedang Anda buka disimpan lebih dulu, penggantian dilakukan, lalu bab dimuat ulang — tidak ada perubahan editor yang hilang.',
+      'Berbeda dari Cari & Ganti dalam-bab (Ctrl+H di footer editor) yang hanya menyentuh bab aktif. Yang ini lintas-bab.',
+      'Ideal untuk mengganti nama tokoh/tempat setelah revisi worldbuilding. Setelahnya, perbarui juga entri Codex terkait.',
+    ],
+  },
+  {
+    id: 'search-scene', group: 'write', Icon: ScanSearch, color: 'cyan', view: 'search',
+    title: 'Cari Adegan (pencarian semantik)',
+    where: 'Menu: Cari Adegan',
+    what: 'Temukan adegan berdasarkan MAKNA, bukan kata persis — mis. "protagonis merasa dikhianati" walau kata itu tak muncul. Nol token.',
+    steps: [
+      'Kali pertama: klik "Bangun indeks". Aplikasi meng-embed adegan naskah secara lokal (progress bar muncul; tanpa token AI).',
+      'Ketik deskripsi adegan/momen yang Anda ingat, tekan Enter.',
+      'Hasil diurutkan dengan skor "% cocok"; klik sebuah kartu untuk melompat ke bab & menyorot posisinya di editor.',
+      'Setelah menulis lagi, klik "Perbarui indeks" — hanya bab yang berubah yang di-embed ulang (cepat).',
+    ],
+    detail: [
+      'Memakai model embedding lokal (Xenova/all-MiniLM-L6-v2) di dalam browser — data tak keluar perangkat dan tidak ada biaya token.',
+      'Indeks disimpan di IndexedDB, jadi bertahan antar sesi; cukup "Perbarui" secara berkala, tak perlu bangun ulang dari nol.',
+      'Berbeda dari Cari & Ganti (mencari kata literal). Cari Adegan memahami maksud — berguna saat Anda ingat "apa yang terjadi" tapi lupa kata persisnya.',
+    ],
+    tip: 'Sepenuhnya lokal & gratis token — pakai sebebasnya. Kualitas hasil ikut membaik setelah indeks diperbarui.',
+  },
+  {
+    id: 'snapshots', group: 'write', Icon: History, color: 'teal', view: 'write',
+    title: 'Snapshots (Riwayat Versi)',
+    where: 'Panel kanan Editor',
+    what: 'Mesin waktu per bab. Penyelamat saat sebuah revisi besar ternyata salah arah dan Anda ingin kembali.',
+    steps: [
+      'Buka panel "Riwayat Versi" dari sisi kanan editor.',
+      'Sebelum perombakan besar, isi "Nama snapshot…" (mis. "Sebelum ubah ending") lalu klik ikon kamera untuk mengabadikan kondisi bab.',
+      'Pada tiap snapshot: klik "Bandingkan" untuk melihat diff terhadap naskah sekarang, atau "Pulihkan" untuk mengembalikan isinya.',
+    ],
+    detail: [
+      'Snapshot berlabel "Otomatis" (amber) dibuat sistem sebelum aksi destruktif — mis. tepat sebelum sebuah pemulihan — jadi pemulihan pun bisa dibatalkan.',
+      'Pulihkan meminta konfirmasi dan membuat snapshot otomatis dari naskah sekarang lebih dulu, sehingga tidak ada versi yang benar-benar hilang.',
+      'Snapshot manual bertahan sampai Anda hapus; snapshot per bab, bukan per proyek.',
+    ],
+  },
+
+  // ── DUNIA, LORE & CODEX ────────────────────────────────────────────────────
+  {
+    id: 'codex', group: 'world', Icon: Database, color: 'emerald', view: 'codex',
+    title: 'Kamus Data / Codex',
+    where: 'Menu: Kamus Data',
+    what: 'Ensiklopedia dunia Anda (karakter, lokasi, item, dll) — memori jangka panjang proyek yang otomatis jadi konteks AI.',
+    steps: [
+      'Buat entri per kategori. Ada 6 kategori bawaan, plus kategori kustom buatan Anda (mis. "Faksi", "Ras") lengkap dengan ikon & warna lewat pengelola kategori.',
+      'Isi deskripsi; tambahkan Alias (variasi nama) agar semua bentuk terdeteksi di naskah dan oleh AI.',
+      'Gunakan "Lengkapi via AI" untuk memperkaya deskripsi sebuah entri, atau buka Lokakarya untuk membangunnya lewat diskusi.',
+    ],
+    detail: [
+      'Setiap entri otomatis dikenali di naskah (sorotan garis-titik) dan menjadi bahan konteks di semua jalur AI (Magic Edit, Studio, Konsistensi).',
+      'Menghapus kategori kustom mengalihkan entri terkait ke kategori "other", bukan menghapusnya.',
+      'Enrichment AI bawaan hanya memakai 6 kategori inti; kategori kustom bersifat manual (Anda yang mengisi).',
+    ],
+    tip: 'Selesaikan editing Codex/Bible dulu sebelum sesi menulis — mengedit lore membatalkan cache prompt sehingga panggilan AI berikutnya jadi lebih mahal.',
+  },
+  {
+    id: 'workshop', group: 'world', Icon: Hammer, color: 'purple', view: 'codex', openLabel: 'Buka Kamus Data',
+    title: 'Lokakarya Codex (buat/edit via diskusi AI)',
+    where: 'Tombol "Lokakarya" (header Codex) / "Diskusikan" (detail entri)',
+    what: 'Bangun atau rombak entri Codex lewat percakapan. Panel dua kolom: kiri chat, kanan draf field terstruktur yang terisi otomatis.',
+    steps: [
+      'Buat baru: tombol "Lokakarya" di header Kamus Data. Edit: buka sebuah entri → "Diskusikan".',
+      'Berdiskusi dengan AI; saat AI mengusulkan data, draf field di kanan terisi otomatis (live-fill).',
+      'Bila AI tak mengisi draf, klik "Tarik dari diskusi" untuk memanennya manual.',
+      'Simpan sendiri saat draf siap — di mode edit, muncul diff per-field (before/after) untuk Anda konfirmasi.',
+    ],
+    detail: [
+      'Dua tombol audit: "Audit" membandingkan entri dengan data dunia terstruktur (Codex + Bible + relasi); "Mendalam" membandingkannya dengan cuplikan prosa bab tempat entitas itu benar-benar muncul.',
+      'Sesi diskusi dipersist per-target (resume walau Anda pindah panel) dan dibuang otomatis saat entri tersimpan.',
+      'AI tidak pernah menulis ke database sendiri — Anda selalu pemegang keputusan simpan. Riwayat Lokakarya terpisah dari Studio Asisten.',
+    ],
+  },
+  {
+    id: 'orphans', group: 'world', Icon: UserSearch, color: 'lime', view: 'orphans',
+    title: 'Saran Entitas',
+    where: 'Menu: Saran Entitas',
+    what: 'Menemukan nama-diri yang sering muncul di naskah tapi belum tercatat di Codex — agar tak ada tokoh/tempat terlewat.',
+    steps: [
+      'Buka Saran Entitas untuk melihat kandidat: nama berhuruf kapital yang berulang namun belum punya entri Codex, beserta frekuensinya.',
+      'Tambahkan kandidat relevan ke Codex sekali klik; AI dapat membantu mengisi deskripsi awalnya.',
+    ],
+    detail: [
+      'Ini kebalikan dari pencocokan biasa: alih-alih menyorot yang sudah ada di Codex, ia mencari yang BELUM ada.',
+      'Berjalan deterministik & lokal (nol token); enrichment deskripsi barulah opsional memakai AI.',
+    ],
+  },
+  {
+    id: 'relationships', group: 'world', Icon: Share2, color: 'rose', view: 'relationships',
+    title: 'Relasi Karakter (Peta Hubungan)',
+    where: 'Menu: Relasi Karakter',
+    what: 'Peta visual interaktif ikatan & konflik antar entitas Codex. Dibaca AI secara pasif saat menulis dialog.',
+    steps: [
+      'Tarik node (lingkaran = entitas) untuk merapikan tata letak.',
+      'Tautkan dua entitas dan beri label hubungan (mis. "Musuh bebuyutan", "Kakak-adik").',
+      'Saat AI menulis percakapan antar keduanya, ia otomatis tahu sentimen mereka tanpa Anda ingatkan.',
+    ],
+    detail: [
+      'Relasi ikut menjadi bahan Cek Konsistensi & Peta Kontinuitas (mis. mendeteksi relasi yang dua tokohnya tak pernah bertemu di naskah).',
+    ],
+  },
+  {
+    id: 'bible', group: 'world', Icon: Book, color: 'sky', view: 'bible',
+    title: 'Buku Cerita (Story Bible)',
+    where: 'Menu: Buku Cerita',
+    what: 'Konstitusi cerita: genre, tone, POV, tempo, tema, dan aturan baku yang mengikat seluruh respons AI.',
+    steps: [
+      'Tetapkan Tone (mis. "Gelap, gotik, tanpa romansa") dan POV (mis. "Orang pertama, Aku").',
+      'Isi Premis, Tema, dan Catatan Penulis sebagai arahan tambahan.',
+      'Aktif/nonaktifkan aturan tertentu agar fleksibel saat bereksperimen.',
+    ],
+    detail: [
+      'Nilai ini disuntikkan ke instruksi AI di semua jalur (Magic Edit, Studio, Konsistensi) sehingga keluaran selalu sesuai pakem cerita.',
+      'Bersama Codex, Buku Cerita membentuk "knowledge base" statis yang di-cache provider — itu sebabnya menyuntingnya membatalkan cache.',
+    ],
+  },
+
+  // ── ANALISIS & KONSISTENSI ─────────────────────────────────────────────────
+  {
+    id: 'consistency', group: 'analysis', Icon: ShieldCheck, color: 'green', view: 'consistency',
+    title: 'Cek Konsistensi (audit AI per-bab)',
+    where: 'Menu: Cek Konsistensi',
+    what: 'Audit satu bab terhadap Codex, Buku Cerita, relasi, dan Timeline untuk menemukan pertentangan kanon.',
+    steps: [
+      'Pilih bab, jalankan pemeriksaan, lalu telusuri daftar temuan (mis. ciri tokoh berubah, urutan waktu salah, relasi janggal).',
+      'Klik sebuah temuan untuk melompat ke kutipannya di editor (otomatis tersorot) dan perbaiki di tempat.',
+    ],
+    detail: [
+      'Ini versi "audit satu bab penuh" — berbeda dari Konsistensi Inline yang bekerja per-paragraf di dalam editor.',
+      'Memakai token karena AI membandingkan prosa bab dengan seluruh data dunia; jalankan saat bab sudah cukup matang.',
+    ],
+  },
+  {
+    id: 'timeline', group: 'analysis', Icon: CalendarClock, color: 'violet', view: 'timeline',
+    title: 'Timeline Cerita',
+    where: 'Menu: Timeline Cerita',
+    what: 'Kronologi peristiwa untuk mencegah plot hole dan urutan kejadian yang bertabrakan.',
+    steps: [
+      'Tambahkan peristiwa penting beserta urutan/waktunya.',
+      'Data ini jadi acuan bagi Cek Konsistensi, Peta Kontinuitas, dan Konsistensi Inline.',
+    ],
+    detail: [
+      'Timeline adalah sumber untuk aturan deterministik "tokoh muncul sebelum diperkenalkan" (garis bawah amber di editor).',
+      'Semakin lengkap Timeline, semakin tajam deteksi kontradiksi kronologi antar bab.',
+    ],
+  },
+  {
+    id: 'continuity', group: 'analysis', Icon: Radar, color: 'indigo', view: 'continuity',
+    title: 'Peta Kontinuitas',
+    where: 'Menu: Peta Kontinuitas',
+    what: 'Scan lintas-bab yang deterministik (nol token) untuk kesalahan kontinuitas menyeluruh.',
+    steps: [
+      'Buka panel — aplikasi memindai kemunculan seluruh entitas Codex di semua bab sekali jalan.',
+      'Empat cek muncul otomatis: karakter yang menghilang, entitas tak terpakai, relasi tanpa pertemuan, dan Timeline yang tak cocok.',
+    ],
+    detail: [
+      'Memakai satu kali pemindaian nama/alias (Aho-Corasick) yang sama dengan Lensa Karakter — cepat dan gratis.',
+      'Cocok dijalankan berkala sebagai "pemeriksaan kesehatan" naskah sebelum menempuh Cek Konsistensi AI yang berbiaya token.',
+    ],
+    tip: 'Sepenuhnya lokal & gratis token — aman dijalankan sesering apa pun.',
+  },
+  {
+    id: 'arc', group: 'analysis', Icon: Activity, color: 'fuchsia', view: 'arc',
+    title: 'Lensa Karakter',
+    where: 'Menu: Lensa Karakter',
+    what: 'Analitik per-karakter (nol token): porsi layar tiap bab, absensi terlama, bab ber-POV, dan ko-kemunculan.',
+    steps: [
+      'Pilih karakter untuk melihat di bab mana ia muncul dan seberapa besar porsinya.',
+      'Pakai untuk mendeteksi tokoh yang terlalu lama hilang atau POV yang tak seimbang.',
+    ],
+    detail: [
+      'Perhitungan "bab ber-POV" mengambil field POV per-bab — isi POV bab agar metrik ini akurat.',
+      'Ko-kemunculan menunjukkan pasangan tokoh yang sering muncul bersama, berguna untuk menakar dinamika hubungan.',
+    ],
+  },
+  {
+    id: 'prose', group: 'analysis', Icon: BarChart3, color: 'cyan', view: 'prose',
+    title: 'Wawasan Prosa',
+    where: 'Menu: Wawasan Prosa',
+    what: 'Analitik gaya seluruh naskah (nol token): kalimat terlalu panjang, kalimat pasif, keterbacaan, dan kata berulang.',
+    steps: [
+      'Buka panel untuk melihat ringkasan grafik gaya penulisan di seluruh bab.',
+      'Pakai temuannya untuk memoles ritme, memangkas kalimat pasif, dan menghindari pengulangan kata.',
+    ],
+    detail: [
+      'Hasil analisis disimpan lokal (localStorage) sehingga tak dihitung ulang tiap buka panel.',
+      'Ada juga panel Prose Insights ringkas di sisi kanan editor untuk menyorot masalah gaya bab yang sedang dikerjakan.',
+    ],
+  },
+
+  // ── AI & ASISTEN ───────────────────────────────────────────────────────────
+  {
+    id: 'studio', group: 'ai', Icon: MessagesSquare, color: 'purple', view: 'brainstorm',
+    title: 'Studio Asisten',
+    where: 'Menu: Studio Asisten',
+    what: 'Ruang percakapan penuh untuk brainstorming, menyusun plot, atau kritik prosa — dengan riwayat sesi.',
+    steps: [
+      'Pilih Persona: berpindah antara mode seperti Bedah Plot, Kritik Prosa, atau Worldbuilder.',
+      'Lampirkan (+): impor entri Codex/Bible tertentu agar diskusi terfokus.',
+      'Aktifkan "Smart Auto-Context" di header untuk menyelipkan teks bab yang sedang dikerjakan ke tiap jawaban.',
+      'Anda bisa Stop di tengah jawaban, atau Regenerasi untuk variasi.',
+    ],
+    detail: [
+      'Setiap sesi tersimpan dan bisa dilanjutkan dari daftar riwayat.',
+      'Riwayat Studio otomatis menyembunyikan sesi Scribble & Lokakarya agar tidak tercampur.',
+    ],
+  },
+  {
+    id: 'scribble', group: 'ai', Icon: Wand2, color: 'fuchsia', view: 'write',
+    title: 'Scribble (Asisten Ringkas)',
+    where: 'Panel samping Editor / Codex',
+    what: 'Asisten obrolan kecil yang menempel di samping editor/codex untuk pertanyaan cepat tanpa pindah ke Studio.',
+    steps: [
+      'Buka panel Scribble dari sisi editor atau codex untuk tanya jawab singkat (mis. "beri 3 alternatif nama kota").',
+      'Untuk diskusi yang makin panjang, pindah ke Studio Asisten.',
+    ],
+    detail: [
+      'Scribble berbagi mesin sesi dengan Studio, tapi riwayatnya terpisah agar tidak mencemari daftar Studio.',
+      'Ditujukan untuk dorongan kecil di tengah menulis, bukan sesi panjang.',
+    ],
+  },
+  {
+    id: 'snippets', group: 'ai', Icon: Sparkles, color: 'yellow', view: 'actions',
+    title: 'Snippet AI (Aksi Kustom)',
+    where: 'Menu: Snippet AI',
+    what: 'Simpan prompt yang sering dipakai sebagai tombol pintas — seperti "macro" untuk AI.',
+    steps: [
+      'Buat snippet baru (mis. "ubah ke gaya bahasa formal") di menu Snippet AI, lengkap dengan label & ikon.',
+      'Panggil lewat menu "Tanya AI" (bagian "Kustom (Personal)") saat menyorot teks di editor.',
+    ],
+    detail: [
+      'Sangat menghemat waktu untuk revisi berulang yang sama di banyak bab.',
+      'Snippet hanya prompt tersimpan — ia memakai teks yang sedang Anda sorot sebagai targetnya.',
+    ],
+  },
+  {
+    id: 'ai-settings', group: 'ai', Icon: Key, color: 'slate', view: 'settings',
+    title: 'Penyedia AI, Kunci (BYOK) & Kedalaman Konteks',
+    where: 'Pengaturan → tab AI',
+    what: 'Pilih penyedia & model AI, masukkan kunci API sendiri, uji koneksi, dan atur seberapa banyak konteks dunia dikirim ke AI.',
+    steps: [
+      '"Penyedia AI Default": pilih yang aktif — Google AI Studio (Gemini), Groq Cloud, OpenRouter, Anthropic (Claude), Hugging Face, atau Ollama (lokal).',
+      'Kredensial API: tempel kunci tiap penyedia (mis. Google "AIzaSy…", Claude "sk-ant-…", Groq "gsk_…", OpenRouter "sk-or-…", HF "hf_…"), pilih modelnya, lalu klik "Simpan Kredensial".',
+      'Klik tombol uji koneksi di samping kunci untuk memastikan kunci & model benar-benar bekerja sebelum menulis.',
+      'Kedalaman Konteks: Minimal (Eco — hemat, hanya patuhi Bible & abaikan dunia), Seimbang (Optimal — otomatis pilih lore relevan, direkomendasikan), atau Mendalam (Power — detail maksimum, token besar).',
+    ],
+    detail: [
+      'BYOK: kunci disimpan lokal di browser (base64 di localStorage/sessionStorage), tidak pernah dikirim ke server aplikasi — hanya diteruskan ke penyedia yang Anda pilih.',
+      'Ollama (Penyedia AI Lokal): centang "Ollama Aktif", isi Base URL (default http://localhost:11434), pilih model. 100% offline tanpa API key — tapi butuh aplikasi Ollama berjalan dengan CORS dikonfigurasi.',
+      'Ketahanan: bila penyedia aktif gagal (koneksi/rate-limit), sistem otomatis mencoba penyedia cadangan; kunci salah / kuota habis TIDAK di-retry (percuma).',
+      'Model tiap penyedia diingat terpisah, jadi Anda bisa berganti penyedia tanpa mengetik ulang model.',
+    ],
+  },
+  {
+    id: 'ai-optimization', group: 'ai', Icon: Coins, color: 'amber', view: 'settings',
+    title: 'Optimasi AI Lanjutan (token & biaya)',
+    where: 'Pengaturan → tab AI → "Optimasi AI Lanjutan"',
+    what: 'Lima penyetel lanjutan untuk menekan token/biaya. Default sudah aman — ubah hanya bila ingin menyetel manual.',
+    steps: [
+      'Maks. Lore di Cache: batas karakter Codex pada prompt statis — 25.000 (~6k token, paling hemat), 50.000 (default), 75.000, atau 100.000 (lore terkaya). Makin kecil = cache lebih murah ditulis ulang bila sering edit lore di tengah sesi.',
+      'Model Tugas Ringan: model murah untuk tugas mekanis (rangkum, ekstraksi entitas) pada penyedia terpilih; kosongkan = pakai default. Tugas berat (tulis ulang, chat) tetap memakai model utama.',
+      'Masa Hidup Cache (Claude): 1 jam (default — jaga cache hangat untuk sesi menulis panjang) atau 5 menit (untuk pemakaian jarang / burst pendek). Hanya Claude langsung; OpenRouter & Google tak terpengaruh.',
+      'Kreativitas Tulis Ulang: geser 0–1 khusus aksi "Tanya AI" di editor. Rendah = presisi & taat instruksi; tinggi = variatif/kreatif tapi rawan menyimpang. Tugas analitis (cek konsistensi, ekstraksi) tak terpengaruh.',
+      'Cek Konsistensi Otomatis (boros token): toggle mode idle-check yang menggarisbawahi paragraf (ungu) saat Anda berhenti mengetik. Default MATI; garis bawah deterministik timeline (amber) selalu gratis & aktif.',
+    ],
+    detail: [
+      'Penyetel di sini tersimpan seketika saat diubah (kecuali kredensial yang butuh tombol "Simpan"). Pantau efeknya lewat cache hit rate di Dashboard dan pil Context Meter.',
+      'Bagian "Cache Semantik & Vektor" menyediakan "Bersihkan Cache Penyematan" untuk reset indeks vektor (Cari Adegan, Global Search, auto-summarizer) bila state semantik rusak.',
+    ],
+    tip: 'Untuk biaya minimum: Kedalaman Konteks "Seimbang", Maks. Lore 25k, Cek Konsistensi Otomatis mati, dan model tugas-ringan diisi.',
+  },
+
+  // ── PROGRES, DATA & EKSPOR ─────────────────────────────────────────────────
+  {
+    id: 'projects', group: 'output', Icon: Library, color: 'indigo', actionKey: 'project', openLabel: 'Buka Manajer Naskah',
+    title: 'Manajer Naskah (Multi-Proyek)',
+    where: 'Header: klik nama proyek (ikon ⚡)',
+    what: 'Aplikasi bisa menampung banyak novel sekaligus. Buat, beralih, dan hapus naskah dari satu tempat.',
+    steps: [
+      'Klik nama proyek di kiri atas header untuk membuka "Naskah Anda".',
+      'Klik "Ganti" pada sebuah naskah untuk berpindah ke sana; naskah aktif ditandai lencana "Aktif".',
+      'Gunakan "Buat Naskah Baru" (isi judul) untuk memulai proyek baru — masing-masing punya bab, Codex, Bible, dll. yang terpisah.',
+    ],
+    detail: [
+      'Daftar diurutkan berdasarkan "terakhir dibuka", jadi naskah yang sedang digarap selalu di atas.',
+      'Menghapus naskah minta konfirmasi ("Hapus?" → "Konfirmasi") dan tidak bisa dilakukan bila hanya tersisa satu naskah.',
+      'Nama proyek juga bisa diganti langsung (inline) lewat kotak judul di bagian atas sidebar.',
+      'Penghapusan bersifat permanen & lokal — pastikan sudah ada cadangan sebelum menghapus.',
+    ],
+  },
+  {
+    id: 'context-meter', group: 'output', Icon: Cpu, color: 'emerald',
+    title: 'Context Meter (anggaran token)',
+    where: 'Header: pil ikon Cpu dengan %',
+    what: 'Memantau seberapa penuh "jendela konteks" model AI oleh bab + lore, agar Anda tahu kapan konteks mulai sesak.',
+    steps: [
+      'Lihat pil Cpu di header saat sedang di Editor; angkanya = persentase pemakaian konteks model aktif.',
+      'Klik untuk membuka rincian: total token vs limit model, plus pecahan Teks Bab / Lore-Codex / Story Bible.',
+      'Warna berubah sesuai beban: hijau (aman), amber (>60%), merah (>85% — konteks mulai sesak).',
+    ],
+    detail: [
+      'Ini BERBEDA dari pil target menulis (persentase kata). Context Meter soal token AI; pil target soal progres naskah.',
+      'Limit menyesuaikan model/penyedia aktif (mis. Claude ~200k, Gemini 1M+, Groq 8k). Ganti model di Pengaturan mengubah acuan ini.',
+      'Hanya muncul saat ada bab aktif (mode Editor).',
+    ],
+    tip: 'Bila meter memerah, konteks yang dikirim ke AI membengkak (lore + bab panjang). Turunkan "Kedalaman Konteks" atau pangkas cap lore cache di Pengaturan.',
+  },
+  {
+    id: 'planning', group: 'output', Icon: LayoutList, color: 'fuchsia', view: 'outline',
+    title: 'Papan Rencana & Manajemen Bab',
+    where: 'Menu: Papan Rencana',
+    what: 'Papan gaya Kanban untuk memantau status bab (Outline → Draft → Selesai) dan menyusun urutannya.',
+    steps: [
+      'Drag & drop kartu antar kolom status saat tahap pengerjaan berubah.',
+      'Urutkan ulang bab dengan menarik ikon "grip" di daftar bab.',
+      'Tulis Ringkasan bab agar AI tahu garis besar isinya walau belum selesai ditulis.',
+    ],
+    detail: [
+      'Ringkasan bab juga bisa diisi otomatis oleh auto-summarizer (lihat Fitur Kecil).',
+      'Ringkasan membantu AI memahami bab yang belum ditulis penuh — berguna untuk menjaga alur saat brainstorming.',
+    ],
+  },
+  {
+    id: 'stats', group: 'output', Icon: Target, color: 'cyan', view: 'write',
+    title: 'Target Menulis, Statistik & Streak',
+    where: 'Header: pil target % (bukan pil Cpu) + panel kanan Editor',
+    what: 'Lacak jumlah kata, target naskah, target harian, dan rentetan hari produktif (streak).',
+    steps: [
+      'Klik pil target "%" di header → setel Target Naskah & Target Harian, pantau progress bar & streak 🔥.',
+      '"Kata hari ini" dihitung dari pertambahan kata Anda; capai target beberapa hari berturut-turut untuk menambah streak.',
+    ],
+    detail: [
+      'Jangan tertukar dengan pil Cpu (Context Meter) di sebelahnya — yang ini soal progres kata, bukan token AI.',
+      'Footer editor menampilkan hitungan kata/karakter & perkiraan waktu baca bab yang sedang dibuka secara live.',
+    ],
+  },
+  {
+    id: 'dashboard', group: 'output', Icon: Gauge, color: 'indigo', view: 'dashboard',
+    title: 'Dashboard Penggunaan AI',
+    where: 'Menu: Dashboard',
+    what: 'Pantau pemakaian token, perkiraan biaya, tingkat cache-hit, dan model yang paling sering dipakai.',
+    steps: [
+      'Lihat kartu "Token dari Cache" & cache hit rate untuk memastikan caching bekerja (menekan biaya).',
+      'Bandingkan dengan setelan di Pengaturan → Optimasi AI Lanjutan untuk menyetel berdasarkan data nyata, bukan tebakan.',
+    ],
+    detail: [
+      'Setiap panggilan AI dicatat lokal; dashboard hanya merangkumnya — tidak ada data yang dikirim keluar.',
+      'Cache hit tinggi = biaya rendah. Bila rendah, cek apakah Anda sering mengedit lore di tengah sesi menulis (itu membatalkan cache).',
+    ],
+  },
+  {
+    id: 'export', group: 'output', Icon: FileDown, color: 'orange', actionKey: 'export', openLabel: 'Buka Ekspor',
+    title: 'Ekspor Multi-Format (MD / PDF / DOCX / EPUB)',
+    where: 'Ikon unduh di Header',
+    what: 'Rajut bab-bab menjadi satu berkas siap kirim, dengan pilihan bab yang disertakan.',
+    steps: [
+      'Klik ikon unduh di header → pilih format (Markdown, PDF, Word, atau EPUB).',
+      'Centang bab yang ingin disertakan (atau "Pilih Semua"); ringkasan menampilkan jumlah kata yang akan diekspor.',
+    ],
+    detail: [
+      'PDF/DOCX/EPUB mempertahankan format tebal & miring; EPUB menghasilkan e-book standar siap dibaca di aplikasi e-reader.',
+      'Karena default-nya semua bab, pakai centang untuk mengekspor sebagian (mis. hanya sampel 3 bab pertama).',
+    ],
+  },
+  {
+    id: 'backup', group: 'output', Icon: Cloud, color: 'blue', view: 'settings',
+    title: 'Backup, Restore & Sinkronisasi (3 lapisan)',
+    where: 'Pengaturan → tab Backup',
+    what: 'Lindungi karya berlapis: cadangan otomatis di browser, ke folder perangkat, ke Google Drive, plus ekspor/impor manual.',
+    steps: [
+      'Operasi Manual → "Ekspor Semua Cadangan": unduh satu berkas JSON berisi seluruh ruang kerja (proyek, bab, Codex, Bible, relasi, timeline, sesi chat).',
+      '"Kembalikan dari JSON": impor berkas cadangan (.json atau .json.gz). Menimpa SEMUA data setelah konfirmasi, lalu memuat ulang halaman.',
+      'Mesin Pencadangan Otomatis berjalan berkala sesuai Interval (15 / 30 / 60 menit) dalam 3 lapisan (lihat detail).',
+    ],
+    detail: [
+      'Lapisan 1 — IndexedDB: cadangan bergulir hening di browser, menyimpan hingga 5 versi. Daftar "Titik Pulih" (timestamp + ukuran) punya tombol Pulihkan, plus "Picu Pencadangan Lokal" manual.',
+      'Lapisan 2 — Folder Lokal: menulis berkas .json terus-menerus ke folder pilihan di perangkat (butuh Chrome/Edge; File System Access API). Klik "Pilih Folder Cadangan".',
+      'Lapisan 3 — Google Drive (BYOK): tempel Google Client ID Anda, "Login Google", lalu "Kirim Cadangan" untuk salinan luar perangkat.',
+      'PENTING: semua data hanya ada lokal di browser (IndexedDB). Hapus cache / ganti perangkat = hilang bila tak ada cadangan.',
+      'Restore mendeteksi gzip lewat magic bytes (bukan ekstensi), jadi berkas cadangan lama yang salah nama tetap terbaca.',
+    ],
+  },
+];
+
+// Fitur mikro / tersembunyi — hal kecil yang mudah lupa, dijelaskan ringkas tapi jelas.
+export const SMALL_FEATURES: SmallFeature[] = [
+  { title: 'Tema Gelap / Terang', where: 'Header (ikon bulan/matahari)', desc: 'Beralih antara mode terang dan gelap sesuai kenyamanan mata. Pilihan tersimpan antar sesi.' },
+  { title: 'Toggle Sidebar', where: 'Header (ikon chevron kiri atas)', desc: 'Sembunyikan/tampilkan panel navigasi kiri untuk melebarkan area kerja. Di layar kecil, sidebar menutup sendiri setelah memilih menu.' },
+  { title: 'Ganti nama proyek inline', where: 'Kotak judul di atas sidebar', desc: 'Klik langsung nama proyek di sidebar untuk menyuntingnya; perubahan tersimpan seketika ke database.' },
+  { title: 'Bersihkan Cache Penyematan', where: 'Pengaturan → Cache Semantik & Vektor', desc: 'Reset indeks vektor (Cari Adegan, Global Search, auto-summarizer) bila ada state semantik yang rusak; worker membangunnya ulang di latar.' },
+  { title: 'Log Error', where: 'Sidebar → Log Error', desc: 'Catatan galat aplikasi yang terekam otomatis. Berguna untuk menelusuri masalah bila ada fitur yang berperilaku aneh.' },
+  { title: 'Mode Fokus', where: 'Editor → menu "Tampilan", atau Ctrl+Alt+F', desc: 'Sembunyikan seluruh antarmuka & panel (termasuk header) untuk menulis tenang tanpa distraksi. Tekan lagi untuk keluar.' },
+  { title: 'Mode Mesin Tik (Typewriter)', where: 'Editor → menu "Tampilan"', desc: 'Baris yang sedang aktif selalu dijaga di tengah layar saat mengetik, seperti mesin tik klasik.' },
+  { title: 'Ukuran Teks (Zoom)', where: 'Editor → menu "Tampilan"', desc: 'Perbesar/perkecil teks editor dari 50% sampai 250% tanpa mengubah data — hanya tampilan.' },
+  { title: 'Dock menu seleksi', where: 'Menu mengambang (ikon pin)', desc: 'Sematkan menu "Tanya AI" di bawah layar agar tidak menutupi teks yang sedang Anda baca. Posisi diingat.' },
+  { title: 'Pemilih provider per-aksi', where: 'Menu "Tanya AI"', desc: 'Bila >1 kunci provider aktif, kirim satu aksi ke provider tertentu (huruf awalnya) tanpa mengubah setelan global.' },
+  { title: 'Bandingkan snapshot (diff)', where: 'Panel Riwayat Versi', desc: 'Lihat perbedaan baris-per-baris antara sebuah snapshot dan naskah sekarang sebelum memutuskan memulihkan.' },
+  { title: 'Snapshot otomatis pengaman', where: 'Otomatis sebelum pemulihan', desc: 'Sistem mengabadikan naskah sekarang (label "Otomatis") tepat sebelum aksi destruktif, jadi selalu bisa dikembalikan.' },
+  { title: 'POV per-bab', where: 'Properti bab', desc: 'Tandai sudut pandang tiap bab; dipakai Lensa Karakter untuk menghitung bab ber-POV dengan akurat.' },
+  { title: 'Auto-summarizer', where: 'Berjalan di latar', desc: 'Meringkas bab dengan AI secara otomatis; ringkasan membantu AI memahami isi bab walau belum selesai ditulis.' },
+  { title: 'Kategori Codex kustom', where: 'Kamus Data → pengelola kategori', desc: 'Buat kategori sendiri (label, ikon, warna) di luar 6 kategori bawaan. Menghapusnya mengalihkan entri ke "other".' },
+  { title: 'Alias Codex', where: 'Form entri Codex', desc: 'Daftarkan variasi nama (julukan, gelar) agar semua bentuk terdeteksi di naskah & terbaca AI.' },
+  { title: 'Persona AI', where: 'Studio Asisten', desc: 'Ganti "kepribadian" asisten (Bedah Plot, Kritik Prosa, Worldbuilder, dll) agar gaya jawaban sesuai kebutuhan.' },
+  { title: 'Smart Auto-Context', where: 'Header Studio Asisten', desc: 'Selipkan otomatis teks bab yang sedang dikerjakan ke tiap jawaban AI. Cocok saat buntu ide (writer\'s block).' },
+  { title: 'Stop & Regenerasi', where: 'Jawaban AI di Studio', desc: 'Hentikan jawaban di tengah bila sudah tak relevan, atau minta variasi baru dari prompt yang sama.' },
+  { title: 'Kedalaman Konteks', where: 'Pengaturan → AI', desc: 'Seimbangkan kualitas vs hemat token. Mode "minimal" memakai RAG dinamis; selain itu memakai prompt caching penuh.' },
+  { title: 'TTL & cap cache, suhu rewrite', where: 'Pengaturan → Optimasi AI Lanjutan', desc: 'Setel masa hidup cache Claude (5 mnt/1 jam), batas lore yang di-cache, model tugas-ringan, & kreativitas rewrite.' },
+  { title: 'Cek koneksi provider', where: 'Pengaturan → kredensial AI', desc: 'Uji apakah kunci & model sebuah penyedia benar-benar bekerja sebelum Anda mulai menulis.' },
+  { title: 'Pencarian Global', where: 'Ctrl+K (atau Ctrl+F)', desc: 'Lompat cepat ke bab atau entri Codex mana pun dari mana saja di aplikasi.' },
+  { title: 'Sinkronisasi Google Drive', where: 'Pengaturan → Backup', desc: 'Cadangan otomatis ke Drive (BYOK) untuk salinan luar perangkat, di atas backup lokal internal.' },
+];
+
+export const TIPS = [
+  { Icon: Cpu,    color: 'text-sky-500',     title: 'Blok Seperlunya Saja', desc: 'Magic Edit hanya mengolah area yang disorot. Sorot paragraf yang butuh diperbaiki saja untuk menghemat token.' },
+  { Icon: Coins,  color: 'text-amber-500',   title: 'Batasi Ukuran Output', desc: 'Beri instruksi eksplisit ("maksimal 3 poin", "dalam 50 kata") agar AI tidak menjawab terlalu panjang.' },
+  { Icon: Layers, color: 'text-emerald-500', title: 'Kelompokkan Edit Lore', desc: 'Mengedit Codex/Bible membatalkan cache. Selesaikan editing lore dulu, baru menulis, agar cache tetap "hangat" dan murah.' },
+  { Icon: Zap,    color: 'text-violet-500',  title: 'Manfaatkan @Mention',   desc: 'AI membaca profil Codex secara mendalam saat dipanggil dengan @ — cara terfokus menjaga konteks tanpa membebani memori.' },
+  { Icon: Radar,  color: 'text-indigo-500',  title: 'Pakai Alat Nol-Token',  desc: 'Peta Kontinuitas, Lensa Karakter, Wawasan Prosa, dan Cari Adegan berjalan lokal — gunakan sepuasnya sebelum memanggil AI.' },
+];
+
+export const SHORTCUTS = [
+  { key: '@',           action: 'Panggil Menu Mention (di editor)' },
+  { key: 'Ctrl + K',    action: 'Pencarian Global (lompat bab/codex)' },
+  { key: 'Ctrl + F',    action: 'Pencarian Global (alternatif)' },
+  { key: 'Ctrl + H',    action: 'Cari & Ganti dalam Bab (footer editor)' },
+  { key: 'Ctrl+Alt+F',  action: 'Mode Fokus (sembunyikan antarmuka)' },
+  { key: 'Ctrl+Enter',  action: 'Simpan catatan revisi (saat mengetik catatan)' },
+  { key: 'Esc',         action: 'Tutup bilah Cari & Ganti / dialog' },
+];
+
+// Kategori navigasi (pil).
+export type CatId = 'all' | GroupId | 'small' | 'tips' | 'shortcut';
+export const CATS: { id: CatId; label: string }[] = [
+  { id: 'all', label: 'Semua' },
+  { id: 'write', label: 'Editor' },
+  { id: 'world', label: 'Dunia & Codex' },
+  { id: 'analysis', label: 'Analisis' },
+  { id: 'ai', label: 'AI' },
+  { id: 'output', label: 'Progres' },
+  { id: 'small', label: 'Fitur Kecil' },
+  { id: 'tips', label: 'Tips' },
+  { id: 'shortcut', label: 'Shortcut' },
+];
+
+const norm = (s: string) => s.toLowerCase();
+export function featureMatches(f: Feature, q: string): boolean {
+  const hay = norm([f.title, f.where, f.what, f.tip ?? '', ...f.steps, ...(f.detail ?? [])].join(' '));
+  return hay.includes(q);
+}
+export function smallMatches(s: SmallFeature, q: string): boolean {
+  return norm([s.title, s.where, s.desc].join(' ')).includes(q);
+}
