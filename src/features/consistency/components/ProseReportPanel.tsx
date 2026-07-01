@@ -6,7 +6,7 @@
  * Logika di src/lib/proseAnalysis.ts; panel ini hanya menyajikan & menautkan hasil.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Gauge, ScanSearch, Loader2, ArrowUpRight, Sparkles, Repeat, MessageSquare, Radar } from 'lucide-react';
@@ -18,6 +18,51 @@ import { cn } from '@/src/lib/utils';
 
 interface ProseReportPanelProps {
   projectId: number;
+}
+
+// --- Persistensi hasil terakhir (localStorage, per-proyek) ---
+// Hasil analisis bertahan saat pindah panel / refresh, hingga pengguna
+// menganalisis ulang. Deterministik → aman menampilkan hasil tersimpan apa adanya.
+const STORE_VERSION = 1;
+const storeKey = (projectId: number) => `prose_report_${projectId}`;
+
+interface StoredReport {
+  v: number;
+  language: ProseLanguage;
+  report: ProseReport;
+  savedAt: number;
+}
+
+function loadStoredReport(projectId: number): StoredReport | null {
+  try {
+    const raw = localStorage.getItem(storeKey(projectId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredReport;
+    if (parsed?.v !== STORE_VERSION || !parsed.report) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredReport(projectId: number, language: ProseLanguage, report: ProseReport): number {
+  const savedAt = Date.now();
+  try {
+    localStorage.setItem(storeKey(projectId), JSON.stringify({ v: STORE_VERSION, language, report, savedAt }));
+  } catch {
+    // localStorage penuh / tak tersedia — hasil tetap tampil di sesi ini, hanya tak tersimpan.
+  }
+  return savedAt;
+}
+
+function formatSavedAt(ts: number): string {
+  try {
+    return new Date(ts).toLocaleString('id-ID', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
 }
 
 function readabilityColor(score: number): string {
@@ -52,6 +97,20 @@ export function ProseReportPanel({ projectId }: ProseReportPanelProps) {
   const [language, setLanguage] = useState<ProseLanguage>('id');
   const [scanning, setScanning] = useState(false);
   const [report, setReport] = useState<ProseReport | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Hidrasi hasil terakhir dari localStorage saat panel di-mount / ganti proyek.
+  useEffect(() => {
+    const stored = loadStoredReport(projectId);
+    if (stored) {
+      setReport(stored.report);
+      setLanguage(stored.language);
+      setSavedAt(stored.savedAt);
+    } else {
+      setReport(null);
+      setSavedAt(null);
+    }
+  }, [projectId]);
 
   const openChapter = (id: number) => {
     setActiveChapterId(id);
@@ -67,9 +126,11 @@ export function ProseReportPanel({ projectId }: ProseReportPanelProps) {
       .filter((c) => c.id != null)
       .map((c) => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
     const exclude = buildCodexStoplist(codexEntries);
-    setReport(buildProseReport(plain, language, exclude));
+    const result = buildProseReport(plain, language, exclude);
+    setReport(result);
+    setSavedAt(saveStoredReport(projectId, language, result));
     setScanning(false);
-  }, [chapters, codexEntries, language]);
+  }, [chapters, codexEntries, language, projectId]);
 
   const totalChapters = chapters?.length ?? 0;
 
@@ -117,11 +178,12 @@ export function ProseReportPanel({ projectId }: ProseReportPanelProps) {
           className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 dark:bg-indigo-500 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 transition-all active:scale-[0.98] shadow-sm hover:shadow-md"
         >
           {scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
-          {scanning ? 'Menganalisis…' : 'Analisis Prosa'}
+          {scanning ? 'Menganalisis…' : report ? 'Analisis Ulang' : 'Analisis Prosa'}
         </button>
-        <p className="text-xs text-slate-400 dark:text-slate-500 sm:ml-auto self-center">
-          {totalChapters} bab di manuskrip
-        </p>
+        <div className="text-xs text-slate-400 dark:text-slate-500 sm:ml-auto sm:text-right self-center leading-relaxed">
+          <p>{totalChapters} bab di manuskrip</p>
+          {savedAt && !scanning && <p>Dianalisis {formatSavedAt(savedAt)}</p>}
+        </div>
       </div>
 
       {/* Hasil */}
