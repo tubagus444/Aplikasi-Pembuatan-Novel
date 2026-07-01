@@ -689,33 +689,43 @@ export interface CodexAuditParams {
   codexEntries: CodexEntry[];
   bibleRules: StoryBibleRule[];
   relationships?: Relationship[];
+  /**
+   * LAPIS 2: cuplikan prosa bab tempat entitas muncul. Bila diisi, audit
+   * membandingkan entri vs prosa (kontradiksi penampilan/perilaku/fakta),
+   * bukan sekadar vs lore terstruktur.
+   */
+  chapterExcerpts?: string;
   provider?: string;
   onRetry?: (attempt: number, error: any, provider: string) => void;
 }
 
 /**
- * Audit konsistensi LAPIS 1 untuk satu entri Codex: bandingkan entri target dengan
- * SELURUH knowledge base terstruktur (Story Bible + Codex + relasi) dan kembalikan
- * temuan. Tidak membaca teks bab (itu lapis 2). Saudara dari checkConsistency dengan
- * abort key terpisah ('codex-audit') agar tak saling membatalkan dengan audit bab.
+ * Audit konsistensi satu entri Codex.
+ * - LAPIS 1 (default): entri vs SELURUH knowledge base terstruktur (Bible+Codex+relasi).
+ * - LAPIS 2 (bila `chapterExcerpts` diisi): entri vs prosa bab tempat entitas muncul.
+ * Abort key terpisah ('codex-audit') agar tak saling batal dengan audit bab.
  */
 export async function auditCodexEntry(params: CodexAuditParams): Promise<CodexAuditFinding[]> {
   const settings = getSettings();
   const provider = params.provider || settings.provider;
+  const deep = !!params.chapterExcerpts?.trim();
 
   const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
   const kbSegments = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
+  const prompt = deep ? AI_PROMPTS.AUDIT_CODEX_DEEP : AI_PROMPTS.AUDIT_CODEX;
 
   let cachedContext: string[] | undefined;
   let systemInstruction: string;
   if (useCaching) {
     cachedContext = kbSegments;
-    systemInstruction = AI_PROMPTS.AUDIT_CODEX.SYSTEM();
+    systemInstruction = prompt.SYSTEM();
   } else {
-    systemInstruction = AI_PROMPTS.AUDIT_CODEX.SYSTEM(kbSegments.join('\n\n'));
+    systemInstruction = prompt.SYSTEM(kbSegments.join('\n\n'));
   }
 
-  const userPrompt = AI_PROMPTS.AUDIT_CODEX.USER(params.entry);
+  const userPrompt = deep
+    ? AI_PROMPTS.AUDIT_CODEX_DEEP.USER(params.entry, params.chapterExcerpts!.trim())
+    : AI_PROMPTS.AUDIT_CODEX.USER(params.entry);
 
   const controller = new AbortController();
   registerAbort('codex-audit', controller);
@@ -726,7 +736,7 @@ export async function auditCodexEntry(params: CodexAuditParams): Promise<CodexAu
       userPrompt,
       provider,
       temperature: 0.2, // analitis: minim kreativitas
-      maxTokens: 1500,
+      maxTokens: deep ? 2000 : 1500,
       signal: controller.signal,
       actionType: 'consistency',
       cacheable: useCaching,

@@ -8,6 +8,7 @@ import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategorie
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useToast } from '@/src/hooks/useToast';
 import { enrichEntities, auditCodexEntry, type CodexAuditFinding } from '@/src/services/ai';
+import { gatherEntityContext } from '@/src/lib/orphanEntities';
 import { invalidateContextCache } from '@/src/services/contextEngine';
 import { WORKSHOP_DRAFT_INSTRUCTION, parseCodexDraft, stripCodexDraft } from '@/src/lib/codexDraft';
 
@@ -18,9 +19,9 @@ const workshopLocks = new Map<string, Promise<{ id: number; messages: ChatMessag
 const SEVERITY_LABEL: Record<string, string> = { high: '🔴 Tinggi', medium: '🟠 Sedang', low: '🟡 Rendah' };
 
 /** Format temuan audit jadi pesan markdown untuk ditempel ke kolom chat Lokakarya. */
-function formatAuditMessage(findings: CodexAuditFinding[]): string {
+function formatAuditMessage(findings: CodexAuditFinding[], title = 'Audit Konsistensi', emptyNote = 'lore saat ini'): string {
   if (!findings.length) {
-    return '✅ **Audit konsistensi:** tidak ada masalah terdeteksi terhadap lore saat ini.';
+    return `✅ **${title}:** tidak ada masalah terdeteksi terhadap ${emptyNote}.`;
   }
   const lines = findings.map((f, i) => {
     let s = `${i + 1}. **${SEVERITY_LABEL[f.severity] || f.severity} · ${f.type}** — ${f.issue}`;
@@ -28,7 +29,7 @@ function formatAuditMessage(findings: CodexAuditFinding[]): string {
     if (f.suggestion) s += `\n   - Saran: ${f.suggestion}`;
     return s;
   });
-  return `### 🔍 Audit Konsistensi (${findings.length} temuan)\n\n${lines.join('\n')}\n\n_Diskusikan atau minta saya perbaiki temuan di atas, lalu simpan._`;
+  return `### 🔍 ${title} (${findings.length} temuan)\n\n${lines.join('\n')}\n\n_Diskusikan atau minta saya perbaiki temuan di atas, lalu simpan._`;
 }
 
 /** Satu field yang berubah antara entri asli dan draf, untuk konfirmasi diff sebelum menimpa. */
@@ -85,6 +86,11 @@ export function useCodexWorkshop(projectId: number) {
     () => db.relationships.where('projectId').equals(projectId).toArray(),
     [projectId]
   );
+  // Bab (untuk audit mendalam / lapis 2). Live query murah; teks di-strip HTML saat dipakai.
+  const chapters = useOptimizedLiveQuery(
+    () => db.chapters.where('projectId').equals(projectId).toArray(),
+    [projectId]
+  );
   const { categories } = useCodexCategories(projectId);
 
   const { availableProviders, selectedProvider, setSelectedProvider } = useAvailableProviders();
@@ -135,6 +141,7 @@ export function useCodexWorkshop(projectId: number) {
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [isAuditingDeep, setIsAuditingDeep] = useState(false);
 
   // Pesan pembuka — dibuat sekali agar tidak ter-reset saat re-render.
   // Nama diambil dari seedName (mode edit MENGIRIM nama entri saat dibuka) agar
@@ -358,7 +365,19 @@ export function useCodexWorkshop(projectId: number) {
     }
   }, [draft, mode, entryId, projectId, toast, closeWorkshop]);
 
-  const canAudit = !!draft.name?.trim() && !!draft.description?.trim() && !isAuditing && !chat.isLoading;
+  const auditBusy = isAuditing || isAuditingDeep || chat.isLoading;
+  const canAudit = !!draft.name?.trim() && !!draft.description?.trim() && !auditBusy;
+  const canAuditDeep = canAudit && !!chapters?.length;
+
+  // Tempel pesan temuan audit ke chat + persist (setMessages tak memicu onMessageAdded).
+  const appendAuditMessage = useCallback((content: string) => {
+    chat.setMessages((prev) => {
+      const updated: ChatMessage[] = [...prev, { id: `audit-${Date.now()}`, role: 'model', content, timestamp: Date.now() }];
+      const id = sessionIdRef.current;
+      if (id) db.chatSessions.update(id, { messages: updated, lastMessageAt: Date.now() }).catch(() => {});
+      return updated;
+    });
+  }, [chat]);
 
   // Audit lapis 1: entri (draf saat ini) vs lore terstruktur. Temuan ditempel ke chat.
   const auditEntry = useCallback(async () => {
@@ -382,22 +401,54 @@ export function useCodexWorkshop(projectId: number) {
         relationships: relationships || [],
         provider: selectedProvider,
       });
-      // setMessages tak memicu onMessageAdded → persist manual agar temuan bertahan saat resume.
-      chat.setMessages((prev) => {
-        const updated: ChatMessage[] = [
-          ...prev,
-          { id: `audit-${Date.now()}`, role: 'model', content: formatAuditMessage(findings), timestamp: Date.now() },
-        ];
-        const id = sessionIdRef.current;
-        if (id) db.chatSessions.update(id, { messages: updated, lastMessageAt: Date.now() }).catch(() => {});
-        return updated;
-      });
+      appendAuditMessage(formatAuditMessage(findings));
     } catch (e: any) {
       reportAIError(e?.message || 'Audit konsistensi gagal.', e?.code);
     } finally {
       setIsAuditing(false);
     }
-  }, [entries, bibleRules, relationships, selectedProvider, chat, toast]);
+  }, [entries, bibleRules, relationships, selectedProvider, appendAuditMessage, toast]);
+
+  // Audit lapis 2: entri vs cuplikan prosa bab tempat entitas (nama + alias) muncul.
+  const auditDeep = useCallback(async () => {
+    const name = draftRef.current.name?.trim();
+    const description = draftRef.current.description?.trim();
+    if (!name || !description) {
+      toast.error('Isi Nama & Deskripsi dulu sebelum mengaudit.');
+      return;
+    }
+    // Kumpulkan cuplikan di sekitar tiap kemunculan nama/alias (pola OrphanScanPanel).
+    const plainChapters = (chapters || []).map((c) => ({ content: (c.content || '').replace(/<[^>]*>/g, ' ') }));
+    const terms = [name, ...(draftRef.current.aliases || [])].map((t) => t.trim()).filter(Boolean);
+    const CAP = 4000;
+    let excerpts = '';
+    for (const term of terms) {
+      if (excerpts.length >= CAP) break;
+      const ctx = gatherEntityContext(plainChapters, term, { maxSnippets: 6, window: 200, maxChars: CAP - excerpts.length });
+      if (ctx) excerpts += (excerpts ? '\n' : '') + ctx;
+    }
+    if (!excerpts.trim()) {
+      toast.info(`"${name}" belum muncul di bab mana pun — tak ada prosa untuk diaudit.`);
+      return;
+    }
+
+    setIsAuditingDeep(true);
+    try {
+      const findings = await auditCodexEntry({
+        entry: { name, category: draftRef.current.category || 'character', aliases: draftRef.current.aliases || [], description },
+        codexEntries: entries || [],
+        bibleRules: bibleRules || [],
+        relationships: relationships || [],
+        chapterExcerpts: excerpts,
+        provider: selectedProvider,
+      });
+      appendAuditMessage(formatAuditMessage(findings, 'Audit Mendalam (vs prosa bab)', 'prosa bab'));
+    } catch (e: any) {
+      reportAIError(e?.message || 'Audit mendalam gagal.', e?.code);
+    } finally {
+      setIsAuditingDeep(false);
+    }
+  }, [chapters, entries, bibleRules, relationships, selectedProvider, appendAuditMessage, toast]);
 
   return {
     // data
@@ -426,6 +477,9 @@ export function useCodexWorkshop(projectId: number) {
     isAuditing,
     canAudit,
     auditEntry,
+    isAuditingDeep,
+    canAuditDeep,
+    auditDeep,
     isSaving,
     canSave,
     save,

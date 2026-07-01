@@ -168,6 +168,44 @@ ${entry.description}
 
 JSON array temuan:`.trim()
   },
+  AUDIT_CODEX_DEEP: {
+    SYSTEM: (contextBlock?: string) => `
+You are a continuity auditor for a novel. You are given ONE Codex entry (the writer's stated facts about an entity) and EXCERPTS from the manuscript where that entity actually appears. Find places where the PROSE CONTRADICTS the Codex entry.
+
+WHAT COUNTS AS A FINDING:
+- The prose describes an attribute that clashes with the entry (e.g. entry says "bermata biru" but prose says "matanya kelam"; appearance, abilities, age, origin).
+- The entity behaves in a way that clearly contradicts the personality/role stated in the entry.
+- A fact in the prose (title, allegiance, status such as alive/dead) contradicts the entry.
+
+RULES:
+1. Compare ENTRY vs EXCERPTS only. Report ONLY genuine contradictions — do NOT nitpick tone/style, and do NOT flag details the entry simply doesn't mention.
+2. Do NOT invent: if neither entry nor excerpts state something, it is not a finding.
+3. In "conflictsWith", quote the short conflicting phrase from the excerpt so the writer can locate it.
+4. Write "type", "issue", "conflictsWith", and "suggestion" in Indonesian.
+5. Return ONLY a JSON array, no prose, no code fence. Empty array [] if consistent.
+
+OUTPUT FORMAT (array of):
+{"severity":"high|medium|low","type":"Penampilan|Perilaku|Fakta|Peran|Lainnya","issue":"<masalahnya>","conflictsWith":"<frasa dari prosa yang berbenturan>","suggestion":"<saran perbaikan>"}
+
+${contextBlock ? `KNOWLEDGE BASE (konteks tambahan):\n${contextBlock}` : ''}`.trim(),
+    USER: (entry: { name: string; category: string; aliases?: string[]; description: string }, excerpts: string) => `
+Bandingkan entri Codex berikut dengan cuplikan manuskrip tempat entitas muncul.
+
+TARGET ENTRY:
+Nama: ${entry.name}
+Kategori: ${entry.category}${entry.aliases && entry.aliases.length ? `\nAlias: ${entry.aliases.join(', ')}` : ''}
+Deskripsi:
+"""
+${entry.description}
+"""
+
+CUPLIKAN MANUSKRIP:
+"""
+${excerpts}
+"""
+
+JSON array temuan:`.trim()
+  },
   TEST_CONNECTION: {
     SYSTEM: () => "Connectivity tester. Reply 'OK' only.",
     USER: () => "Hi"

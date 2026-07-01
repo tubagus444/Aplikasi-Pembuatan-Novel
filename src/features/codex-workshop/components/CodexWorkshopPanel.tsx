@@ -211,6 +211,9 @@ export function CodexWorkshopPanel({ projectId }: CodexWorkshopPanelProps) {
           isAuditing={ws.isAuditing}
           canAudit={ws.canAudit}
           onAudit={ws.auditEntry}
+          isAuditingDeep={ws.isAuditingDeep}
+          canAuditDeep={ws.canAuditDeep}
+          onAuditDeep={ws.auditDeep}
           mode={ws.mode}
           changedFields={changedFields}
         />
