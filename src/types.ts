@@ -121,8 +121,13 @@ export interface ChatSession {
   mode?: SessionMode;
   smartAutoEnabled?: boolean;
   activeChapterId?: number;
-  /** Membedakan sesi workspace Studio dari sesi Scribble inline. undefined = legacy (diperlakukan sebagai 'studio'). */
-  kind?: 'studio' | 'scribble';
+  /** Membedakan sesi workspace Studio dari sesi Scribble inline & Lokakarya Codex. undefined = legacy (diperlakukan sebagai 'studio'). */
+  kind?: 'studio' | 'scribble' | 'workshop';
+  /**
+   * Kunci sesi Lokakarya Codex (kind 'workshop') untuk resume per-target:
+   * `entry:<id>` (edit entri) atau `new:<seed>` (buat baru). Non-indeks.
+   */
+  workshopKey?: string;
 }
 
 export interface Chapter {

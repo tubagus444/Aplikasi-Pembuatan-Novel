@@ -11,6 +11,10 @@ import { enrichEntities, auditCodexEntry, type CodexAuditFinding } from '@/src/s
 import { invalidateContextCache } from '@/src/services/contextEngine';
 import { WORKSHOP_DRAFT_INSTRUCTION, parseCodexDraft, stripCodexDraft } from '@/src/lib/codexDraft';
 
+// Lock registry untuk mencegah pembuatan sesi Lokakarya ganda saat StrictMode
+// me-mount efek dua kali (selaras dgn pola scribbleLocks di useScribbleAssistantPanel).
+const workshopLocks = new Map<string, Promise<{ id: number; messages: ChatMessage[] }>>();
+
 const SEVERITY_LABEL: Record<string, string> = { high: '🔴 Tinggi', medium: '🟠 Sedang', low: '🟡 Rendah' };
 
 /** Format temuan audit jadi pesan markdown untuk ditempel ke kolom chat Lokakarya. */
@@ -51,11 +55,14 @@ function fmtField(v: unknown): string {
 }
 
 /**
- * Otak Lokakarya Codex (Fase 1, mode buat-baru). Menyatukan:
- * - draf entitas (field terstruktur yang bisa diedit manual),
- * - sesi chat in-memory (useChatSession) yang terfokus ke entitas tsb,
+ * Otak Lokakarya Codex (buat-baru & edit). Menyatukan:
+ * - draf entitas (field terstruktur yang bisa diedit manual; mode edit + diff),
+ * - sesi chat PERSIST (useChatSession + tabel chatSessions, kind 'workshop') yang
+ *   di-resume per-target (kunci `entry:<id>` atau `new:<seed>`) — diskusi bertahan
+ *   saat pindah panel, dan sesi dibuang setelah entri tersimpan,
  * - "Tarik dari diskusi": panen percakapan → field via enrichEntities,
- * - "Simpan ke Codex": tulis ke Dexie + invalidasi cache konteks AI.
+ * - audit konsistensi lapis 1 (auditCodexEntry),
+ * - "Simpan": db.codex.add/update + invalidasi cache konteks AI.
  *
  * AI tidak pernah menulis ke DB sendiri; penulisan selalu lewat tombol Simpan.
  */
@@ -81,6 +88,19 @@ export function useCodexWorkshop(projectId: number) {
   const { categories } = useCodexCategories(projectId);
 
   const { availableProviders, selectedProvider, setSelectedProvider } = useAvailableProviders();
+
+  // Sesi chat Lokakarya yang dipersist. Kunci resume: per-entri (edit) atau per-seed (create).
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const sessionIdRef = useRef<number | null>(null);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
+  const workshopKey = useMemo(() => {
+    if (mode === 'edit' && entryId) return `entry:${entryId}`;
+    const seed = (workshopTarget?.seedName || '').trim().toLowerCase();
+    return `new:${seed || '__blank__'}`;
+  }, [mode, entryId, workshopTarget?.seedName]);
+  const workshopKeyRef = useRef(workshopKey);
+  workshopKeyRef.current = workshopKey;
 
   // Draf entitas. Nama diawali dari seed (mis. dari deteksi chat) bila ada.
   const [draft, setDraft] = useState<Partial<CodexEntry>>(() => ({
@@ -143,6 +163,10 @@ export function useCodexWorkshop(projectId: number) {
     extraSystem: WORKSHOP_DRAFT_INSTRUCTION,
     initialMessages: [welcomeMessage],
     onError: (msg) => reportAIError(msg),
+    onMessageAdded: (msgs) => {
+      const id = sessionIdRef.current;
+      if (id) db.chatSessions.update(id, { messages: msgs, lastMessageAt: Date.now() }).catch(() => {});
+    },
   });
 
   // Live-fill: saat sebuah balasan AI selesai, panen blok codex-draft (bila ada)
@@ -160,6 +184,51 @@ export function useCodexWorkshop(projectId: number) {
     // parseCodexDraft hanya menaruh key yang ada → spread aman, tak menimpa dgn undefined.
     if (fields) setDraft((prev) => ({ ...prev, ...fields }));
   }, [chat.isLoading, chat.messages, allowedCategorySlugs]);
+
+  // Muat/buat sesi persist untuk target ini, lalu hidrasi pesan. Pesan lama ditandai
+  // "sudah diproses" agar blok codex-draft historis tak diterapkan ulang ke draf saat resume.
+  const setMessages = chat.setMessages;
+  useEffect(() => {
+    if (!projectId) return;
+    let alive = true;
+    const lockKey = `${projectId}::${workshopKey}`;
+
+    let promise = workshopLocks.get(lockKey);
+    if (!promise) {
+      promise = (async () => {
+        const existing = await db.chatSessions
+          .where('projectId').equals(projectId)
+          .and((s) => s.kind === 'workshop' && s.workshopKey === workshopKey)
+          .first();
+        if (existing?.id) return { id: existing.id, messages: existing.messages };
+        const id = await db.chatSessions.add({
+          projectId,
+          title: `Lokakarya: ${workshopTarget?.seedName || (mode === 'edit' ? 'Entri' : 'Entri baru')}`,
+          messages: [welcomeMessage],
+          lastMessageAt: Date.now(),
+          kind: 'workshop',
+          workshopKey,
+        });
+        return { id, messages: [welcomeMessage] };
+      })();
+      workshopLocks.set(lockKey, promise);
+    }
+
+    promise
+      .then((res) => {
+        if (!alive) return;
+        sessionIdRef.current = res.id;
+        setSessionId(res.id);
+        setMessages(res.messages);
+        for (const m of res.messages) if (m.id) appliedRef.current.add(m.id);
+      })
+      .catch((err) => {
+        console.error('Gagal memuat sesi Lokakarya:', err);
+        workshopLocks.delete(lockKey); // izinkan retry di render berikutnya
+      });
+
+    return () => { alive = false; };
+  }, [projectId, workshopKey]);
 
   // Ringkasan draf sebagai konteks dinamis supaya AI tahu apa yang sedang dibangun.
   const draftContext = useCallback(() => {
@@ -274,6 +343,10 @@ export function useCodexWorkshop(projectId: number) {
       }
       // Lore berubah → cache konteks AI harus disegarkan (selaras dengan jalur simpan Codex).
       await invalidateContextCache();
+      // Sesi Lokakarya sudah tuntas → buang sesi + lock agar tak menyisakan diskusi basi.
+      const sid = sessionIdRef.current;
+      if (sid) await db.chatSessions.delete(sid).catch(() => {});
+      workshopLocks.delete(`${projectId}::${workshopKeyRef.current}`);
       toast.success(
         mode === 'edit' ? `Perubahan "${name}" disimpan.` : `"${name}" ditambahkan ke Kamus Data.`
       );
@@ -309,10 +382,16 @@ export function useCodexWorkshop(projectId: number) {
         relationships: relationships || [],
         provider: selectedProvider,
       });
-      chat.setMessages((prev) => [
-        ...prev,
-        { id: `audit-${Date.now()}`, role: 'model', content: formatAuditMessage(findings), timestamp: Date.now() },
-      ]);
+      // setMessages tak memicu onMessageAdded → persist manual agar temuan bertahan saat resume.
+      chat.setMessages((prev) => {
+        const updated: ChatMessage[] = [
+          ...prev,
+          { id: `audit-${Date.now()}`, role: 'model', content: formatAuditMessage(findings), timestamp: Date.now() },
+        ];
+        const id = sessionIdRef.current;
+        if (id) db.chatSessions.update(id, { messages: updated, lastMessageAt: Date.now() }).catch(() => {});
+        return updated;
+      });
     } catch (e: any) {
       reportAIError(e?.message || 'Audit konsistensi gagal.', e?.code);
     } finally {

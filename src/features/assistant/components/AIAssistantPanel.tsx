@@ -53,7 +53,7 @@ export function AIAssistantPanel() {
   } = useMentionAutocomplete(codexEntries || [], bibleRules || []);
 
   const sessions = useLiveQuery(() =>
-    projectId ? db.chatSessions.where('projectId').equals(projectId).reverse().sortBy('lastMessageAt').then(arr => arr.filter(s => s.kind !== 'scribble').slice(0, 50)) : []
+    projectId ? db.chatSessions.where('projectId').equals(projectId).reverse().sortBy('lastMessageAt').then(arr => arr.filter(s => s.kind !== 'scribble' && s.kind !== 'workshop').slice(0, 50)) : []
   , [projectId]);
 
   const activeSession = useLiveQuery(() => 
