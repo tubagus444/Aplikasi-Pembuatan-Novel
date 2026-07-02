@@ -21,7 +21,7 @@ npm run clean    # rm -rf dist
 
 - **Menjalankan satu test:** `npx vitest run src/lib/ahoCorasick.test.ts` atau filter berdasarkan nama `npx vitest run -t "pola"`.
 - **Tidak ada config vitest terpisah**; Vitest membaca `vite.config.ts`, jadi alias `@` juga berlaku di test.
-- Test diletakkan berdampingan sebagai `*.test.ts` di sebelah unit yang diuji (saat ini di `src/lib/`: ahoCorasick, chunkEngine, loreUtils, utils, orphanEntities, timelineSummary).
+- Test diletakkan berdampingan sebagai `*.test.ts` di sebelah unit yang diuji — mayoritas di `src/lib/` (logika murni: Aho-Corasick, chunk/manuscript chunker, continuity, characterArc, plotPromises, proseAnalysis, nameSpelling, inlineConsistency, importRemap, backupRetention, codexDraft, textDiff, epub/zip, dailyProgress, dst.). Jalankan `ls src/lib/*.test.ts` untuk daftar terbaru daripada mengandalkan enumerasi di sini.
 - **`npm run dev` TIDAK menjalankan `vite` langsung** — ia menjalankan `server.ts`, yang memasang Vite sebagai middleware sehingga proxy API dan SPA berbagi port 3000. Mengubah frontend saja? Tetap lewat `npm run dev`.
 
 ## Alias import (gampang keliru)
@@ -68,14 +68,20 @@ TipTap 3 (`src/features/editor/`). Extension kustom di `extensions/`: `PassiveCo
 - `cleanupAILogs()` dan pengecekan kuota penyimpanan berjalan saat mount.
 
 ### Organisasi kode
-Berbasis fitur di bawah `src/features/{assistant,chapters,codex,consistency,editor,lore,timeline}` (masing-masing punya `components/` + `hooks/`); UI lintas-fitur di `src/components/{layout,panels,modals,common}`; logika murni dan algoritma di `src/lib/`; integrasi/service di `src/services/`.
+Berbasis fitur di bawah `src/features/{assistant,chapters,codex,codex-workshop,consistency,editor,lore,search,timeline}` (masing-masing punya `components/` + `hooks/`); UI lintas-fitur di `src/components/{layout,panels,modals,common}`; logika murni dan algoritma di `src/lib/`; integrasi/service di `src/services/`.
 
 Fitur konsistensi yang ditambahkan belakangan (lihat `viewMode`): **Cek Konsistensi** (`checkConsistency` — audit satu bab vs Codex+Bible+relasi+timeline), **Timeline Cerita** (mengaktifkan tabel `timeline`/`TimelineEvent` untuk kronologi anti-plot-hole), dan **Saran Entitas** (`src/lib/orphanEntities.ts` — deteksi nama-diri yang sering muncul tapi belum di Codex, kebalikan Aho-Corasick; enrichment opsional via `enrichEntities`).
 
-Tiga fitur analitik/konsistensi **nol-token** (deterministik, lokal) yang menumpang Aho-Corasick:
+Fitur analitik/konsistensi **nol-token** (deterministik, lokal) yang menumpang Aho-Corasick / `PresenceIndex`:
 - **Peta Kontinuitas** (`viewMode 'continuity'`, `src/lib/continuity.ts`, `ContinuityDashboard.tsx`) — scan lintas-bab: `analyzeContinuity` membangun *peta kemunculan* via `buildPresenceIndex` lalu menurunkan 4 cek (karakter menghilang, entitas tak terpakai, relasi tanpa pertemuan, timeline tak cocok).
 - **Lensa Karakter** (`viewMode 'arc'`, `src/lib/characterArc.ts`, `CharacterArcPanel.tsx`) — analitik per-karakter (porsi layar per bab, absensi terlama, bab ber-POV via `Chapter.pov`, ko-kemunculan). Memakai `PresenceIndex` yang **sama**.
 - **Konsistensi Inline** (garis bawah di editor) — dua lapisan: (1) DETERMINISTIK gratis (`src/lib/inlineConsistency.ts` `flagCharactersForChapter` — aturan timeline "muncul sebelum diperkenalkan", garis bawah amber); (2) AI OPSIONAL (`useEditorAIConsistency.ts` — `checkConsistency` per-paragraf, garis bawah ungu). Detail di "Konvensi & jebakan".
+- **Analitik Prosa** (`viewMode 'prose'`, `src/lib/proseAnalysis.ts` + tes) — metrik gaya deterministik atas teks polos (HTML sudah di-strip pemanggil): keterbacaan, kalimat panjang, verba pasif (heuristik "di-" khusus Indonesia dgn daftar pengecualian, bukan kamus), kata keterangan, plus lintas-bab `detectEchoWords`/`buildProseReport` (kata muleti + rasio dialog sbg sinyal pacing). Dipakai bersama oleh `ProseInsights.tsx` (per-bab, di editor) dan `ProseReportPanel.tsx` (laporan seluruh naskah). Tidak menumpang `PresenceIndex` — analitik berbasis kata/kalimat, bukan entitas.
+
+Fitur lain di luar jalur konsistensi (juga di-route lewat `viewMode` di `MainView.tsx`):
+- **Dashboard** (`viewMode 'dashboard'`, `src/components/panels/DashboardPanel.tsx`) — statistik novel: jumlah kata/bab, kuota penyimpanan, agregat `aiUsageLogs` per-`actionType`, dan **progres menulis harian** via `src/hooks/useDailyProgress.ts` (`src/lib/dailyProgress.ts` + tes, dipakai juga `WritingStats.tsx`).
+- **Pencarian Semantik** (`viewMode 'search'`, `src/features/search/components/SemanticSearchPanel.tsx`) — cari lintas-bab berdasarkan makna, bukan kata kunci. Indeks scene di tabel `sceneEmbeddings` lewat `contextEngine` (`indexManuscript`/`searchManuscript`/`countIndexedScenes`/`clearManuscriptIndex`); hasil melompat ke bab via `jumpToText`.
+- **Ekspor manuskrip** (`src/components/modals/ExportManager.tsx`) — format `md`/`pdf`/`docx`/`epub`. EPUB dirakit `buildEpub` (`src/lib/epub.ts`) — perakit EPUB 2 murni-string di atas ZIP writer lokal (`src/lib/zip.ts`); pembentukan XML murni & teruji, konversi HTML bab→XHTML well-formed dilakukan pemanggil di browser dan dikirim lewat `EpubChapter.xhtmlBody`.
 
 ## Konvensi & jebakan
 - **Extension TipTap dipin tepat ke `3.22.5`** di semua paket `@tiptap/*` — jaga tetap seragam saat upgrade, kalau tidak editor rusak.

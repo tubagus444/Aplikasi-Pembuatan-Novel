@@ -7,16 +7,21 @@ menjaga konteks, dan mempercepat revisi** — tanpa membutuhkan database backend
 
 ## Fitur Utama
 
-- **Editor kaya** berbasis TipTap (highlight codex, mention, search & replace, mode fokus/typewriter).
-- **Story Bible & Codex** — basis data worldbuilding lokal (karakter, lokasi, item, sihir, event) lengkap dengan alias, tag, dan relasi antar-entitas (Graph-RAG).
+- **Editor kaya** berbasis TipTap: highlight codex, mention `@`, cari & ganti (dalam-bab & lintas-bab), mode fokus/typewriter, zoom, catatan revisi (margin notes), dan snapshot/riwayat versi per bab.
+- **Story Bible & Codex** — basis data worldbuilding lokal (karakter, lokasi, item, sihir, event) lengkap dengan alias, kategori kustom, dan relasi antar-entitas (Graph-RAG). **Lokakarya Codex**: bangun/rombak entri lewat diskusi AI.
 - **Mesin Konteks hybrid** yang menyuntikkan lore relevan ke prompt AI:
   - Pencocokan nama/alias eksak (Aho-Corasick, di Web Worker).
   - Pencarian semantik lokal via embeddings `Xenova/all-MiniLM-L6-v2` (berjalan di browser, di-cache di IndexedDB).
   - Pencarian leksikal (BM25) via Orama sebagai fallback.
+- **Analisis & konsistensi** — sebagian **nol token** (deterministik, lokal):
+  - Cek Konsistensi per-bab (AI) & Konsistensi Inline (garis bawah: timeline amber, ejaan nama/"Buku Gaya" merah, temuan AI ungu).
+  - Peta Kontinuitas, Lensa Karakter, Wawasan Prosa, Timeline Cerita, Saran Entitas, dan Janji Plot (Chekhov's Gun).
+- **Asisten AI**: Magic Edit (tulis ulang per-seleksi), Studio Asisten & Scribble (chat), snippet/aksi kustom, plus pencarian adegan semantik.
 - **AI multi-provider** dengan fallback otomatis, circuit breaker, dan exponential backoff:
-  Google Gemini, Anthropic Claude, Groq, OpenRouter, Hugging Face, dan Ollama (lokal).
+  Google Gemini, Anthropic Claude, Groq, OpenRouter, Hugging Face, dan Ollama (lokal). Prompt caching & penyetel token/biaya bawaan.
 - **Daemon latar belakang**: auto-backup (gzip), auto-summarizer per bab.
-- **Sinkronisasi opsional** ke Google Drive (BYOK) dan Firebase.
+- **Backup berlapis & ekspor**: cadangan otomatis (IndexedDB), ke folder lokal (File System Access), dan Google Drive (BYOK); ekspor/impor per-novel; ekspor manuskrip ke **Markdown/PDF/DOCX/EPUB**.
+- **Dashboard & progres**: statistik pemakaian AI (token, cache-hit) serta target menulis harian + streak.
 - **Penyimpanan lokal** penuh via Dexie/IndexedDB — data tetap di perangkat Anda.
 
 ## Arsitektur Singkat
