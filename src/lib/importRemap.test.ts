@@ -57,6 +57,10 @@ function sampleData(): ProjectBackupData {
       { id: 13, projectId: 9, title: 'S1', messages: [{ role: 'user', content: 'hi', timestamp: 1 }], lastMessageAt: 1, chapterId: 10, activeChapterId: 11 },
       { id: 14, projectId: 9, title: 'S2', messages: [], lastMessageAt: 2, chapterId: 777 },
     ],
+    plotPromises: [
+      { id: 15, projectId: 9, title: 'Belati', codexId: 20, plantedChapterId: 10, status: 'open', createdAt: 1, updatedAt: 1 },
+      { id: 16, projectId: 9, title: 'Ramalan', keywords: ['ramalan'], codexId: 999, plantedChapterId: 888, status: 'open', createdAt: 1, updatedAt: 1 },
+    ],
   };
 }
 
@@ -69,12 +73,25 @@ describe('remapProjectDependents', () => {
     for (const t of r.timeline) expect(t.projectId).toBe(5);
     for (const rel of r.relationships) expect(rel.projectId).toBe(5);
     for (const cs of r.chatSessions) expect(cs.projectId).toBe(5);
+    for (const p of r.plotPromises) expect(p.projectId).toBe(5);
   });
 
   it('selalu melepas id lama (Dexie yang menetapkan id baru)', () => {
     const r = remapProjectDependents(sampleData(), maps);
-    const all = [...r.bible, ...r.aiActions, ...r.codexCategories, ...r.snapshots, ...r.timeline, ...r.relationships, ...r.chatSessions];
+    const all = [...r.bible, ...r.aiActions, ...r.codexCategories, ...r.snapshots, ...r.timeline, ...r.relationships, ...r.chatSessions, ...r.plotPromises];
     for (const row of all) expect('id' in row).toBe(false);
+  });
+
+  it('remap plotPromises: codexId & plantedChapterId (buang bila tak dikenal), keywords tetap', () => {
+    const r = remapProjectDependents(sampleData(), maps);
+    expect(r.plotPromises).toHaveLength(2);
+    // P1: codexId 20→200, plantedChapterId 10→100
+    expect(r.plotPromises[0].codexId).toBe(200);
+    expect(r.plotPromises[0].plantedChapterId).toBe(100);
+    // P2: codexId 999 & plantedChapterId 888 tak dikenal → key dibuang; keywords tak disentuh
+    expect(r.plotPromises[1].codexId).toBeUndefined();
+    expect(r.plotPromises[1].plantedChapterId).toBeUndefined();
+    expect(r.plotPromises[1].keywords).toEqual(['ramalan']);
   });
 
   it('dedup bible by key & codexCategories by slug', () => {
@@ -154,7 +171,7 @@ describe('validateProjectBackup', () => {
 describe('summarizeProjectBackup', () => {
   it('menghitung jumlah untuk dialog konfirmasi', () => {
     expect(summarizeProjectBackup(sampleData())).toEqual({
-      chapters: 2, codex: 2, timeline: 2, relationships: 2, chatSessions: 2,
+      chapters: 2, codex: 2, timeline: 2, relationships: 2, chatSessions: 2, plotPromises: 2,
     });
   });
 });

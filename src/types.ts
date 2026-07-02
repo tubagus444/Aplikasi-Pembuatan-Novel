@@ -64,7 +64,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -266,4 +266,37 @@ export interface SceneEmbedding {
   snippet: string;
   embedding: Float32Array;
   lastUpdated: number;
+}
+
+export type PlotPromiseStatus = 'open' | 'paid' | 'abandoned';
+export type PlotPromiseImportance = 'high' | 'medium' | 'low';
+
+/**
+ * "Janji Plot" (Chekhov's Gun) — elemen yang penulis nyatakan HARUS terbayar
+ * (senjata, ramalan, misteri). Pelacakannya deterministik & nol token: alat hanya
+ * membukukan di bab mana elemen muncul (via nama entri Codex atau kata kunci) lalu
+ * menurunkan status "tertidur/aktif" — penulis yang memutuskan `status`. Lihat
+ * `src/lib/plotPromises.ts`.
+ *
+ * FK (untuk importRemap & deleteProject): `projectId`, `codexId?` → codexIdMap,
+ * `plantedChapterId?` → chapterIdMap.
+ */
+export interface PlotPromise {
+  id?: number;
+  projectId: number;
+  title: string;
+  description?: string;
+  /** Tautan ke entri Codex → dilacak via PresenceIndex (nama + alias). */
+  codexId?: number;
+  /** Kata kunci untuk janji NON-entitas (ramalan/misteri) → pemindaian teks. */
+  keywords?: string[];
+  /** Bab tempat janji ditanam (opsional; kosong = kemunculan pertama yang terdeteksi). */
+  plantedChapterId?: number;
+  /** Catatan bebas kapan seharusnya terbayar, mis. "sebelum klimaks". */
+  expectedBy?: string;
+  importance?: PlotPromiseImportance;
+  /** Niat penulis (BUKAN turunan): open = masih ditunggu, paid = terbayar, abandoned = sengaja dibuang. */
+  status: PlotPromiseStatus;
+  createdAt: number;
+  updatedAt: number;
 }

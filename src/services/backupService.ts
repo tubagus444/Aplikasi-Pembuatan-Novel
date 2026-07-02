@@ -41,6 +41,7 @@ export interface BackupData {
     relationships: any[];
     chatSessions: any[];
     codexCategories?: any[];
+    plotPromises?: any[];
   };
 }
 
@@ -61,10 +62,11 @@ export const backupService = {
       timeline: await db.timeline.toArray(),
       relationships: await db.relationships.toArray(),
       chatSessions: await db.chatSessions.toArray(),
-      codexCategories: await db.codexCategories.toArray()
+      codexCategories: await db.codexCategories.toArray(),
+      plotPromises: await db.plotPromises.toArray()
     };
     return {
-      version: 4, // v4: checksum SHA-256 integritas (v3: codexCategories)
+      version: 5, // v5: plotPromises (v4: checksum SHA-256; v3: codexCategories)
       timestamp: Date.now(),
       checksum: await this.computeChecksum(JSON.stringify(data)),
       data
@@ -99,10 +101,11 @@ export const backupService = {
       timeline: await db.timeline.where('projectId').equals(projectId).toArray(),
       relationships: await db.relationships.where('projectId').equals(projectId).toArray(),
       chatSessions: await db.chatSessions.where('projectId').equals(projectId).toArray(),
-      codexCategories: await db.codexCategories.where('projectId').equals(projectId).toArray()
+      codexCategories: await db.codexCategories.where('projectId').equals(projectId).toArray(),
+      plotPromises: await db.plotPromises.where('projectId').equals(projectId).toArray()
     };
     return {
-      version: 4,
+      version: 5,
       timestamp: Date.now(),
       scope: 'project',
       projectName: project.name,
@@ -292,7 +295,7 @@ export const backupService = {
     }
 
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories, db.plotPromises],
       async () => {
         // Clear existing data
         await db.projects.clear();
@@ -305,6 +308,7 @@ export const backupService = {
         await db.relationships.clear();
         await db.chatSessions.clear();
         await db.codexCategories.clear();
+        await db.plotPromises.clear();
         await db.embeddings.clear(); // di-regenerasi dari codex; jangan dipulihkan dari backup
         await db.sceneEmbeddings.clear(); // indeks Pencarian Semantik; di-regenerasi on-demand
 
@@ -331,6 +335,7 @@ export const backupService = {
         if (data.relationships?.length) await db.relationships.bulkAdd(data.relationships);
         if (data.chatSessions?.length) await db.chatSessions.bulkAdd(data.chatSessions);
         if (data.codexCategories?.length) await db.codexCategories.bulkAdd(data.codexCategories);
+        if (data.plotPromises?.length) await db.plotPromises.bulkAdd(data.plotPromises);
     });
   },
 
@@ -383,7 +388,7 @@ export const backupService = {
 
     let newProjectId = 0;
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.codexCategories],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.codexCategories, db.plotPromises],
       async () => {
         // 1) Proyek baru (lepas id; lastOpened=now agar langsung teratas; nama diberi
         //    suffix "(impor)" agar terbedakan dari aslinya bila keduanya berdampingan).
@@ -417,6 +422,7 @@ export const backupService = {
         if (dep.timeline.length) await db.timeline.bulkAdd(dep.timeline);
         if (dep.relationships.length) await db.relationships.bulkAdd(dep.relationships);
         if (dep.chatSessions.length) await db.chatSessions.bulkAdd(dep.chatSessions);
+        if (dep.plotPromises.length) await db.plotPromises.bulkAdd(dep.plotPromises);
       });
 
     return { projectId: newProjectId, counts };

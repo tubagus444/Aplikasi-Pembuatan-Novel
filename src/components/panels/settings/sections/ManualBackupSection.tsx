@@ -358,7 +358,8 @@ export function ManualBackupSection() {
             <>
               Akan ditambahkan sebagai <strong>proyek baru</strong> bernama <strong>“{importTargetName}”</strong>
               {' '}({pendingImport.counts.chapters} bab, {pendingImport.counts.codex} codex, {pendingImport.counts.timeline} timeline,
-              {' '}{pendingImport.counts.relationships} relasi). Proyek Anda yang lain <strong>tidak tersentuh</strong>.
+              {' '}{pendingImport.counts.relationships} relasi
+              {pendingImport.counts.plotPromises > 0 && <>, {pendingImport.counts.plotPromises} janji plot</>}). Proyek Anda yang lain <strong>tidak tersentuh</strong>.
               {importNameClash && (
                 <span className="mt-3 block text-amber-600 dark:text-amber-400">
                   ⚠ Sudah ada novel dengan nama serupa. Impor tetap dibuat sebagai salinan terpisah.

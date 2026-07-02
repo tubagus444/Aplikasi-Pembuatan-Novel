@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise } from '@/src/types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -22,6 +22,7 @@ export class AetherScribeDB extends Dexie {
   aiUsageLogs!: Table<AIUsageLog>;
   codexCategories!: Table<CustomCategory>;
   sceneEmbeddings!: Table<SceneEmbedding>;
+  plotPromises!: Table<PlotPromise>;
 
   constructor() {
     super('AetherScribeDB');
@@ -224,6 +225,28 @@ export class AetherScribeDB extends Dexie {
       aiUsageLogs: '++id, timestamp, provider, actionType',
       codexCategories: '++id, projectId, slug, &[projectId+slug]',
       sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]'
+    });
+
+    // v21: tabel baru `plotPromises` untuk Pelacak Janji Plot (Chekhov's Gun).
+    // Append-only; tidak ada migrasi data. Status turunan (tertidur/aktif) dihitung
+    // on-demand di panel via PresenceIndex — tak disimpan.
+    this.version(21).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId'
     });
   }
 }

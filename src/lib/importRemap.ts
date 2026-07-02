@@ -5,7 +5,7 @@
 
 import type {
   Project, Chapter, CodexEntry, StoryBibleRule, AIAction,
-  Snapshot, TimelineEvent, Relationship, ChatSession, CustomCategory,
+  Snapshot, TimelineEvent, Relationship, ChatSession, CustomCategory, PlotPromise,
 } from '@/src/types';
 
 /**
@@ -19,6 +19,7 @@ import type {
  *  - snapshots.chapterId (wajib), timeline.chapterId?, chatSessions.chapterId? +
  *    activeChapterId? → chapterIdMap
  *  - relationships.sourceId/targetId, timeline.characterIds[] → codexIdMap
+ *  - plotPromises.codexId? → codexIdMap, plotPromises.plantedChapterId? → chapterIdMap
  *  - TIDAK di-remap: Chapter.pov (nama), CodexEntry.category & key/slug (string).
  */
 
@@ -34,6 +35,7 @@ export interface ProjectBackupData {
   relationships: Relationship[];
   chatSessions: ChatSession[];
   codexCategories?: CustomCategory[];
+  plotPromises?: PlotPromise[];
 }
 
 export interface RemapMaps {
@@ -54,6 +56,7 @@ export interface RemappedDependents {
   timeline: TimelineEvent[];
   relationships: Relationship[];
   chatSessions: ChatSession[];
+  plotPromises: PlotPromise[];
 }
 
 /** Salin baris tanpa `id` (agar Dexie menetapkan id baru). */
@@ -154,7 +157,24 @@ export function remapProjectDependents(
     return remapped as ChatSession;
   });
 
-  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions };
+  // plotPromises: set projectId; codexId & plantedChapterId opsional (buang key bila
+  // tak dikenal — janji jadi berbasis judul/keyword saja, tetap valid). keywords tak disentuh.
+  const plotPromises = (data.plotPromises ?? []).map((p) => {
+    const remapped: Record<string, any> = { ...stripId(p), projectId };
+    if (p.codexId !== undefined) {
+      const nc = codexIdMap.get(p.codexId);
+      if (nc !== undefined) remapped.codexId = nc;
+      else delete remapped.codexId;
+    }
+    if (p.plantedChapterId !== undefined) {
+      const nc = chapterIdMap.get(p.plantedChapterId);
+      if (nc !== undefined) remapped.plantedChapterId = nc;
+      else delete remapped.plantedChapterId;
+    }
+    return remapped as PlotPromise;
+  });
+
+  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions, plotPromises };
 }
 
 /**
@@ -173,6 +193,7 @@ export interface ProjectBackupCounts {
   timeline: number;
   relationships: number;
   chatSessions: number;
+  plotPromises: number;
 }
 
 /** Ringkasan jumlah untuk dialog konfirmasi impor. */
@@ -183,6 +204,7 @@ export function summarizeProjectBackup(data: ProjectBackupData): ProjectBackupCo
     timeline: data.timeline?.length ?? 0,
     relationships: data.relationships?.length ?? 0,
     chatSessions: data.chatSessions?.length ?? 0,
+    plotPromises: data.plotPromises?.length ?? 0,
   };
 }
 
