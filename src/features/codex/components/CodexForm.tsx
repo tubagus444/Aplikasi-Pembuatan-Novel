@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle } from 'lucide-react';
+import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle, ClipboardPaste } from 'lucide-react';
 import { CodexEntry, CodexCategory } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { expandCodexEntry } from '@/src/services/ai';
 import { useToast } from '@/src/hooks/useToast';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { BUILTIN_CATEGORIES, type CategoryDef } from '@/src/lib/codexCategories';
+import { parseCodexMarkdown } from '@/src/lib/codexImport';
 
 interface CodexFormProps {
   initialData?: Partial<CodexEntry>;
@@ -33,6 +34,10 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
   // Deskripsi sebelum di-overwrite AI; menyimpannya memungkinkan "Urungkan"
   // tanpa risiko kehilangan tulisan pengguna. null = tidak ada yang bisa diurungkan.
   const [prevDescription, setPrevDescription] = useState<string | null>(null);
+  // Paste-quick-add: tempel teks lore terstruktur → engine parser mengisi form.
+  // Hanya untuk entri baru; deterministik & nol token (src/lib/codexImport).
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState('');
 
   useEffect(() => {
     setFormData({
@@ -85,6 +90,31 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
     setPrevDescription(null);
   };
 
+  const handleFillFromPaste = () => {
+    const parsed = parseCodexMarkdown(pasteText, { defaultCategory: formData.category || 'character' });
+    if (parsed.length === 0) {
+      toast.error('Tak ada teks untuk mengisi form.');
+      return;
+    }
+    const first = parsed[0];
+    setFormData(prev => ({
+      ...prev,
+      name: first.name,
+      category: first.category as CodexCategory,
+      description: first.description,
+      aliases: first.aliases.length ? first.aliases : prev.aliases,
+      tags: first.tags.length ? first.tags : prev.tags,
+    }));
+    setPrevDescription(null);
+    setShowPaste(false);
+    setPasteText('');
+    toast.info(
+      parsed.length > 1
+        ? `${parsed.length} blok terdeteksi — blok pertama dipakai (tinjau lalu simpan).`
+        : 'Form terisi dari teks — tinjau lalu simpan.'
+    );
+  };
+
   return (
     <motion.div 
       data-codex-form
@@ -98,12 +128,61 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
           {editingId ? <Edit2 size={18} className="text-indigo-500" /> : <Plus size={18} className="text-indigo-500" />}
           {editingId ? 'Ubah Entri' : 'Entri Codex Baru'}
         </h3>
-        <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          {!editingId && (
+            <button
+              type="button"
+              onClick={() => setShowPaste(v => !v)}
+              className={cn(
+                "flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full transition-all border",
+                showPaste
+                  ? "bg-indigo-600 text-white border-transparent"
+                  : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+              )}
+              title="Tempel teks lore untuk mengisi form otomatis (tanpa AI)"
+            >
+              <ClipboardPaste size={12} /> Tempel teks
+            </button>
+          )}
+          <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+            <X size={20} />
+          </button>
+        </div>
       </div>
-      
+
       <div className="p-6">
+        {!editingId && showPaste && (
+          <div className="mb-6 rounded-xl border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-900/10 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Tempel teks lore (Markdown/polos) — isi form otomatis
+              </label>
+              <button type="button" onClick={() => setShowPaste(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                <X size={16} />
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              className="w-full min-h-[120px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100 resize-y font-mono"
+              placeholder={"Tempel satu blok, mis.:\n#### Ironhaven — Kota Dermaga\nKota di sisi barat Kelmar..."}
+              value={pasteText}
+              onChange={e => setPasteText(e.target.value)}
+            />
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Heading → Nama; sisanya → Deskripsi. Hasil bisa disunting sebelum disimpan.
+              </p>
+              <button
+                type="button"
+                onClick={handleFillFromPaste}
+                disabled={!pasteText.trim()}
+                className="shrink-0 flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-full transition-all border bg-indigo-600 text-white border-transparent hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check size={12} /> Isi form dari teks
+              </button>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 space-y-4">
             <div>

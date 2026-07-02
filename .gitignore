@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Materi worldbuilding pribadi & rencana turunannya (referensi desain, bukan bagian aplikasi)
+lore/
+RENCANA-FITUR-WORLDBUILDING.md

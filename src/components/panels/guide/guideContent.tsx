@@ -17,6 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
+  ClipboardPaste,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -219,6 +220,23 @@ export const FEATURES: Feature[] = [
       'Enrichment AI bawaan hanya memakai 6 kategori inti; kategori kustom bersifat manual (Anda yang mengisi).',
     ],
     tip: 'Selesaikan editing Codex/Bible dulu sebelum sesi menulis — mengedit lore membatalkan cache prompt sehingga panggilan AI berikutnya jadi lebih mahal.',
+  },
+  {
+    id: 'codex-bridge', group: 'world', Icon: ClipboardPaste, color: 'teal', view: 'codex', openLabel: 'Buka Kamus Data',
+    title: 'Impor/Ekspor Codex (jembatan teks ⇄ Markdown)',
+    where: 'Kamus Data: tombol "Tempel teks" (form Entri Baru) & "Ekspor" (header)',
+    what: 'Isi entri Codex dengan menempel teks lore terstruktur, dan ekspor seluruh Codex ke berkas Markdown. Deterministik & nol token.',
+    steps: [
+      'Tempel-cepat: klik "Entri Baru" → tombol "Tempel teks" → tempelkan satu blok (heading + isi, mis. "#### Ironhaven — Kota Dermaga" lalu deskripsinya) → "Isi form dari teks".',
+      'Form terisi otomatis: heading jadi Nama; sufiks "— X" atau "(X)" jadi Alias; sisanya jadi Deskripsi. Tinjau, betulkan kategori bila perlu, lalu Simpan.',
+      'Ekspor: di header Kamus Data klik "Ekspor" → mengunduh berkas .md berisi semua entri, dikelompokkan per kategori & diurutkan A–Z (lengkap alias/tag).',
+    ],
+    detail: [
+      'Tempel-teks hanya muncul saat membuat entri BARU (bukan mengedit). Bila teks berisi beberapa blok/heading, hanya blok pertama yang dipakai — pola "satu entitas per tempel".',
+      'Ekspor bersifat SATU ARAH (Codex → Markdown): untuk cadangan yang terbaca, versioning git, cetak/berbagi, atau menyunting lore di editor luar. Tidak ada sinkronisasi balik otomatis.',
+      'Untuk memasukkan BANYAK entri sekaligus dari berkas lore lama, gunakan jalur "Impor Novel" (Pengaturan → Backup) memakai berkas ekspor per-novel — masuk sebagai proyek baru, non-destruktif.',
+    ],
+    tip: 'Seluruhnya lokal & nol token. Tempel-teks memangkas entri manual; ekspor rutin memberi cadangan lore yang enak dibaca & mudah di-diff.',
   },
   {
     id: 'workshop', group: 'world', Icon: Hammer, color: 'purple', view: 'codex', openLabel: 'Buka Kamus Data',

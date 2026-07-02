@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, MessageSquareText, Database, Tags, FlaskConical } from 'lucide-react';
+import { Plus, Search, MessageSquareText, Database, Tags, FlaskConical, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScribbleAssistantPanel } from '@/src/features/assistant/components/ScribbleAssistantPanel';
 import { useNavigation } from '@/src/contexts/NavigationContext';
@@ -11,6 +11,9 @@ import { CodexDetailModal } from '@/src/features/codex/components/CodexDetailMod
 import { CategoryManagerModal } from '@/src/features/codex/components/CategoryManagerModal';
 import { useCodexPanel } from '@/src/features/codex/hooks/useCodexPanel';
 import { getCategoryLabel } from '@/src/lib/codexCategories';
+import { codexToMarkdown } from '@/src/lib/codexExport';
+import { db } from '@/src/db';
+import { useToast } from '@/src/hooks/useToast';
 
 interface CodexPanelProps {
   projectId: number;
@@ -18,6 +21,7 @@ interface CodexPanelProps {
 
 export function CodexPanel({ projectId }: CodexPanelProps) {
   const { openWorkshop } = useNavigation();
+  const { toast } = useToast();
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const {
     entries,
@@ -57,6 +61,23 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     addBond,
     deleteRelationship
   } = useCodexPanel(projectId);
+
+  const handleExport = async () => {
+    if (!entries?.length) return;
+    const project = await db.projects.get(projectId);
+    const name = project?.name || 'Codex';
+    const md = codexToMarkdown(entries, { projectName: name, categories });
+    const safe = name.replace(/[^\w\-]+/g, '_').slice(0, 60) || 'Codex';
+    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Codex-${safe}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`${entries.length} entri diekspor ke Markdown.`);
+  };
 
   useEffect(() => {
     if (confirmDeleteId === null) return;
@@ -100,6 +121,15 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
               >
                 <Tags size={16} /> Kategori
               </button>
+              {(entries?.length ?? 0) > 0 && (
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95"
+                  title="Ekspor semua entri Codex ke berkas Markdown"
+                >
+                  <Download size={16} /> Ekspor
+                </button>
+              )}
               <button
                 onClick={startAdding}
                 className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
