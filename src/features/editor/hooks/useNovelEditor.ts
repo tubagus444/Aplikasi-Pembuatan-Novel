@@ -9,11 +9,12 @@ import { useEditorSave } from '@/src/features/editor/hooks/useEditorSave';
 import { useEditorCodexSync } from '@/src/features/editor/hooks/useEditorCodex';
 import { useEditorConsistency } from '@/src/features/editor/hooks/useEditorConsistency';
 import { useEditorAIConsistency } from '@/src/features/editor/hooks/useEditorAIConsistency';
+import { useEditorSpelling } from '@/src/features/editor/hooks/useEditorSpelling';
 import { useTypewriterMode } from '@/src/features/editor/hooks/useTypewriterMode';
 import { useEditorAI } from '@/src/features/editor/hooks/useEditorAI';
 import { useEditorSearch } from '@/src/features/editor/hooks/useEditorSearch';
 import { CodexEntry, TimelineEvent } from '@/src/types';
-import { InlineChapterRef, InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsistency';
+import { InlineChapterRef, InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding } from '@/src/lib/inlineConsistency';
 
 interface UseNovelEditorProps {
   chapterId: number;
@@ -55,6 +56,9 @@ export function useNovelEditor({
   // Temuan kutipan dari lapisan AI inline opsional (Fase 2).
   const consistencyQuotesRef = useRef<InlineQuoteFinding[]>([]);
   const getConsistencyQuotes = useCallback(() => consistencyQuotesRef.current, []);
+  // Temuan salah-eja nama (Buku Gaya) — deterministik, nol token.
+  const spellingFindingsRef = useRef<InlineSpellingFinding[]>([]);
+  const getConsistencySpelling = useCallback(() => spellingFindingsRef.current, []);
 
   const editor = useEditorSetup({
     chapterId,
@@ -64,10 +68,12 @@ export function useNovelEditor({
     onUpdate: handleEditorUpdate,
     getConsistencyFlags,
     getConsistencyQuotes,
+    getConsistencySpelling,
   });
 
   useEditorCodexSync(editor, codexEntries);
   useEditorConsistency(editor, consistencyFlagsRef, chapterId, chapters, codexEntries, timeline);
+  useEditorSpelling(editor, spellingFindingsRef, chapterId, codexEntries);
   const { checking: aiInlineChecking, checkAtSelection: checkConsistencySelection } = useEditorAIConsistency(
     editor, consistencyQuotesRef, chapterId, {
       chapterTitle: chapter?.title,

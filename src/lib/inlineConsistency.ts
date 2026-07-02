@@ -36,6 +36,19 @@ export interface InlineQuoteFinding {
   message: string;
 }
 
+/**
+ * Temuan salah-eja NAMA KANONIK (Buku Gaya) — deterministik, nol token. Berbeda
+ * dari flag (nama benar) & kutipan AI: menggarisbawahi kata yang MIRIP tapi tak
+ * persis nama/alias Codex (kandidat typo), dengan saran ejaan. Lihat
+ * `src/lib/nameSpelling.ts`.
+ */
+export interface InlineSpellingFinding {
+  /** Kata di teks yang diduga salah eja (casing sesuai kemunculan). */
+  word: string;
+  /** Ejaan kanonik yang disarankan. */
+  suggestion: string;
+}
+
 export interface InlineChapterRef {
   id: number;
   order: number;

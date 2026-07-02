@@ -14,7 +14,7 @@ import { CustomAIKeymap } from '@/src/features/editor/hooks/useEditorAI';
 import tippy from 'tippy.js';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry } from '@/src/types';
-import { InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsistency';
+import { InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding } from '@/src/lib/inlineConsistency';
 import { useRef, useEffect } from 'react';
 
 interface UseEditorSetupProps {
@@ -27,6 +27,8 @@ interface UseEditorSetupProps {
   getConsistencyFlags?: () => Map<number, InlineConsistencyFlag>;
   /** Akses temuan kutipan dari lapisan AI inline (Fase 2), stabil identitasnya. */
   getConsistencyQuotes?: () => InlineQuoteFinding[];
+  /** Akses temuan salah-eja nama (Buku Gaya), stabil identitasnya. */
+  getConsistencySpelling?: () => InlineSpellingFinding[];
 }
 
 const CustomMention = Mention.extend({
@@ -42,12 +44,13 @@ const CustomMention = Mention.extend({
   },
 });
 
-export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags, getConsistencyQuotes }: UseEditorSetupProps) {
+export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags, getConsistencyQuotes, getConsistencySpelling }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   const onUpdateRef = useRef(onUpdate);
   // Akses flag/temuan konsistensi lewat ref agar closure extension selalu baca versi terkini.
   const getFlagsRef = useRef(getConsistencyFlags);
   const getQuotesRef = useRef(getConsistencyQuotes);
+  const getSpellingRef = useRef(getConsistencySpelling);
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;
@@ -60,6 +63,10 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
   useEffect(() => {
     getQuotesRef.current = getConsistencyQuotes;
   }, [getConsistencyQuotes]);
+
+  useEffect(() => {
+    getSpellingRef.current = getConsistencySpelling;
+  }, [getConsistencySpelling]);
 
   useEffect(() => {
     onUpdateRef.current = onUpdate;
@@ -81,6 +88,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
         getEntries: () => codexEntriesRef.current,
         getFlags: () => getFlagsRef.current?.() ?? new Map(),
         getQuoteFindings: () => getQuotesRef.current?.() ?? [],
+        getSpellingFindings: () => getSpellingRef.current?.() ?? [],
         onOpenCodex: (entryId, event) => onCodexClick(entryId, event),
       }),
       RevisionComment,

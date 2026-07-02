@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import { Node as PMNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { getCodexMatches } from '@/src/services/contextEngine';
-import { InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsistency';
+import { InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding } from '@/src/lib/inlineConsistency';
 
 /**
  * Konsistensi inline — plumbing garis bawah di editor.
@@ -14,14 +14,18 @@ import { InlineConsistencyFlag, InlineQuoteFinding } from '@/src/lib/inlineConsi
  *   • AI OPSIONAL (Fase 2) — `getQuoteFindings`: kutipan verbatim yang ditandai
  *     AI. Menggarisbawahi potongan teks itu (warna ungu, dibedakan dari
  *     deterministik). Hanya terisi bila toggle AI inline aktif.
+ *   • EJAAN (Buku Gaya) — `getSpellingFindings`: kata yang MIRIP tapi tak persis
+ *     nama/alias Codex (kandidat typo). Garis bawah merah PUTUS-PUTUS + saran.
+ *     Deterministik, nol token; lihat `src/lib/nameSpelling.ts`.
  *
- * Klik nama (deterministik) membuka Codex; garis bawah AI bersifat tooltip.
+ * Klik nama (deterministik) membuka Codex; garis bawah AI/ejaan bersifat tooltip.
  */
 
 interface ConsistencyUnderlineOptions {
   getEntries: () => { id?: number; name: string; aliases?: string[] }[];
   getFlags: () => Map<number, InlineConsistencyFlag>;
   getQuoteFindings?: () => InlineQuoteFinding[];
+  getSpellingFindings?: () => InlineSpellingFinding[];
   onOpenCodex?: (entryId: number, event: MouseEvent) => void;
 }
 
@@ -47,8 +51,59 @@ function decoStyle(severity: InlineConsistencyFlag['severity'], ai = false): str
   return base.join('; ');
 }
 
+/** Gaya garis bawah untuk kandidat salah-eja (merah, PUTUS-PUTUS → beda dari wavy). */
+function spellingStyle(): string {
+  return [
+    'text-decoration: underline',
+    'text-decoration-style: dashed',
+    'text-decoration-color: #ef4444',
+    'text-decoration-skip-ink: none',
+    'text-underline-offset: 3px',
+    'cursor: help',
+  ].join('; ');
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Dekorasi kandidat salah-eja nama — pencarian kata utuh (case-sensitive). */
+function buildSpellingDecorations(doc: PMNode, findings: InlineSpellingFinding[]): Decoration[] {
+  const decorations: Decoration[] = [];
+  for (const f of findings) {
+    const word = (f.word || '').trim();
+    if (word.length < 3) continue;
+    let regex: RegExp;
+    try {
+      // \b batas kata; case-sensitive agar hanya kemunculan yang persis salah eja ditandai.
+      regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'g');
+    } catch {
+      continue;
+    }
+    let occurrences = 0;
+    doc.descendants((node, pos) => {
+      if (!node.isText || !node.text || occurrences >= 20) return;
+      let m: RegExpExecArray | null;
+      regex.lastIndex = 0;
+      while ((m = regex.exec(node.text)) !== null && occurrences < 20) {
+        const start = pos + m.index;
+        const end = start + m[0].length;
+        if (start < doc.content.size && end <= doc.content.size) {
+          decorations.push(
+            Decoration.inline(start, end, {
+              nodeName: 'span',
+              class: 'consistency-underline consistency-spelling',
+              style: spellingStyle(),
+              title: `Kemungkinan salah eja — maksudmu "${f.suggestion}"?`,
+            })
+          );
+          occurrences++;
+        }
+        if (m.index === regex.lastIndex) regex.lastIndex++;
+      }
+    });
+  }
+  return decorations;
 }
 
 /** Dekorasi berbasis kutipan verbatim (temuan AI) — pencarian literal di dokumen. */
@@ -97,6 +152,7 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
       getEntries: () => [],
       getFlags: () => new Map(),
       getQuoteFindings: () => [],
+      getSpellingFindings: () => [],
       onOpenCodex: undefined,
     };
   },
@@ -159,16 +215,18 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
               debounceTimer = setTimeout(async () => {
                 const flags = options.getFlags();
                 const quoteFindings = options.getQuoteFindings?.() ?? [];
+                const spellingFindings = options.getSpellingFindings?.() ?? [];
                 const entries = options.getEntries();
                 const flagged = entries.filter(e => e.id != null && flags.has(e.id!));
 
-                // Dekorasi kutipan AI (sinkron) dihitung di akhir terhadap doc terkini.
+                // Dekorasi kutipan AI + ejaan (sinkron) dihitung di akhir terhadap doc terkini.
                 const dispatchAll = (nameDecos: Decoration[]) => {
                   if (view.isDestroyed || myGeneration !== runGeneration) return;
                   const quoteDecos = buildQuoteDecorations(view.state.doc, quoteFindings);
+                  const spellingDecos = buildSpellingDecorations(view.state.doc, spellingFindings);
                   view.dispatch(view.state.tr.setMeta(
                     'updateConsistencyDecos',
-                    DecorationSet.create(view.state.doc, [...nameDecos, ...quoteDecos])
+                    DecorationSet.create(view.state.doc, [...nameDecos, ...quoteDecos, ...spellingDecos])
                   ));
                 };
 

@@ -4,8 +4,14 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SlidersHorizontal, Zap, Type, Minus, Plus, Check } from 'lucide-react';
+import { SlidersHorizontal, Zap, Type, Minus, Plus, Check, SpellCheck } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+
+const SPELLCHECK_KEY = 'spellcheck_names';
+/** Default AKTIF (fitur nol-token); hanya `'false'` yang mematikan. */
+function readSpellcheck(): boolean {
+  try { return localStorage.getItem(SPELLCHECK_KEY) !== 'false'; } catch { return true; }
+}
 
 interface ViewControlsMenuProps {
   zoomLevel: number;
@@ -30,6 +36,15 @@ export function ViewControlsMenu({
 }: ViewControlsMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [spellcheck, setSpellcheck] = useState<boolean>(readSpellcheck);
+
+  const toggleSpellcheck = () => {
+    const next = !spellcheck;
+    setSpellcheck(next);
+    try { localStorage.setItem(SPELLCHECK_KEY, next ? 'true' : 'false'); } catch { /* abaikan */ }
+    // Beri tahu hook editor di tab yang sama ('storage' native tak menyala untuk tab pengubah).
+    window.dispatchEvent(new Event('storage'));
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -138,6 +153,16 @@ export function ViewControlsMenu({
             hint="Baris aktif tetap di tengah"
             active={isTypewriterMode}
             onClick={() => setIsTypewriterMode(!isTypewriterMode)}
+          />
+
+          <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+
+          <ToggleRow
+            icon={SpellCheck}
+            label="Periksa Ejaan Nama"
+            hint="Tandai salah ketik nama Codex (nol token)"
+            active={spellcheck}
+            onClick={toggleSpellcheck}
           />
         </div>
       )}
