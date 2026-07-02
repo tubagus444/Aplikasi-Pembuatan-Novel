@@ -5,6 +5,7 @@
 
 import { db } from '@/src/db';
 import { BackupRecord } from '@/src/types';
+import { selectBackupsToDelete } from '@/src/lib/backupRetention';
 
 export interface BackupData {
   version: number;
@@ -54,7 +55,7 @@ export const backupService = {
    * JSON penuh bisa membengkak; gzip memangkasnya signifikan. Bila kompresi tak
    * didukung/gagal, simpan JSON string mentah (tetap dapat dipulihkan).
    */
-  async saveToInternalDB(data: BackupData): Promise<void> {
+  async saveToInternalDB(data: BackupData, kind: 'auto' | 'pre-restore' = 'auto'): Promise<void> {
     const jsonString = JSON.stringify(data);
     const { blob, compressed } = await this.compressData(jsonString);
 
@@ -72,13 +73,15 @@ export const backupService = {
       timestamp: data.timestamp,
       data: stored,
       size,
-      compressed
+      compressed,
+      kind
     });
 
-    // Roll rotation: keep only latest 5
+    // Rotasi berjenjang (#3): simpan perwakilan terbaru + harian + mingguan alih-alih
+    // sekadar 5 terbaru, agar titik pulih lama selamat dari korupsi yang lambat disadari.
     const allBackups = await db.backups.orderBy('timestamp').toArray();
-    if (allBackups.length > 5) {
-      const toDelete = allBackups.slice(0, allBackups.length - 5);
+    const toDelete = selectBackupsToDelete(allBackups, b => b.timestamp);
+    if (toDelete.length) {
       await db.backups.bulkDelete(toDelete.map(b => b.id!));
     }
   },
@@ -155,22 +158,24 @@ export const backupService = {
     await writable.write(blob);
     await writable.close();
 
-    // Rotate backups in this directory: keep only the 5 most recent backups
-    const externalBackups = [];
+    // Rotasi berjenjang (#3): kumpulkan file cadangan + timestamp aktual (lastModified,
+    // lebih andal daripada parsing ISO di nama file) lalu terapkan kebijakan retensi.
+    const externalBackups: { name: string; timestamp: number }[] = [];
     // @ts-ignore - File System Access API Async Iterable
     for await (const entry of dirHandle.values()) {
         if (entry.kind === 'file' && entry.name.startsWith('aetherscribe-autobackup-')) {
-            externalBackups.push(entry);
+            let ts = 0; // fallback: dianggap tertua → boleh dihapus lebih dulu
+            try {
+                const f = await (entry as FileSystemFileHandle).getFile();
+                ts = f.lastModified;
+            } catch { /* abaikan; pakai fallback 0 */ }
+            externalBackups.push({ name: entry.name, timestamp: ts });
         }
     }
 
-    if (externalBackups.length > 5) {
-        // Sort ascending by timestamp (due to ISO format in filename)
-        externalBackups.sort((a, b) => a.name.localeCompare(b.name));
-        const toDelete = externalBackups.slice(0, externalBackups.length - 5);
-        for (const file of toDelete) {
-            await dirHandle.removeEntry(file.name);
-        }
+    const toDelete = selectBackupsToDelete(externalBackups, b => b.timestamp);
+    for (const file of toDelete) {
+        await dirHandle.removeEntry(file.name);
     }
   },
 
@@ -184,6 +189,18 @@ export const backupService = {
   async restoreData(parsedData: BackupData): Promise<void> {
     const data = parsedData?.data;
     if (!data || !data.projects) throw new Error('Format cadangan tidak valid');
+
+    // Jaring undo (#2): potret state saat ini ke tabel `backups` (tak ikut di-clear
+    // oleh transaksi restore) SEBELUM menimpa. Melindungi SEMUA jalur restore
+    // (internal / file JSON / Drive) dari cadangan yang valid-sintaks tapi lossy.
+    // Best-effort: kegagalan (mis. kuota) tak boleh membatalkan restore yang
+    // diminta pengguna — cukup diperingatkan di konsol.
+    try {
+      const current = await this.collectAllData();
+      await this.saveToInternalDB(current, 'pre-restore');
+    } catch (err) {
+      console.warn('Gagal membuat snapshot pra-pemulihan; melanjutkan restore tanpa jaring undo.', err);
+    }
 
     await db.transaction('rw',
       [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.codexCategories],

@@ -79,7 +79,7 @@ export function AutoBackupSection() {
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-              Penyimpanan bergulir yang hening di dalam penyimpanan peramban Anda. Menyimpan hingga 5 versi riwayat secara otomatis.
+              Penyimpanan bergulir yang hening di dalam penyimpanan peramban Anda. Menyimpan riwayat berjenjang (terbaru, harian, mingguan) secara otomatis.
             </p>
           </div>
           <button
@@ -211,15 +211,20 @@ export function AutoBackupSection() {
           <div className="w-full md:w-2/3 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-4 md:pt-0 md:pl-6 flex flex-col">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
               <History size={14} />
-              Titik Pulih
+              Titik Pulih Lokal
             </div>
             <div className="flex-1 space-y-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar">
               {internalBackups && internalBackups.length > 0 ? (
                 internalBackups.map((backup) => (
                   <div key={backup.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700/50 transition-colors group">
                     <div className="flex flex-col">
-                      <span className="text-slate-900 dark:text-slate-200 text-xs font-semibold">
+                      <span className="text-slate-900 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5">
                         {format(backup.timestamp, 'MMM d, yyyy • HH:mm:ss')}
+                        {backup.kind === 'pre-restore' && (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-[9px] font-bold uppercase tracking-wide">
+                            Sebelum pemulihan
+                          </span>
+                        )}
                       </span>
                       <span className="text-slate-500 dark:text-slate-500 text-[10px]">
                         Ukuran: {(backup.size / 1024).toFixed(1)} KB
@@ -241,6 +246,58 @@ export function AutoBackupSection() {
             </div>
           </div>
         </div>
+
+        {/* Titik Pulih Google Drive: tampil saat sesi Drive aktif. Menutup loop
+            pemulihan — unduh & pulihkan langsung dari Drive tanpa unduh manual. */}
+        {!driveSync.needsAuth && (
+          <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm md:col-span-3">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                <Cloud size={14} />
+                Titik Pulih Google Drive
+              </div>
+              <button
+                onClick={driveSync.loadDriveBackups}
+                disabled={driveSync.isLoadingDriveBackups}
+                className="flex items-center gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
+              >
+                {driveSync.isLoadingDriveBackups ? <Loader2 size={12} className="animate-spin" /> : <RefreshCcw size={12} />}
+                Segarkan
+              </button>
+            </div>
+            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar">
+              {driveSync.isLoadingDriveBackups && !driveSync.driveBackups ? (
+                <div className="h-full flex items-center justify-center text-xs text-slate-400 italic py-6">
+                  Memuat cadangan Drive…
+                </div>
+              ) : driveSync.driveBackups && driveSync.driveBackups.length > 0 ? (
+                driveSync.driveBackups.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700/50 transition-colors group">
+                    <div className="flex flex-col">
+                      <span className="text-slate-900 dark:text-slate-200 text-xs font-semibold">
+                        {format(new Date(file.createdTime), 'MMM d, yyyy • HH:mm:ss')}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-500 text-[10px]">
+                        {file.size ? `Ukuran: ${(parseInt(file.size) / 1024).toFixed(1)} KB` : file.name}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => driveSync.restoreDriveBackup(file.id, format(new Date(file.createdTime), 'PPP p'))}
+                      disabled={driveSync.isRestoringDrive}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 rounded-md text-[11px] font-medium transition-all shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                    >
+                      {driveSync.isRestoringDrive ? 'Memulihkan…' : 'Pulihkan'}
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-400 italic py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-lg">
+                  Belum ada cadangan di Google Drive.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -235,6 +235,10 @@ export interface BackupRecord {
   data: string | Uint8Array;
   size: number; // bytes (ukuran tersimpan)
   compressed?: boolean;
+  // Jenis titik pulih: 'auto' (siklus/manual biasa) atau 'pre-restore' (snapshot
+  // otomatis dari state saat ini tepat sebelum sebuah pemulihan menimpa data —
+  // jaring undo). Absen pada cadangan lama → diperlakukan sebagai 'auto'.
+  kind?: 'auto' | 'pre-restore';
 }
 
 export interface VectorEmbedding {

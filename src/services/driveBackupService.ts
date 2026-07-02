@@ -1,12 +1,21 @@
 import { getAccessToken } from './googleAuth';
 import { db } from '../db';
 import { backupService } from './backupService';
+import { selectBackupsToDelete } from '../lib/backupRetention';
 
 const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_API_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 
 const FOLDER_NAME = 'AetherScribe Backups';
-const MAX_BACKUPS = 5;
+
+// Metadata satu file cadangan di Drive (untuk daftar Titik Pulih). `size` dikirim
+// Drive sebagai string byte; opsional karena folder Google native tak punya size.
+export interface DriveBackupFile {
+  id: string;
+  name: string;
+  createdTime: string;
+  size?: string;
+}
 
 // Get or create the AetherScribe folder
 async function getAppFolder(accessToken: string): Promise<string | null> {
@@ -94,18 +103,21 @@ export async function syncProjectToDrive(force: boolean = false): Promise<boolea
   const backupDataString = JSON.stringify(backupObject);
   const { blob: contentBlob, compressed } = await backupService.compressData(backupDataString);
 
-  // Delete older files if we exceed MAX_BACKUPS (keep MAX_BACKUPS - 1 as we are uploading a new one)
-  if (files.length >= MAX_BACKUPS) {
-    const filesToDelete = files.slice(MAX_BACKUPS - 1);
-    for (const file of filesToDelete) {
-      // BK9: cek hasil DELETE; bila gagal, jangan diam — file lama bisa menumpuk
-      const delRes = await fetch(`${DRIVE_API_URL}/${file.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      if (!delRes.ok && delRes.status !== 404) {
-        console.warn(`Gagal menghapus cadangan Drive lama (${file.id}): ${delRes.status}`, await delRes.text().catch(() => ''));
-      }
+  // Rotasi berjenjang (#3): perlakukan unggahan yang akan datang sebagai item TERBARU,
+  // lalu hapus file yang jatuh di luar kebijakan retensi (terbaru + harian + mingguan).
+  const candidates = [
+    { id: '__incoming__', ts: Date.now() },
+    ...files.map((f: any) => ({ id: f.id as string, ts: new Date(f.createdTime).getTime() }))
+  ];
+  const filesToDelete = selectBackupsToDelete(candidates, c => c.ts).filter(c => c.id !== '__incoming__');
+  for (const file of filesToDelete) {
+    // BK9: cek hasil DELETE; bila gagal, jangan diam — file lama bisa menumpuk
+    const delRes = await fetch(`${DRIVE_API_URL}/${file.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!delRes.ok && delRes.status !== 404) {
+      console.warn(`Gagal menghapus cadangan Drive lama (${file.id}): ${delRes.status}`, await delRes.text().catch(() => ''));
     }
   }
 
@@ -151,5 +163,61 @@ export async function syncProjectToDrive(force: boolean = false): Promise<boolea
   localStorage.setItem('last_drive_sync_time', new Date().toISOString());
 
   return true;
+}
+
+// Daftar cadangan yang tersimpan di folder Drive, terbaru dulu. Menutup "loop"
+// pemulihan bencana: tanpa ini, satu-satunya cara ambil cadangan Drive adalah
+// mengunduh manual dari drive.google.com lalu impor JSON.
+export async function listDriveBackups(): Promise<DriveBackupFile[]> {
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new Error('TOKEN_EXPIRED');
+
+  const folderId = await getAppFolder(accessToken);
+  if (!folderId) return [];
+
+  const listQuery = `'${folderId}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'`;
+  const res = await fetch(`${DRIVE_API_URL}?q=${encodeURIComponent(listQuery)}&orderBy=createdTime desc&fields=files(id,name,createdTime,size)`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('TOKEN_EXPIRED');
+    console.error('Failed to list drive backups', await res.text().catch(() => ''));
+    throw new Error(`Gagal memuat daftar cadangan Drive: ${res.status}`);
+  }
+  const data = await res.json();
+  return (data.files || []) as DriveBackupFile[];
+}
+
+// Unduh satu file cadangan dari Drive lalu pulihkan. Deteksi gzip via magic bytes
+// (0x1f 0x8b), bukan ekstensi — konsisten dgn jalur restore lain (BK4). Restore
+// lewat sumber tunggal `backupService.restoreData` (clear+isi ulang, atomik).
+export async function restoreFromDrive(fileId: string): Promise<void> {
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new Error('TOKEN_EXPIRED');
+
+  const res = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('TOKEN_EXPIRED');
+    console.error('Failed to download drive backup', await res.text().catch(() => ''));
+    throw new Error(`Gagal mengunduh cadangan Drive: ${res.status}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const isGzip = bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+
+  let content: string;
+  if (isGzip && typeof DecompressionStream !== 'undefined') {
+    // @ts-ignore
+    const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    content = await new Response(ds).text();
+  } else {
+    content = new TextDecoder().decode(bytes);
+  }
+
+  const parsed = JSON.parse(content);
+  await backupService.restoreData(parsed);
 }
 

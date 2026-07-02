@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { initAuth, googleSignIn, logout, getAccessToken, GoogleUser } from '../services/googleAuth';
-import { syncProjectToDrive } from '../services/driveBackupService';
+import { syncProjectToDrive, listDriveBackups, restoreFromDrive, DriveBackupFile } from '../services/driveBackupService';
 
 export function useDriveSync() {
   const [needsAuth, setNeedsAuth] = useState(true);
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [driveBackups, setDriveBackups] = useState<DriveBackupFile[] | null>(null);
+  const [isLoadingDriveBackups, setIsLoadingDriveBackups] = useState(false);
+  const [isRestoringDrive, setIsRestoringDrive] = useState(false);
 
   useEffect(() => {
     initAuth(
@@ -45,6 +48,61 @@ export function useDriveSync() {
     await logout();
     setUser(null);
     setNeedsAuth(true);
+    setDriveBackups(null);
+  };
+
+  const handleExpiredSession = () => {
+    setNeedsAuth(true);
+    setUser(null);
+    setDriveBackups(null);
+  };
+
+  // Muat daftar cadangan Drive. Dipanggil otomatis saat terautentikasi (efek di
+  // bawah) dan lewat tombol "Segarkan".
+  const loadDriveBackups = useCallback(async () => {
+    setIsLoadingDriveBackups(true);
+    try {
+      const files = await listDriveBackups();
+      setDriveBackups(files);
+    } catch (err) {
+      console.error('Failed to load drive backups', err);
+      if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
+        handleExpiredSession();
+        alert('Sesi Google Anda telah berakhir. Harap login ulang untuk melihat cadangan Drive.');
+      } else {
+        alert('Gagal memuat daftar cadangan dari Google Drive.');
+      }
+    } finally {
+      setIsLoadingDriveBackups(false);
+    }
+  }, []);
+
+  // Auto-muat daftar begitu sesi aktif agar Titik Pulih Drive langsung tampil.
+  useEffect(() => {
+    if (!needsAuth) loadDriveBackups();
+  }, [needsAuth, loadDriveBackups]);
+
+  const restoreDriveBackup = async (fileId: string, label: string) => {
+    const confirmRestore = window.confirm(
+      `PERINGATAN: Ini akan menimpa SEMUA data Anda saat ini dengan cadangan Google Drive dari ${label}. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?`
+    );
+    if (!confirmRestore) return;
+
+    setIsRestoringDrive(true);
+    try {
+      await restoreFromDrive(fileId);
+      alert('Pemulihan dari Google Drive berhasil! Halaman akan dimuat ulang.');
+      window.location.reload();
+    } catch (err) {
+      console.error('Drive restore failed', err);
+      if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
+        handleExpiredSession();
+        alert('Sesi Google Anda telah berakhir. Harap login ulang untuk memulihkan.');
+      } else {
+        alert('Gagal memulihkan dari Google Drive. Pastikan file cadangan valid.');
+      }
+      setIsRestoringDrive(false);
+    }
   };
 
   const triggerDriveSync = async () => {
@@ -62,6 +120,7 @@ export function useDriveSync() {
          throw new Error("DRIVE_SYNC_FAILED");
       }
       alert('Berhasil disinkronisasi ke Google Drive!');
+      loadDriveBackups();
     } catch (err) {
       console.error('Drive sync failed', err);
       if (err instanceof Error && err.message === 'CONFLICT_DETECTED') {
@@ -71,6 +130,7 @@ export function useDriveSync() {
                const forceSuccess = await syncProjectToDrive(true);
                if (!forceSuccess) throw new Error("DRIVE_SYNC_FAILED");
                alert('Berhasil menimpa cadangan di Google Drive!');
+               loadDriveBackups();
             } catch (forceErr) {
                console.error('Forced drive sync failed', forceErr);
                alert('Gagal menyinkronkan (timpa) ke Google Drive.');
@@ -97,6 +157,11 @@ export function useDriveSync() {
     isSyncing,
     handleLogin,
     handleLogout,
-    triggerDriveSync
+    triggerDriveSync,
+    driveBackups,
+    isLoadingDriveBackups,
+    isRestoringDrive,
+    loadDriveBackups,
+    restoreDriveBackup
   };
 }
