@@ -80,7 +80,11 @@ export function ManualBackupSection() {
       window.location.reload();
     } catch (error) {
       console.error('Failed to restore backup:', error);
-      alert('Gagal memulihkan dari file cadangan. Pastikan ini adalah file JSON (atau .json.gz) cadangan yang valid.');
+      // Surfacing pesan spesifik kegagalan verifikasi integritas (#5); selain itu pesan generik.
+      const msg = error instanceof Error && error.message.includes('integritas')
+        ? error.message
+        : 'Gagal memulihkan dari file cadangan. Pastikan ini adalah file JSON (atau .json.gz) cadangan yang valid.';
+      alert(msg);
       setIsRestoring(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }

@@ -10,6 +10,10 @@ import { selectBackupsToDelete } from '@/src/lib/backupRetention';
 export interface BackupData {
   version: number;
   timestamp: number;
+  // SHA-256 hex dari JSON `data` (#5). Ada sejak v4; cadangan lama tanpa field ini
+  // dilewati verifikasinya (backward-compatible). Menangkap file terpotong/rusak
+  // SEBELUM ditimpakan ke DB.
+  checksum?: string;
   data: {
     projects: any[];
     chapters: any[];
@@ -31,22 +35,40 @@ export const backupService = {
    * but manual backup collects everything to ensure full redundancy.
    */
   async collectAllData(): Promise<BackupData> {
-    return {
-      version: 3, // v3: menyertakan codexCategories (kategori Codex kustom)
-      timestamp: Date.now(),
-      data: {
-        projects: await db.projects.toArray(),
-        chapters: await db.chapters.toArray(),
-        codex: await db.codex.toArray(),
-        bible: await db.bible.toArray(),
-        aiActions: await db.aiActions.toArray(),
-        snapshots: await db.snapshots.toArray(),
-        timeline: await db.timeline.toArray(),
-        relationships: await db.relationships.toArray(),
-        chatSessions: await db.chatSessions.toArray(),
-        codexCategories: await db.codexCategories.toArray()
-      }
+    const data = {
+      projects: await db.projects.toArray(),
+      chapters: await db.chapters.toArray(),
+      codex: await db.codex.toArray(),
+      bible: await db.bible.toArray(),
+      aiActions: await db.aiActions.toArray(),
+      snapshots: await db.snapshots.toArray(),
+      timeline: await db.timeline.toArray(),
+      relationships: await db.relationships.toArray(),
+      chatSessions: await db.chatSessions.toArray(),
+      codexCategories: await db.codexCategories.toArray()
     };
+    return {
+      version: 4, // v4: checksum SHA-256 integritas (v3: codexCategories)
+      timestamp: Date.now(),
+      checksum: await this.computeChecksum(JSON.stringify(data)),
+      data
+    };
+  },
+
+  /**
+   * SHA-256 hex dari string (dipakai untuk checksum integritas cadangan, #5).
+   * Best-effort: bila `crypto.subtle` tak tersedia (konteks tak-aman/browser lawas),
+   * kembalikan undefined → cadangan dibuat tanpa checksum, restore melewati verifikasi.
+   */
+  async computeChecksum(dataString: string): Promise<string | undefined> {
+    try {
+      if (typeof crypto === 'undefined' || !crypto.subtle) return undefined;
+      const bytes = new TextEncoder().encode(dataString);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      return undefined;
+    }
   },
 
   /**
@@ -189,6 +211,17 @@ export const backupService = {
   async restoreData(parsedData: BackupData): Promise<void> {
     const data = parsedData?.data;
     if (!data || !data.projects) throw new Error('Format cadangan tidak valid');
+
+    // Verifikasi integritas (#5): bila cadangan menyertakan checksum, cocokkan sebelum
+    // menyentuh DB. Menangkap file terpotong/rusak lebih dini — TIDAK menimpa & tidak
+    // membuang jaring undo. Cadangan lama tanpa checksum dilewati (backward-compatible);
+    // bila crypto tak tersedia (`actual` undefined) verifikasi juga dilewati, bukan gagal.
+    if (parsedData.checksum) {
+      const actual = await this.computeChecksum(JSON.stringify(data));
+      if (actual && actual !== parsedData.checksum) {
+        throw new Error('Verifikasi integritas gagal: cadangan tampak rusak atau tidak lengkap.');
+      }
+    }
 
     // Jaring undo (#2): potret state saat ini ke tabel `backups` (tak ikut di-clear
     // oleh transaksi restore) SEBELUM menimpa. Melindungi SEMUA jalur restore
