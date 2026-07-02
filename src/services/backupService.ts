@@ -6,6 +6,14 @@
 import { db } from '@/src/db';
 import { BackupRecord } from '@/src/types';
 import { selectBackupsToDelete } from '@/src/lib/backupRetention';
+import {
+  remapProjectDependents,
+  summarizeProjectBackup,
+  validateProjectBackup,
+  importedProjectName,
+  type ProjectBackupData,
+  type ProjectBackupCounts,
+} from '@/src/lib/importRemap';
 
 export interface BackupData {
   version: number;
@@ -252,8 +260,8 @@ export const backupService = {
   /**
    * Sumber kebenaran tunggal untuk SEMUA jalur restore (internal DB & file).
    * Semua tabel di-clear lalu diisi ulang dalam satu transaksi (atomik: rollback
-   * bila gagal). `embeddings` sengaja di-clear—bukan dipulihkan—agar di-regenerasi
-   * ulang dari codex (mencegah embedding basi/tak sinkron setelah restore).
+   * bila gagal). `embeddings` & `sceneEmbeddings` sengaja di-clear—bukan dipulihkan—agar
+   * di-regenerasi ulang dari codex/naskah (mencegah indeks basi/tak sinkron setelah restore).
    * Backward-compatible: backup lama tanpa `chatSessions` tetap aman (guard `?.length`).
    */
   async restoreData(parsedData: BackupData): Promise<void> {
@@ -284,7 +292,7 @@ export const backupService = {
     }
 
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.codexCategories],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories],
       async () => {
         // Clear existing data
         await db.projects.clear();
@@ -298,6 +306,7 @@ export const backupService = {
         await db.chatSessions.clear();
         await db.codexCategories.clear();
         await db.embeddings.clear(); // di-regenerasi dari codex; jangan dipulihkan dari backup
+        await db.sceneEmbeddings.clear(); // indeks Pencarian Semantik; di-regenerasi on-demand
 
         // Restore from backup
         if (data.projects?.length) await db.projects.bulkAdd(data.projects);
@@ -335,6 +344,82 @@ export const backupService = {
     const json = await this.decodeInternalBackup(backup);
     const parsedData: BackupData = JSON.parse(json);
     await this.restoreData(parsedData);
+  },
+
+  /**
+   * Impor SATU novel dari file ekspor per-proyek (#4B) sebagai proyek BARU —
+   * NON-DESTRUKTIF: hanya menambah baris, tak pernah clear/update/delete, sehingga
+   * proyek lain tak tersentuh (undo = hapus proyek lewat ProjectContext.deleteProject).
+   *
+   * Karena PK numerik auto-increment tak unik lintas-ekspor, tiap baris di-insert TANPA
+   * id lama (Dexie menetapkan id baru); proyek→bab→codex di-insert lebih dulu untuk
+   * membangun peta id, lalu FK 7 tabel dependen ditulis ulang oleh remapProjectDependents
+   * (murni, teruji). Seluruhnya dalam satu transaksi (gagal → rollback).
+   *
+   * Pemanggil bertanggung jawab menyegarkan konteks (invalidateContextCache) & berpindah
+   * ke proyek baru — service ini sengaja bebas dependensi pada worker/konteks.
+   */
+  async importProjectData(backup: BackupData): Promise<{ projectId: number; counts: ProjectBackupCounts }> {
+    validateProjectBackup(backup);
+
+    // Verifikasi integritas (#5), pola sama dgn restoreData — sebelum menyentuh DB.
+    if (backup.checksum) {
+      const actual = await this.computeChecksum(JSON.stringify(backup.data));
+      if (actual && actual !== backup.checksum) {
+        throw new Error('Verifikasi integritas gagal: cadangan tampak rusak atau tidak lengkap.');
+      }
+    }
+
+    const data = backup.data as unknown as ProjectBackupData;
+    const counts = summarizeProjectBackup(data);
+
+    // Salin baris tanpa id, set projectId. (id dilepas → Dexie menetapkan id baru.)
+    const prep = (row: any, projectId: number) => {
+      const copy = { ...row };
+      delete copy.id;
+      copy.projectId = projectId;
+      return copy;
+    };
+
+    let newProjectId = 0;
+    await db.transaction('rw',
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.codexCategories],
+      async () => {
+        // 1) Proyek baru (lepas id; lastOpened=now agar langsung teratas; nama diberi
+        //    suffix "(impor)" agar terbedakan dari aslinya bila keduanya berdampingan).
+        const projectRow = { ...data.projects[0] } as any;
+        delete projectRow.id;
+        projectRow.name = importedProjectName(projectRow.name);
+        projectRow.lastOpened = Date.now();
+        newProjectId = await db.projects.add(projectRow) as number;
+
+        // 2) Bab & codex di-insert dulu untuk MEMBANGUN peta id lama→baru.
+        const chapterIdMap = new Map<number, number>();
+        if (data.chapters?.length) {
+          const rows = data.chapters.map((c) => prep(c, newProjectId));
+          const keys = await db.chapters.bulkAdd(rows, { allKeys: true });
+          data.chapters.forEach((c, i) => { if (c.id != null) chapterIdMap.set(c.id, keys[i] as number); });
+        }
+
+        const codexIdMap = new Map<number, number>();
+        if (data.codex?.length) {
+          const rows = data.codex.map((c) => prep(c, newProjectId));
+          const keys = await db.codex.bulkAdd(rows, { allKeys: true });
+          data.codex.forEach((c, i) => { if (c.id != null) codexIdMap.set(c.id, keys[i] as number); });
+        }
+
+        // 3) Remap FK tabel dependen (murni) lalu insert.
+        const dep = remapProjectDependents(data, { projectId: newProjectId, chapterIdMap, codexIdMap });
+        if (dep.bible.length) await db.bible.bulkAdd(dep.bible);
+        if (dep.aiActions.length) await db.aiActions.bulkAdd(dep.aiActions);
+        if (dep.codexCategories.length) await db.codexCategories.bulkAdd(dep.codexCategories);
+        if (dep.snapshots.length) await db.snapshots.bulkAdd(dep.snapshots);
+        if (dep.timeline.length) await db.timeline.bulkAdd(dep.timeline);
+        if (dep.relationships.length) await db.relationships.bulkAdd(dep.relationships);
+        if (dep.chatSessions.length) await db.chatSessions.bulkAdd(dep.chatSessions);
+      });
+
+    return { projectId: newProjectId, counts };
   },
 
   /**

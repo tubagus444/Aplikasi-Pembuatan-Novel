@@ -1,0 +1,210 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import type {
+  Project, Chapter, CodexEntry, StoryBibleRule, AIAction,
+  Snapshot, TimelineEvent, Relationship, ChatSession, CustomCategory,
+} from '@/src/types';
+
+/**
+ * Logika MURNI untuk impor per-novel (#4B). Tanpa akses IndexedDB — id baru
+ * ditetapkan oleh Dexie di service, lalu peta id lama→baru diberikan ke sini untuk
+ * menulis ulang seluruh foreign-key. Diuji terisolasi (importRemap.test.ts) karena
+ * inilah bagian paling rawan: satu FK terlewat = relasi/timeline salah tunjuk senyap.
+ *
+ * Peta FK (dari src/types.ts):
+ *  - *.projectId → satu id proyek baru
+ *  - snapshots.chapterId (wajib), timeline.chapterId?, chatSessions.chapterId? +
+ *    activeChapterId? → chapterIdMap
+ *  - relationships.sourceId/targetId, timeline.characterIds[] → codexIdMap
+ *  - TIDAK di-remap: Chapter.pov (nama), CodexEntry.category & key/slug (string).
+ */
+
+/** Bentuk `data` dari file ekspor per-novel (mirror BackupData['data'], bertipe kuat). */
+export interface ProjectBackupData {
+  projects: Project[];
+  chapters: Chapter[];
+  codex: CodexEntry[];
+  bible: StoryBibleRule[];
+  aiActions: AIAction[];
+  snapshots: Snapshot[];
+  timeline: TimelineEvent[];
+  relationships: Relationship[];
+  chatSessions: ChatSession[];
+  codexCategories?: CustomCategory[];
+}
+
+export interface RemapMaps {
+  /** Id proyek baru (hasil db.projects.add di service). */
+  projectId: number;
+  /** id bab lama → id bab baru. */
+  chapterIdMap: Map<number, number>;
+  /** id codex lama → id codex baru. */
+  codexIdMap: Map<number, number>;
+}
+
+/** Tabel dependen hasil remap (id dilepas; siap bulkAdd). */
+export interface RemappedDependents {
+  bible: StoryBibleRule[];
+  aiActions: AIAction[];
+  codexCategories: CustomCategory[];
+  snapshots: Snapshot[];
+  timeline: TimelineEvent[];
+  relationships: Relationship[];
+  chatSessions: ChatSession[];
+}
+
+/** Salin baris tanpa `id` (agar Dexie menetapkan id baru). */
+function stripId<T extends Record<string, any>>(row: T): Omit<T, 'id'> {
+  const rest: Record<string, any> = { ...row };
+  delete rest.id;
+  return rest as Omit<T, 'id'>;
+}
+
+/** Dedup baris berdasarkan kunci turunan (defensif untuk index unik). */
+function dedupeBy<T>(rows: T[], key: (row: T) => string): T[] {
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    const k = key(r);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/**
+ * Menulis ulang FK 7 tabel dependen memakai peta id baru. Kebijakan referensi
+ * menggantung eksplisit (buang baris yatim / saring id tak dikenal) — lihat komentar
+ * per-tabel. Tabel primer (projects/chapters/codex) di-insert lebih dulu oleh service
+ * untuk MEMBANGUN peta ini, jadi tidak ditangani di sini.
+ */
+export function remapProjectDependents(
+  data: ProjectBackupData,
+  maps: RemapMaps,
+): RemappedDependents {
+  const { projectId, chapterIdMap, codexIdMap } = maps;
+
+  // bible: set projectId; dedup by key (index unik [projectId+key]) secara defensif.
+  const bible = dedupeBy(data.bible ?? [], (b) => b.key).map((b) => ({
+    ...stripId(b),
+    projectId,
+  }));
+
+  // aiActions: hanya projectId.
+  const aiActions = (data.aiActions ?? []).map((a) => ({ ...stripId(a), projectId }));
+
+  // codexCategories: set projectId; dedup by slug (index unik [projectId+slug]).
+  const codexCategories = dedupeBy(data.codexCategories ?? [], (c) => c.slug).map((c) => ({
+    ...stripId(c),
+    projectId,
+  }));
+
+  // snapshots: chapterId WAJIB → buang baris bila bab-nya tak dikenal (yatim).
+  const snapshots = (data.snapshots ?? [])
+    .map((s) => {
+      const newChapterId = chapterIdMap.get(s.chapterId);
+      if (newChapterId === undefined) return null;
+      return { ...stripId(s), chapterId: newChapterId };
+    })
+    .filter((s): s is Omit<Snapshot, 'id'> & { chapterId: number } => s !== null);
+
+  // timeline: set projectId; chapterId opsional (buang key bila tak dikenal);
+  // characterIds → map tiap elemen & saring yang tak dikenal.
+  const timeline = (data.timeline ?? []).map((t) => {
+    const remapped: Record<string, any> = { ...stripId(t), projectId };
+    if (t.chapterId !== undefined) {
+      const nc = chapterIdMap.get(t.chapterId);
+      if (nc !== undefined) remapped.chapterId = nc;
+      else delete remapped.chapterId;
+    }
+    if (t.characterIds) {
+      remapped.characterIds = t.characterIds
+        .map((cid) => codexIdMap.get(cid))
+        .filter((cid): cid is number => cid !== undefined);
+    }
+    return remapped as TimelineEvent;
+  });
+
+  // relationships: remap source & target; buang relasi bila salah satu ujung hilang.
+  const relationships = (data.relationships ?? [])
+    .map((r) => {
+      const s = codexIdMap.get(r.sourceId);
+      const t = codexIdMap.get(r.targetId);
+      if (s === undefined || t === undefined) return null;
+      return { ...stripId(r), projectId, sourceId: s, targetId: t };
+    })
+    .filter((r): r is Omit<Relationship, 'id'> & { projectId: number; sourceId: number; targetId: number } => r !== null);
+
+  // chatSessions: set projectId; chapterId & activeChapterId opsional (buang key bila
+  // tak dikenal); `messages` (teks chat) tak disentuh.
+  const chatSessions = (data.chatSessions ?? []).map((cs) => {
+    const remapped: Record<string, any> = { ...stripId(cs), projectId };
+    if (cs.chapterId !== undefined) {
+      const nc = chapterIdMap.get(cs.chapterId);
+      if (nc !== undefined) remapped.chapterId = nc;
+      else delete remapped.chapterId;
+    }
+    if (cs.activeChapterId !== undefined) {
+      const nc = chapterIdMap.get(cs.activeChapterId);
+      if (nc !== undefined) remapped.activeChapterId = nc;
+      else delete remapped.activeChapterId;
+    }
+    return remapped as ChatSession;
+  });
+
+  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions };
+}
+
+/**
+ * Nama untuk proyek hasil impor — diberi suffix "(impor)" agar terbedakan dari aslinya
+ * bila keduanya ada di ruang kerja yang sama. Idempoten: mengimpor ulang file yang sudah
+ * ber-suffix tidak menumpuk "(impor) (impor)".
+ */
+export function importedProjectName(name: string | undefined): string {
+  const base = (name || 'Novel').trim();
+  return /\(impor\)\s*$/i.test(base) ? base : `${base} (impor)`;
+}
+
+export interface ProjectBackupCounts {
+  chapters: number;
+  codex: number;
+  timeline: number;
+  relationships: number;
+  chatSessions: number;
+}
+
+/** Ringkasan jumlah untuk dialog konfirmasi impor. */
+export function summarizeProjectBackup(data: ProjectBackupData): ProjectBackupCounts {
+  return {
+    chapters: data.chapters?.length ?? 0,
+    codex: data.codex?.length ?? 0,
+    timeline: data.timeline?.length ?? 0,
+    relationships: data.relationships?.length ?? 0,
+    chatSessions: data.chatSessions?.length ?? 0,
+  };
+}
+
+/**
+ * Validasi fail-closed sebelum menyentuh DB. Melempar pesan Indonesia bila file bukan
+ * ekspor SATU novel. (Jalur impor kebalikan dari restore-penuh: hanya menerima
+ * scope:'project'.) Checksum diverifikasi terpisah di service memakai computeChecksum.
+ */
+export function validateProjectBackup(backup: any): void {
+  if (!backup || typeof backup !== 'object') {
+    throw new Error('Format file tidak valid.');
+  }
+  if (backup.scope !== 'project') {
+    throw new Error(
+      'Ini bukan file ekspor per-novel. Untuk memulihkan cadangan penuh semua proyek, gunakan “Kembalikan dari JSON”.',
+    );
+  }
+  const data = backup.data;
+  if (!data || !Array.isArray(data.projects)) {
+    throw new Error('Format cadangan tidak valid.');
+  }
+  if (data.projects.length !== 1) {
+    throw new Error(`File ini bukan ekspor satu novel (berisi ${data.projects.length} proyek).`);
+  }
+}

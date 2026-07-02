@@ -94,7 +94,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         nextId = other?.id;
       }
 
-      await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions], async () => {
+      await db.transaction('rw', [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.codexCategories, db.embeddings, db.sceneEmbeddings], async () => {
         // Ambil semua chapter ID yang dimiliki project ini untuk menghapus snapshots-nya
         const chapters = await db.chapters.where('projectId').equals(id).toArray();
         const chapterIds = chapters.map(c => c.id!).filter(Boolean);
@@ -111,6 +111,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         await db.timeline.where('projectId').equals(id).delete();
         await db.relationships.where('projectId').equals(id).delete();
         await db.chatSessions.where('projectId').equals(id).delete();
+        // Bersihkan juga data per-proyek yang sebelumnya tertinggal jadi yatim:
+        // kategori kustom + indeks embedding (Codex & Pencarian Semantik).
+        await db.codexCategories.where('projectId').equals(id).delete();
+        await db.embeddings.where('projectId').equals(id).delete();
+        await db.sceneEmbeddings.where('projectId').equals(id).delete();
         await db.projects.delete(id);
       });
 
