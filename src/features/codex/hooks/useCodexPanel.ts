@@ -147,6 +147,28 @@ export function useCodexPanel(projectId: number) {
     setInitialData({});
   };
 
+  // Buat banyak entri sekaligus dari paste-quick-add multi-blok (importer #7).
+  // Add-only & non-destruktif — konsisten dengan filosofi jembatan teks ⇄ Codex.
+  const handleBulkCreateEntries = async (list: Partial<CodexEntry>[]) => {
+    const rows = list
+      .filter((d) => d.name?.trim())
+      .map((d) => ({
+        projectId,
+        name: d.name!.trim(),
+        category: d.category || 'character',
+        description: d.description || '',
+        aliases: d.aliases || [],
+        tags: d.tags || [],
+      })) as CodexEntry[];
+    if (!rows.length) return 0;
+    await db.codex.bulkAdd(rows);
+    await invalidateContextCache();
+    setIsAdding(false);
+    setEditingId(null);
+    setInitialData({});
+    return rows.length;
+  };
+
   const deleteEntry = async (id: number) => {
     setConfirmDeleteId(id);
   };
@@ -214,6 +236,7 @@ export function useCodexPanel(projectId: number) {
     startAdding,
     startEditing,
     handleSaveEntry,
+    handleBulkCreateEntries,
     deleteEntry,
     confirmDelete,
     cancelEdit,

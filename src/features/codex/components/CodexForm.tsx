@@ -16,10 +16,12 @@ interface CodexFormProps {
   existingEntries?: CodexEntry[];
   categories?: CategoryDef[];
   onSave: (data: Partial<CodexEntry>) => Promise<void>;
+  /** Buat banyak entri sekaligus dari paste multi-blok (importer #7). Kembalikan jumlah yang dibuat. */
+  onBulkCreate?: (entries: Partial<CodexEntry>[]) => Promise<number>;
   onCancel: () => void;
 }
 
-export function CodexForm({ initialData, editingId, bibleRules, existingEntries = [], categories = BUILTIN_CATEGORIES, onSave, onCancel }: CodexFormProps) {
+export function CodexForm({ initialData, editingId, bibleRules, existingEntries = [], categories = BUILTIN_CATEGORIES, onSave, onBulkCreate, onCancel }: CodexFormProps) {
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
   const [formData, setFormData] = useState<Partial<CodexEntry>>({
@@ -110,9 +112,37 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
     setPasteText('');
     toast.info(
       parsed.length > 1
-        ? `${parsed.length} blok terdeteksi — blok pertama dipakai (tinjau lalu simpan).`
+        ? `${parsed.length} blok terdeteksi — blok pertama dipakai (tinjau lalu simpan). Pakai "Buat semua" untuk semuanya.`
         : 'Form terisi dari teks — tinjau lalu simpan.'
     );
+  };
+
+  // Pratinjau jumlah entri "layak" (heading struktural/pemisah dibuang) untuk tombol
+  // "Buat semua". Deterministik & nol token — sama engine dengan paste-quick-add.
+  const bulkEntries = React.useMemo(
+    () =>
+      showPaste && pasteText.trim()
+        ? parseCodexMarkdown(pasteText, {
+            defaultCategory: formData.category || 'character',
+            dropStructural: true,
+          })
+        : [],
+    [showPaste, pasteText, formData.category]
+  );
+
+  const handleBulkCreateFromPaste = async () => {
+    if (!onBulkCreate || bulkEntries.length === 0) return;
+    const count = await onBulkCreate(
+      bulkEntries.map(p => ({
+        name: p.name,
+        category: p.category as CodexCategory,
+        description: p.description,
+        aliases: p.aliases,
+        tags: p.tags,
+      }))
+    );
+    // Form ditutup oleh onBulkCreate; toast mengonfirmasi hasil.
+    if (count > 0) toast.success(`${count} entri dibuat — tinjau di daftar Codex.`);
   };
 
   return (
@@ -172,14 +202,26 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Heading → Nama; sisanya → Deskripsi. Hasil bisa disunting sebelum disimpan.
               </p>
-              <button
-                type="button"
-                onClick={handleFillFromPaste}
-                disabled={!pasteText.trim()}
-                className="shrink-0 flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-full transition-all border bg-indigo-600 text-white border-transparent hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Check size={12} /> Isi form dari teks
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {onBulkCreate && bulkEntries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleBulkCreateFromPaste}
+                    title="Buat langsung semua entri terdeteksi (tanpa tinjau satu per satu)"
+                    className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-full transition-all border bg-emerald-600 text-white border-transparent hover:bg-emerald-700"
+                  >
+                    <Plus size={12} /> Buat semua {bulkEntries.length} entri
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleFillFromPaste}
+                  disabled={!pasteText.trim()}
+                  className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-full transition-all border bg-indigo-600 text-white border-transparent hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Check size={12} /> Isi form dari teks
+                </button>
+              </div>
             </div>
           </div>
         )}

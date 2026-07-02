@@ -55,6 +55,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     startAdding,
     startEditing,
     handleSaveEntry,
+    handleBulkCreateEntries,
     deleteEntry,
     confirmDelete,
     cancelEdit,
@@ -203,6 +204,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                 existingEntries={entries || []}
                 categories={categories}
                 onSave={handleSaveEntry}
+                onBulkCreate={handleBulkCreateEntries}
                 onCancel={cancelEdit}
               />
             </div>
