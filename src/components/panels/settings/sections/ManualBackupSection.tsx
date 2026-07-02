@@ -1,11 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Download, Database } from 'lucide-react';
-import { backupService } from '@/src/services/backupService';
+import { backupService, BackupData } from '@/src/services/backupService';
+import { useToast } from '@/src/hooks/useToast';
+import { ConfirmDialog } from '@/src/components/common/ConfirmDialog';
 
 export function ManualBackupSection() {
+  const { toast } = useToast();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  // Cadangan yang sudah di-parse & tervalidasi, menunggu konfirmasi pengguna.
+  const [pendingRestore, setPendingRestore] = useState<BackupData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetFileInput = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleBackup = async () => {
     setIsBackingUp(true);
@@ -22,9 +31,10 @@ export function ManualBackupSection() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      toast.success('Cadangan berhasil diekspor.');
     } catch (error) {
       console.error('Failed to create backup:', error);
-      alert('Gagal membuat cadangan. Lihat konsol untuk detailnya.');
+      toast.error('Gagal membuat cadangan. Lihat konsol untuk detailnya.');
     } finally {
       setIsBackingUp(false);
     }
@@ -34,13 +44,12 @@ export function ManualBackupSection() {
     fileInputRef.current?.click();
   };
 
+  // Parse & validasi file, lalu buka dialog konfirmasi (tanpa menyentuh DB dulu).
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      setIsRestoring(true);
-
       // Deteksi gzip lewat magic bytes (0x1f 0x8b), bukan ekstensi — robust untuk
       // cadangan lama yang salah dinamai `.json.gz` padahal mentah, maupun `.json`
       // tak terkompresi (BK4).
@@ -63,31 +72,40 @@ export function ManualBackupSection() {
         throw new Error("Format file cadangan tidak valid");
       }
 
-      const confirmRestore = window.confirm(
-        "PERINGATAN: Ini akan menimpa SEMUA proyek, bab, entri kamus data, dan pengaturan Anda dengan data dari file cadangan. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?"
-      );
+      setPendingRestore(backup);
+    } catch (error) {
+      console.error('Failed to read backup:', error);
+      toast.error('Gagal membaca file cadangan. Pastikan ini file JSON (atau .json.gz) yang valid.');
+      resetFileInput();
+    }
+  };
 
-      if (!confirmRestore) {
-        setIsRestoring(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        return;
-      }
-
-      // Satu sumber kebenaran restore (clear semua tabel + chatSessions + embeddings, atomik).
-      await backupService.restoreData(backup);
-
-      alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
-      window.location.reload();
+  const confirmRestore = async () => {
+    if (!pendingRestore) return;
+    setIsRestoring(true);
+    try {
+      // Satu sumber kebenaran restore (verifikasi checksum + snapshot pra-pemulihan
+      // + clear semua tabel, atomik). Lihat backupService.restoreData.
+      await backupService.restoreData(pendingRestore);
+      setPendingRestore(null);
+      toast.success('Pemulihan berhasil! Memuat ulang…');
+      setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
       console.error('Failed to restore backup:', error);
       // Surfacing pesan spesifik kegagalan verifikasi integritas (#5); selain itu pesan generik.
       const msg = error instanceof Error && error.message.includes('integritas')
         ? error.message
-        : 'Gagal memulihkan dari file cadangan. Pastikan ini adalah file JSON (atau .json.gz) cadangan yang valid.';
-      alert(msg);
+        : 'Gagal memulihkan dari file cadangan.';
+      toast.error(msg);
       setIsRestoring(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setPendingRestore(null);
+      resetFileInput();
     }
+  };
+
+  const cancelRestore = () => {
+    setPendingRestore(null);
+    resetFileInput();
   };
 
   return (
@@ -130,6 +148,22 @@ export function ManualBackupSection() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingRestore !== null}
+        tone="danger"
+        title="Timpa semua data?"
+        confirmLabel="Ya, pulihkan"
+        busy={isRestoring}
+        onConfirm={confirmRestore}
+        onCancel={cancelRestore}
+        message={
+          <>
+            Ini akan <strong>menimpa SEMUA proyek, bab, dan entri</strong> Anda saat ini dengan data dari file cadangan.
+            Sebuah titik <strong>“Sebelum pemulihan”</strong> otomatis dibuat agar Anda bisa membatalkannya.
+          </>
+        }
+      />
     </section>
   );
 }

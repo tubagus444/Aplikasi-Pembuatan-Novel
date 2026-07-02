@@ -1,19 +1,46 @@
 import React, { useState } from 'react';
-import { RefreshCcw, Loader2, FolderOpen, History, Database, Cloud, Upload } from 'lucide-react';
+import { RefreshCcw, Loader2, FolderOpen, History, Database, Cloud, Upload, Check, X, MinusCircle } from 'lucide-react';
 import { backupService } from '@/src/services/backupService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
-import { useAutoBackup } from '@/src/hooks/useAutoBackup';
+import { useAutoBackup, LayerResult } from '@/src/hooks/useAutoBackup';
 import { useDriveSync } from '@/src/hooks/useDriveSync';
+import { useToast } from '@/src/hooks/useToast';
+import { ConfirmDialog } from '@/src/components/common/ConfirmDialog';
+
+// Restore yang menunggu konfirmasi — bisa dari cadangan internal atau file Drive.
+type PendingRestore =
+  | { source: 'internal'; id: number; label: string }
+  | { source: 'drive'; fileId: string; label: string };
+
+// Badge status hasil backup terakhir per-lapisan (agar kegagalan senyap kelihatan).
+function LayerBadge({ result }: { result: LayerResult }) {
+  if (!result) return null;
+  const map = {
+    ok: { cls: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400', icon: <Check size={11} />, label: 'OK' },
+    error: { cls: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400', icon: <X size={11} />, label: 'Gagal' },
+    skipped: { cls: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400', icon: <MinusCircle size={11} />, label: 'Dilewati' },
+  }[result.status];
+  return (
+    <span
+      title={`${map.label} • ${format(result.time, 'PPP p')}`}
+      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${map.cls}`}
+    >
+      {map.icon}{map.label}
+    </span>
+  );
+}
 
 export function AutoBackupSection() {
+  const { toast } = useToast();
   const {
     lastBackupTime,
     isBackingUp: isAutoBackingUp,
     selectFolder,
     triggerManualBackup,
     folderName,
-    isFileSystemSupported
+    isFileSystemSupported,
+    layerStatus
   } = useAutoBackup();
 
   const driveSync = useDriveSync();
@@ -34,20 +61,35 @@ export function AutoBackupSection() {
     // or the Provider effect will pick it up if in same tab context
   };
 
-  const handleInternalRestore = async (backupId: number, timestamp: number) => {
-    const confirmRestore = window.confirm(
-      `PERINGATAN: Ini akan menimpa SEMUA data Anda saat ini dengan cadangan dari ${format(timestamp, 'PPP p')}. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?`
-    );
+  const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(null);
+  const [isRestoringInternal, setIsRestoringInternal] = useState(false);
 
-    if (!confirmRestore) return;
+  const confirmPendingRestore = async () => {
+    if (!pendingRestore) return;
 
+    // Drive: delegasikan ke hook (menangani toast + reload + sesi berakhir).
+    if (pendingRestore.source === 'drive') {
+      const { fileId } = pendingRestore;
+      setPendingRestore(null);
+      await driveSync.restoreDriveBackup(fileId);
+      return;
+    }
+
+    // Internal DB.
+    setIsRestoringInternal(true);
     try {
-      await backupService.restoreFromBackup(backupId);
-      alert("Pemulihan berhasil! Halaman akan dimuat ulang.");
-      window.location.reload();
+      await backupService.restoreFromBackup(pendingRestore.id);
+      setPendingRestore(null);
+      toast.success('Pemulihan berhasil! Memuat ulang…');
+      setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
-      console.error("Internal restore failed:", err);
-      alert("Gagal memulihkan dari cadangan internal.");
+      console.error('Internal restore failed:', err);
+      const msg = err instanceof Error && err.message.includes('integritas')
+        ? err.message
+        : 'Gagal memulihkan dari cadangan internal.';
+      toast.error(msg);
+      setIsRestoringInternal(false);
+      setPendingRestore(null);
     }
   };
 
@@ -72,11 +114,14 @@ export function AutoBackupSection() {
                 <Database size={16} className="text-indigo-500" />
                 Lapisan 1: IndexedDB
               </div>
-              {lastBackupTime && (
-                <span className="text-[10px] text-slate-400 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                  Terakhir: {format(lastBackupTime, 'HH:mm')}
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                <LayerBadge result={layerStatus.internal} />
+                {lastBackupTime && (
+                  <span className="text-[10px] text-slate-400 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                    Terakhir: {format(lastBackupTime, 'HH:mm')}
+                  </span>
+                )}
+              </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
               Penyimpanan bergulir yang hening di dalam penyimpanan peramban Anda. Menyimpan riwayat berjenjang (terbaru, harian, mingguan) secara otomatis.
@@ -99,6 +144,7 @@ export function AutoBackupSection() {
                 <FolderOpen size={16} className="text-indigo-500" />
                 Lapisan 2: Folder Lokal
               </div>
+              <LayerBadge result={layerStatus.folder} />
             </div>
             {!isFileSystemSupported ? (
               <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400 rounded-lg text-xs border border-amber-200 dark:border-amber-900/50 my-2">
@@ -139,6 +185,7 @@ export function AutoBackupSection() {
                 <Cloud size={16} className="text-indigo-500" />
                 Lapisan 3: Google Drive
               </div>
+              <LayerBadge result={layerStatus.drive} />
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
               Sinkronkan cadangan utama ke akun Google Drive Anda.
@@ -231,7 +278,7 @@ export function AutoBackupSection() {
                       </span>
                     </div>
                     <button
-                      onClick={() => handleInternalRestore(backup.id!, backup.timestamp)}
+                      onClick={() => setPendingRestore({ source: 'internal', id: backup.id!, label: format(backup.timestamp, 'PPP p') })}
                       className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 rounded-md text-[11px] font-medium transition-all shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100"
                     >
                       Pulihkan
@@ -282,7 +329,7 @@ export function AutoBackupSection() {
                       </span>
                     </div>
                     <button
-                      onClick={() => driveSync.restoreDriveBackup(file.id, format(new Date(file.createdTime), 'PPP p'))}
+                      onClick={() => setPendingRestore({ source: 'drive', fileId: file.id, label: format(new Date(file.createdTime), 'PPP p') })}
                       disabled={driveSync.isRestoringDrive}
                       className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 rounded-md text-[11px] font-medium transition-all shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                     >
@@ -299,6 +346,23 @@ export function AutoBackupSection() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingRestore !== null}
+        tone="danger"
+        title="Timpa semua data?"
+        confirmLabel="Ya, pulihkan"
+        busy={isRestoringInternal}
+        onConfirm={confirmPendingRestore}
+        onCancel={() => setPendingRestore(null)}
+        message={
+          <>
+            Memulihkan cadangan{pendingRestore ? ` dari ${pendingRestore.label}` : ''} akan
+            {' '}<strong>menimpa SEMUA data</strong> Anda saat ini. Sebuah titik{' '}
+            <strong>“Sebelum pemulihan”</strong> otomatis dibuat agar Anda bisa membatalkannya.
+          </>
+        }
+      />
     </section>
   );
 }

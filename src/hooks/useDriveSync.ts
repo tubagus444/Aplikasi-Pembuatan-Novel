@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { initAuth, googleSignIn, logout, getAccessToken, GoogleUser } from '../services/googleAuth';
 import { syncProjectToDrive, listDriveBackups, restoreFromDrive, DriveBackupFile } from '../services/driveBackupService';
+import { useToast } from './useToast';
 
 export function useDriveSync() {
+  const { toast } = useToast();
   const [needsAuth, setNeedsAuth] = useState(true);
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -27,7 +29,7 @@ export function useDriveSync() {
   const handleLogin = async () => {
     const clientId = localStorage.getItem('google_client_id');
     if (!clientId) {
-       alert("Silakan masukkan Google Client ID di Pengaturan terlebih dahulu.");
+       toast.warning('Silakan masukkan Google Client ID terlebih dahulu.');
        return;
     }
     setIsLoggingIn(true);
@@ -39,6 +41,7 @@ export function useDriveSync() {
       }
     } catch (err) {
       console.error('Login failed:', err);
+      toast.error('Login Google gagal. Periksa Client ID lalu coba lagi.');
     } finally {
       setIsLoggingIn(false);
     }
@@ -68,40 +71,37 @@ export function useDriveSync() {
       console.error('Failed to load drive backups', err);
       if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
         handleExpiredSession();
-        alert('Sesi Google Anda telah berakhir. Harap login ulang untuk melihat cadangan Drive.');
+        toast.error('Sesi Google Anda telah berakhir. Harap login ulang untuk melihat cadangan Drive.');
       } else {
-        alert('Gagal memuat daftar cadangan dari Google Drive.');
+        toast.error('Gagal memuat daftar cadangan dari Google Drive.');
       }
     } finally {
       setIsLoadingDriveBackups(false);
     }
-  }, []);
+  }, [toast]);
 
   // Auto-muat daftar begitu sesi aktif agar Titik Pulih Drive langsung tampil.
   useEffect(() => {
     if (!needsAuth) loadDriveBackups();
   }, [needsAuth, loadDriveBackups]);
 
-  const restoreDriveBackup = async (fileId: string, label: string) => {
-    const confirmRestore = window.confirm(
-      `PERINGATAN: Ini akan menimpa SEMUA data Anda saat ini dengan cadangan Google Drive dari ${label}. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin ingin melanjutkan?`
-    );
-    if (!confirmRestore) return;
-
+  // Melakukan pemulihan sebenarnya. Konfirmasi (destruktif) ditangani komponen lewat
+  // ConfirmDialog — hook ini hanya mengeksekusi + memberi umpan balik & reload.
+  const restoreDriveBackup = async (fileId: string) => {
     setIsRestoringDrive(true);
     try {
       await restoreFromDrive(fileId);
-      alert('Pemulihan dari Google Drive berhasil! Halaman akan dimuat ulang.');
-      window.location.reload();
+      toast.success('Pemulihan dari Google Drive berhasil! Memuat ulang…');
+      setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
       console.error('Drive restore failed', err);
       if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
         handleExpiredSession();
-        alert('Sesi Google Anda telah berakhir. Harap login ulang untuk memulihkan.');
+        toast.error('Sesi Google Anda telah berakhir. Harap login ulang untuk memulihkan.');
       } else if (err instanceof Error && err.message.includes('integritas')) {
-        alert(err.message); // Verifikasi integritas gagal (#5)
+        toast.error(err.message); // Verifikasi integritas gagal (#5)
       } else {
-        alert('Gagal memulihkan dari Google Drive. Pastikan file cadangan valid.');
+        toast.error('Gagal memulihkan dari Google Drive. Pastikan file cadangan valid.');
       }
       setIsRestoringDrive(false);
     }
@@ -115,13 +115,13 @@ export function useDriveSync() {
         setNeedsAuth(true);
         return;
       }
-      
+
       // Use trigger a full DB backup
       const driveSuccess = await syncProjectToDrive();
       if (!driveSuccess) {
          throw new Error("DRIVE_SYNC_FAILED");
       }
-      alert('Berhasil disinkronisasi ke Google Drive!');
+      toast.success('Berhasil disinkronisasi ke Google Drive!');
       loadDriveBackups();
     } catch (err) {
       console.error('Drive sync failed', err);
@@ -131,21 +131,21 @@ export function useDriveSync() {
             try {
                const forceSuccess = await syncProjectToDrive(true);
                if (!forceSuccess) throw new Error("DRIVE_SYNC_FAILED");
-               alert('Berhasil menimpa cadangan di Google Drive!');
+               toast.success('Berhasil menimpa cadangan di Google Drive!');
                loadDriveBackups();
             } catch (forceErr) {
                console.error('Forced drive sync failed', forceErr);
-               alert('Gagal menyinkronkan (timpa) ke Google Drive.');
+               toast.error('Gagal menyinkronkan (timpa) ke Google Drive.');
             }
          } else {
-            alert('Sinkronisasi dibatalkan. Jika Anda ingin menarik versi terbaru, gunakan menu "Kembalikan dari JSON" setelah mengunduhnya dari folder AetherScribe Backups di Drive.');
+            toast.info('Sinkronisasi dibatalkan. Untuk menarik versi Drive, gunakan "Titik Pulih Google Drive" di bawah.');
          }
       } else if (err instanceof Error && err.message === 'TOKEN_EXPIRED') {
-         alert('Sesi Google Anda telah berakhir. Harap login ulang untuk melanjutkan sinkronisasi.');
+         toast.error('Sesi Google Anda telah berakhir. Harap login ulang untuk melanjutkan sinkronisasi.');
          setNeedsAuth(true);
          setUser(null);
       } else {
-         alert('Gagal menyinkronkan ke Google Drive.');
+         toast.error('Gagal menyinkronkan ke Google Drive.');
       }
     } finally {
       setIsSyncing(false);
