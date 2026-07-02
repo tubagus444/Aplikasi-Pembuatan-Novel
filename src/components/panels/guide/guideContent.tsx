@@ -16,7 +16,7 @@ import {
   Book, FileText, Database, LayoutList, Share2, Zap, Cpu, Target, Key,
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
-  BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library,
+  BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -350,6 +350,22 @@ export const FEATURES: Feature[] = [
       'Hasil analisis disimpan lokal (localStorage) sehingga tak dihitung ulang tiap buka panel.',
       'Ada juga panel Prose Insights ringkas di sisi kanan editor untuk menyorot masalah gaya bab yang sedang dikerjakan.',
     ],
+  },
+  {
+    id: 'promises', group: 'analysis', Icon: Crosshair, color: 'rose', view: 'promises',
+    title: 'Janji Plot (Chekhov’s Gun)',
+    where: 'Menu: Janji Plot',
+    what: 'Ledger elemen yang HARUS terbayar (senjata, ramalan, misteri). Anda catat, aplikasi melacak — nol token.',
+    steps: [
+      'Catat sebuah janji: dari editor (blok teks → "Catat Janji" di menu melayang), dari detail Codex (ikon crosshair), atau langsung di panel.',
+      'Aplikasi melacak kemunculannya per bab (via nama/alias Codex atau kata kunci) dan menandai bila "Tertidur" terlalu lama.',
+      'Tandai "Terbayar" saat janji ditepati, atau "Ditinggalkan" bila sengaja dibuang.',
+    ],
+    detail: [
+      'Akurat karena tidak menebak: yang dilacak hanya hal yang Anda deklarasikan. Status "Tertidur N bab" adalah pengingat, bukan kesalahan.',
+      'Janji dalam prosa (bukan entitas) dilacak lewat kata kunci; janji yang berupa entitas dilacak dengan menautkannya ke entri Codex.',
+    ],
+    tip: 'Sepenuhnya lokal & gratis token. Pakai filter "Perlu perhatian" untuk fokus ke janji tertidur/tak ditemukan.',
   },
 
   // ── AI & ASISTEN ───────────────────────────────────────────────────────────
