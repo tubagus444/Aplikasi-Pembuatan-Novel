@@ -168,18 +168,18 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
   const progressPercent = Math.min(100, Math.round((totalWords / wordGoal) * 100));
 
   return (
-    <div className="max-w-5xl mx-auto pb-24 mt-6">
-      <header className="mb-10 px-2 lg:px-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl shrink-0">
-            <BarChart2 className="text-indigo-600 dark:text-indigo-400" size={32} />
+    <div className="max-w-[1600px] mx-auto pb-8 mt-2">
+      <header className="mb-4 px-2 lg:px-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl shrink-0">
+            <BarChart2 className="text-indigo-600 dark:text-indigo-400" size={22} />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-0.5">Dashboard Proyek</p>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white truncate">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-0.5">Dashboard Proyek</p>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
               {project?.name || 'Proyek'}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">Ringkasan statistik, progres naskah, dan telemetri sistem.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Ringkasan statistik, progres naskah, dan telemetri sistem.</p>
           </div>
         </div>
 
@@ -187,10 +187,10 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
         {lastChapter && (
           <button
             onClick={continueWriting}
-            className="flex items-center gap-2.5 px-5 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-95 shrink-0 self-start sm:self-auto"
+            className="flex items-center gap-2.5 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-sm hover:shadow active:scale-95 shrink-0 self-start sm:self-auto"
             title={`Buka editor pada "${lastChapter.title}"`}
           >
-            <PenLine size={18} className="shrink-0" />
+            <PenLine size={16} className="shrink-0" />
             <span className="flex flex-col items-start leading-tight text-left">
               <span>Lanjutkan menulis</span>
               <span className="text-[11px] font-normal text-indigo-200 max-w-[170px] truncate">{lastChapter.title}</span>
@@ -199,27 +199,29 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
         )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 px-2 lg:px-0">
-        {/* Progress Card - Full Width */}
-        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm flex flex-col justify-center overflow-hidden relative col-span-1 md:col-span-12 group">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-2 lg:px-0 items-stretch">
+        {/* Kolom kiri: Progres + Data Lore ditumpuk vertikal */}
+        <div className="col-span-1 md:col-span-4 flex flex-col gap-3">
+        {/* Progress Card */}
+        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-4 shadow-sm flex flex-col justify-center overflow-hidden relative group">
           <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl transition-all duration-700 group-hover:scale-110 pointer-events-none" />
           <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl transition-all duration-700 group-hover:scale-110 pointer-events-none" />
           
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-stretch justify-between gap-6">
+          <div className="relative z-10 flex flex-col gap-3">
             <div className="flex-1 w-full shrink-0">
-              <div className="flex items-center gap-3 mb-4">
-                <Target size={20} className="text-indigo-500" />
-                <h3 className="text-base font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">
+              <div className="flex items-center gap-2.5 mb-2">
+                <Target size={15} className="text-indigo-500" />
+                <h3 className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                   Target Progres Naskah
                 </h3>
               </div>
-              
-              <div className="flex items-baseline gap-2 mb-3">
-                <span className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">{progressPercent}%</span>
-                <span className="text-slate-500 dark:text-slate-400 font-medium ml-2">{totalWords.toLocaleString()} / {wordGoal.toLocaleString()} kata</span>
+
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{progressPercent}%</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400 font-medium ml-1">{totalWords.toLocaleString()} / {wordGoal.toLocaleString()} kata</span>
               </div>
-              
-              <div className="h-4 bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden w-full shadow-inner ring-1 ring-black/5 dark:ring-white/5">
+
+              <div className="h-2 bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden w-full shadow-inner ring-1 ring-black/5 dark:ring-white/5">
                 <div 
                   className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-1000 ease-out relative"
                   style={{ width: `${progressPercent}%` }}
@@ -229,27 +231,27 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
               </div>
 
               {/* #1 Progres harian + streak */}
-              <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="flex items-center justify-between mb-2">
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <TrendingUp size={16} className="text-indigo-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Hari Ini</span>
+                    <TrendingUp size={14} className="text-indigo-500" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Hari Ini</span>
                   </div>
                   {streak > 0 && (
                     <span
-                      className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-0.5 rounded-full border border-amber-100 dark:border-amber-900/30"
+                      className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-0.5 rounded-full border border-amber-100 dark:border-amber-900/30"
                       title={`${streak} hari berturut-turut memenuhi target harian`}
                     >
-                      <Flame size={13} /> {streak} hari beruntun
+                      <Flame size={12} /> {streak} hari beruntun
                     </span>
                   )}
                 </div>
                 <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-2xl font-black text-slate-800 dark:text-slate-100 tabular-nums">{wordsToday.toLocaleString()}</span>
+                  <span className="text-lg font-bold text-slate-800 dark:text-slate-100 tabular-nums">{wordsToday.toLocaleString()}</span>
                   <span className="text-sm font-medium text-slate-500 dark:text-slate-400">/ {dailyGoal.toLocaleString()} kata target harian</span>
                   <span className={`ml-auto text-sm font-bold ${dailyPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{dailyPercent}%</span>
                 </div>
-                <div className="h-2.5 bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden w-full shadow-inner">
+                <div className="h-2 bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden w-full shadow-inner">
                   <div
                     className={`h-full rounded-full transition-all duration-700 ease-out ${dailyPercent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
                     style={{ width: `${dailyPercent}%` }}
@@ -258,116 +260,118 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
               </div>
             </div>
 
-            <div className="flex flex-row lg:flex-col gap-4 shrink-0 lg:ml-auto w-full lg:w-52">
-               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800/80 flex-1 flex flex-col justify-center min-w-[140px]">
-                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-2">
-                   <Clock size={16} />
-                   <p className="text-xs font-bold uppercase tracking-wider">Est. Baca</p>
+            <div className="flex flex-row gap-3 w-full">
+               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 flex-1 flex flex-col justify-center">
+                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+                   <Clock size={14} />
+                   <p className="text-[11px] font-bold uppercase tracking-wider">Est. Baca</p>
                  </div>
-                 <p className="text-3xl font-black text-slate-800 dark:text-slate-100">{readTimeMin} <span className="text-lg font-medium text-slate-500">mnt</span></p>
+                 <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{readTimeMin} <span className="text-sm font-medium text-slate-500">mnt</span></p>
                </div>
-               
-               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800/80 flex-1 flex flex-col justify-center min-w-[140px]">
-                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-2">
-                   <FileText size={16} />
-                   <p className="text-xs font-bold uppercase tracking-wider">Bab Aktif</p>
+
+               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80 flex-1 flex flex-col justify-center">
+                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+                   <FileText size={14} />
+                   <p className="text-[11px] font-bold uppercase tracking-wider">Bab Aktif</p>
                  </div>
-                 <p className="text-3xl font-black text-slate-800 dark:text-slate-100">{chapters?.length || 0}</p>
+                 <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{chapters?.length || 0}</p>
                </div>
             </div>
           </div>
         </motion.div>
 
         {/* Content Metrics */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-12 flex flex-col">
-           <div className="flex items-center gap-4 mb-6">
-             <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl shadow-inner border border-amber-200/50 dark:border-amber-700/30">
-               <Book size={24} />
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-4 shadow-sm flex flex-col flex-1">
+           <div className="flex items-center gap-2.5 mb-2.5">
+             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg shadow-inner border border-amber-200/50 dark:border-amber-700/30">
+               <Book size={16} />
              </div>
              <div>
-               <h3 className="font-bold text-lg tracking-tight text-slate-900 dark:text-slate-100">Data Lore & Dunia</h3>
+               <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100">Data Lore & Dunia</h3>
                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Informasi ensiklopedia</p>
              </div>
            </div>
-           
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-fr">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
-                <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{codexEntries.length}</div>
+
+           <div className="grid grid-cols-2 gap-3 auto-rows-fr flex-1">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
+                <div className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">{codexEntries.length}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Entri Codex</div>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
-                <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{bibleRules.length}</div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
+                <div className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">{bibleRules.length}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Aturan Dasar</div>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
-                <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{relationships.length}</div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
+                <div className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">{relationships.length}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Relasi</div>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
-                <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{timelineCount ?? 0}</div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-center">
+                <div className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">{timelineCount ?? 0}</div>
                 <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Event Timeline</div>
               </div>
            </div>
         </motion.div>
+        </div>
+        {/* Akhir kolom kiri */}
 
-        {/* AI Metrics */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-7 shadow-sm col-span-1 md:col-span-12 flex flex-col">
-           <div className="flex items-center justify-between mb-6">
-             <div className="flex items-center gap-4">
-               <div className="p-3 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 rounded-xl shadow-inner border border-fuchsia-200/50 dark:border-fuchsia-700/30">
-                 <Sparkles size={24} />
+        {/* AI Metrics — kolom kanan, setinggi kolom kiri */}
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-4 shadow-sm col-span-1 md:col-span-8 flex flex-col">
+           <div className="flex items-center justify-between mb-2.5">
+             <div className="flex items-center gap-2.5">
+               <div className="p-2 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400 rounded-lg shadow-inner border border-fuchsia-200/50 dark:border-fuchsia-700/30">
+                 <Sparkles size={16} />
                </div>
                <div>
-                 <h3 className="font-bold text-lg tracking-tight text-slate-900 dark:text-slate-100">Aktivitas AI</h3>
+                 <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100">Aktivitas AI</h3>
                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Penggunaan model & sesi</p>
                </div>
              </div>
            </div>
-           
-           <div className="flex flex-col gap-4 flex-1">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="bg-fuchsia-50/50 dark:bg-fuchsia-900/10 rounded-2xl p-4 flex justify-between items-center border border-fuchsia-100 dark:border-fuchsia-900/20">
+
+           <div className="flex flex-col gap-2.5 flex-1">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+               <div className="bg-fuchsia-50/50 dark:bg-fuchsia-900/10 rounded-xl p-3 flex justify-between items-center border border-fuchsia-100 dark:border-fuchsia-900/20">
                  <div>
-                   <div className="text-2xl font-black text-fuchsia-700 dark:text-fuchsia-300">{(aiStats?.totalTokensThisWeek || 0).toLocaleString()}</div>
+                   <div className="text-lg font-bold text-fuchsia-700 dark:text-fuchsia-300">{(aiStats?.totalTokensThisWeek || 0).toLocaleString()}</div>
                    <div className="text-xs font-semibold text-fuchsia-600/70 dark:text-fuchsia-400/70">Total Token (7 Hari Terakhir)</div>
                  </div>
-                 <Network size={32} className="text-fuchsia-300/50 dark:text-fuchsia-700/50 stroke-1" />
+                 <Network size={26} className="text-fuchsia-300/50 dark:text-fuchsia-700/50 stroke-1" />
                </div>
 
-               <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-4 flex justify-between items-center border border-emerald-100 dark:border-emerald-900/20">
+               <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl p-3 flex justify-between items-center border border-emerald-100 dark:border-emerald-900/20">
                  <div>
                    <div className="flex items-baseline gap-2">
-                     <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{(aiStats?.cachedTokensThisWeek || 0).toLocaleString()}</span>
+                     <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{(aiStats?.cachedTokensThisWeek || 0).toLocaleString()}</span>
                      <span className="text-sm font-bold text-emerald-600/80 dark:text-emerald-400/80">({aiStats?.cacheHitRate ?? 0}%)</span>
                    </div>
                    <div className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70">Token dari Cache (Hemat Biaya Input)</div>
                  </div>
-                 <Database size={32} className="text-emerald-300/50 dark:text-emerald-700/50 stroke-1" />
+                 <Database size={26} className="text-emerald-300/50 dark:text-emerald-700/50 stroke-1" />
                </div>
              </div>
 
              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Sesi Chat</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">{aiStats?.activeSessions ?? 0}</span>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Pesan</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">{(aiStats?.totalMessages ?? 0).toLocaleString()}</span>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Snippets</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0">{aiActions.length}</span>
                 </div>
              </div>
 
              {/* Dua panel rincian bersebelahan di layar lebar (kartu kini full-width). */}
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
              {/* #2 Model teratas (datanya sudah dihitung; sebelumnya tak ditampilkan) */}
              {aiStats?.topModels && aiStats.topModels.length > 0 && (
-               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/80">
-                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Model Teratas (7 Hari)</p>
-                 <div className="space-y-2.5">
+               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80">
+                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Model Teratas (7 Hari)</p>
+                 <div className="space-y-2">
                    {aiStats.topModels.map(([label, tokens]) => {
                      const max = aiStats.topModels[0][1] || 1;
                      const pct = Math.max(5, Math.round((tokens / max) * 100));
@@ -390,9 +394,9 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
              {/* Rincian token per fitur (actionType). Datanya sudah dicatat per-aksi di
                  aiUsageLogs — di sini dikelompokkan agar tiap fitur AI terlihat porsinya. */}
              {aiStats?.actionBreakdown && aiStats.actionBreakdown.length > 0 && (
-               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/80">
-                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Token per Fitur (7 Hari)</p>
-                 <div className="space-y-3">
+               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80">
+                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Token per Fitur (7 Hari)</p>
+                 <div className="space-y-2">
                    {aiStats.actionBreakdown.map(([type, agg]) => {
                      const max = aiStats.actionBreakdown[0][1].total || 1;
                      const pct = Math.max(5, Math.round((agg.total / max) * 100));
@@ -422,8 +426,8 @@ export function DashboardPanel({ projectId }: DashboardPanelProps) {
 
         {/* System Details — di-de-emphasize jadi strip ringkas full-width (#4).
             Catatan: backups/snapshots/errors di-count seluruh DB (bukan per-proyek). */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }} className="col-span-1 md:col-span-12 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/60 px-5 py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }} className="col-span-1 md:col-span-12 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/60 px-4 py-3">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6">
             <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 shrink-0">
               <Server size={15} />
               <span className="text-[11px] font-bold uppercase tracking-widest">Telemetri Sistem</span>
