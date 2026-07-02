@@ -13,7 +13,8 @@ import {
   Pin,
   PinOff,
   StickyNote,
-  ShieldCheck
+  ShieldCheck,
+  Crosshair
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -36,6 +37,8 @@ interface SelectionFloatingMenuProps {
   onCheckConsistency?: () => void;
   /** true selagi cek konsistensi berjalan (untuk spinner pada tombol). */
   isCheckingConsistency?: boolean;
+  /** Catat teks terpilih sebagai Janji Plot (Chekhov's Gun) — tanpa pindah panel. */
+  onNotePromise?: (text: string) => void;
 }
 
 export function SelectionFloatingMenu({
@@ -49,7 +52,8 @@ export function SelectionFloatingMenu({
   onDiscardRewrite,
   onAddComment,
   onCheckConsistency,
-  isCheckingConsistency = false
+  isCheckingConsistency = false,
+  onNotePromise
 }: SelectionFloatingMenuProps) {
   const [show, setShow] = useState(false);
   const [selectedText, setSelectedText] = useState('');
@@ -423,6 +427,20 @@ export function SelectionFloatingMenu({
                   >
                     <StickyNote size={13} />
                     Catatan
+                  </button>
+                )}
+
+                {/* Catat teks terpilih sebagai Janji Plot (nol token, tanpa pindah panel) */}
+                {onNotePromise && (
+                  <button
+                    type="button"
+                    onClick={() => onNotePromise(selectedText)}
+                    aria-label="Catat sebagai Janji Plot"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 font-semibold text-xs rounded-full transition-all shrink-0 text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100/70 dark:bg-rose-500/10 dark:hover:bg-rose-500/20"
+                    title="Catat bagian ini sebagai Janji Plot (Chekhov's Gun) untuk dilacak"
+                  >
+                    <Crosshair size={13} />
+                    Catat Janji
                   </button>
                 )}
 

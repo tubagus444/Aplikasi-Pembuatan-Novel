@@ -17,6 +17,7 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useEditorPanel } from '@/src/contexts/EditorPanelContext';
 import { EditorContent } from '@tiptap/react';
 import { SelectionFloatingMenu } from '@/src/features/editor/components/SelectionFloatingMenu';
+import { QuickPromiseModal, QuickPromiseSeed } from '@/src/features/consistency/components/QuickPromiseModal';
 import { EditorPanelProvider } from '@/src/contexts/EditorPanelContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { useToast } from '@/src/hooks/useToast';
@@ -77,6 +78,7 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
   const { setActivePanel } = useEditorPanel();
   const { toast } = useToast();
   const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
+  const [promiseSeed, setPromiseSeed] = useState<QuickPromiseSeed | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,6 +166,25 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
     setFocusCommentId(commentId);
     setActivePanel('comments');
   }, [editor, setActivePanel]);
+
+  // Catat teks terpilih sebagai Janji Plot — janji dalam prosa umumnya bukan
+  // entitas Codex, jadi default-nya dilacak via kata kunci. Seleksi pendek → jadi
+  // judul + kata kunci; seleksi panjang → jadi deskripsi, judul dipangkas.
+  const handleNotePromise = useCallback((text: string) => {
+    const clean = (text || '').trim().replace(/\s+/g, ' ');
+    if (!clean) {
+      toast.info('Pilih dulu bagian teks yang ingin dicatat sebagai janji.');
+      return;
+    }
+    const short = clean.length <= 40 && clean.split(' ').length <= 5;
+    setPromiseSeed({
+      projectId,
+      title: short ? clean : clean.slice(0, 50).trim() + '…',
+      description: short ? undefined : clean,
+      keywords: short ? [clean] : undefined,
+      plantedChapterId: chapterId,
+    });
+  }, [projectId, chapterId, toast]);
 
   // Cek konsistensi AI manual pada paragraf terpilih (on-demand, hemat token).
   const handleCheckConsistency = useCallback(async () => {
@@ -298,7 +319,12 @@ function NovelEditorInner({ chapterId, projectId }: NovelEditorProps) {
             onAddComment={handleAddComment}
             onCheckConsistency={handleCheckConsistency}
             isCheckingConsistency={aiInlineChecking}
+            onNotePromise={handleNotePromise}
           />
+        )}
+
+        {promiseSeed && (
+          <QuickPromiseModal seed={promiseSeed} onClose={() => setPromiseSeed(null)} />
         )}
         
         <AnimatePresence>

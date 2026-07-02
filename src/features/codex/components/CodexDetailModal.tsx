@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2, FlaskConical } from 'lucide-react';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair } from 'lucide-react';
 import { CodexEntry, Relationship } from '@/src/types';
 import { useNavigation } from '@/src/contexts/NavigationContext';
+import { QuickPromiseModal } from '@/src/features/consistency/components/QuickPromiseModal';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
@@ -43,6 +44,7 @@ export function CodexDetailModal({
   const { openWorkshop } = useNavigation();
   const [bondType, setBondType] = useState('Friend');
   const [bondTarget, setBondTarget] = useState<number | ''>('');
+  const [showPromise, setShowPromise] = useState(false);
 
   const handleAddBond = () => {
     if (!bondTarget) return;
@@ -85,6 +87,13 @@ export function CodexDetailModal({
           </div>
           
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPromise(true)}
+              className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-xl transition-all"
+              title="Tandai sebagai Janji Plot (Chekhov's Gun)"
+            >
+              <Crosshair size={20} />
+            </button>
             <button
               onClick={() => { onClose(); openWorkshop({ mode: 'edit', entryId: entry.id!, seedName: entry.name }); }}
               className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-xl transition-all"
@@ -231,6 +240,13 @@ export function CodexDetailModal({
           </div>
         </div>
       </motion.div>
+
+      {showPromise && (
+        <QuickPromiseModal
+          seed={{ projectId, title: entry.name, codexId: entry.id!, codexName: entry.name }}
+          onClose={() => setShowPromise(false)}
+        />
+      )}
     </div>
   );
 }
