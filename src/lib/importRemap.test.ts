@@ -61,6 +61,9 @@ function sampleData(): ProjectBackupData {
       { id: 15, projectId: 9, title: 'Belati', codexId: 20, plantedChapterId: 10, payoffCodexId: 21, status: 'open', createdAt: 1, updatedAt: 1 },
       { id: 16, projectId: 9, title: 'Ramalan', keywords: ['ramalan'], codexId: 999, plantedChapterId: 888, payoffCodexId: 999, status: 'open', createdAt: 1, updatedAt: 1 },
     ],
+    glossary: [
+      { id: 17, projectId: 9, term: 'liga', variants: ['leage'], createdAt: 1, updatedAt: 1 },
+    ],
   };
 }
 
@@ -78,7 +81,7 @@ describe('remapProjectDependents', () => {
 
   it('selalu melepas id lama (Dexie yang menetapkan id baru)', () => {
     const r = remapProjectDependents(sampleData(), maps);
-    const all = [...r.bible, ...r.aiActions, ...r.codexCategories, ...r.snapshots, ...r.timeline, ...r.relationships, ...r.chatSessions, ...r.plotPromises];
+    const all = [...r.bible, ...r.aiActions, ...r.codexCategories, ...r.snapshots, ...r.timeline, ...r.relationships, ...r.chatSessions, ...r.plotPromises, ...r.glossary];
     for (const row of all) expect('id' in row).toBe(false);
   });
 
@@ -94,6 +97,15 @@ describe('remapProjectDependents', () => {
     expect(r.plotPromises[1].plantedChapterId).toBeUndefined();
     expect(r.plotPromises[1].payoffCodexId).toBeUndefined();
     expect(r.plotPromises[1].keywords).toEqual(['ramalan']);
+  });
+
+  it('remap glossary: hanya set projectId (tanpa FK lain), id dilepas', () => {
+    const r = remapProjectDependents(sampleData(), maps);
+    expect(r.glossary).toHaveLength(1);
+    expect(r.glossary[0].projectId).toBe(5);
+    expect(r.glossary[0].term).toBe('liga');
+    expect(r.glossary[0].variants).toEqual(['leage']);
+    expect('id' in r.glossary[0]).toBe(false);
   });
 
   it('dedup bible by key & codexCategories by slug', () => {

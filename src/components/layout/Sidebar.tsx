@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity, Gauge, Telescope, Crosshair, ChevronDown } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity, Gauge, Telescope, Crosshair, BookMarked, ChevronDown } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -30,6 +30,7 @@ const NAV_GROUPS: NavGroupDef[] = [
     defaultOpen: false,
     items: [
       { mode: 'codex', icon: <Database size={14} />, label: 'Kamus Data' },
+      { mode: 'glossary', icon: <BookMarked size={14} />, label: 'Glosarium' },
       { mode: 'bible', icon: <Book size={14} />, label: 'Buku Cerita' },
       { mode: 'relationships', icon: <Share2 size={14} />, label: 'Relasi Karakter' },
       { mode: 'timeline', icon: <CalendarClock size={14} />, label: 'Timeline Cerita' },

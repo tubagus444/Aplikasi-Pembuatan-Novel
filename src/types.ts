@@ -64,7 +64,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -338,6 +338,29 @@ export interface PlotPromise {
   importance?: PlotPromiseImportance;
   /** Niat penulis (BUKAN turunan): open = masih ditunggu, paid = terbayar, abandoned = sengaja dibuang. */
   status: PlotPromiseStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Glosarium istilah in-world (#8) — istilah NON-nama yang wajib konsisten ejaannya
+ * (satuan, kalender, pangkat, lingua-franca, idiom). Generalisasi Buku Gaya: alih-alih
+ * hanya nama Codex, glosarium menjaga istilah apa pun. Deterministik & nol token.
+ *
+ * FK (untuk importRemap & deleteProject): `projectId` saja (tak menautkan tabel lain).
+ * Pencocokan di `src/lib/glossary.ts` (variant = ejaan salah yang dideklarasikan →
+ * dibendera; typo = kandidat salah-eja mirip `term`).
+ */
+export interface GlossaryEntry {
+  id?: number;
+  projectId: number;
+  /** Ejaan baku/disukai istilah. */
+  term: string;
+  definition?: string;
+  /** Ejaan salah/varian yang dideklarasikan penulis → ditandai bila muncul. */
+  variants?: string[];
+  /** Kategori bebas (mis. "satuan", "pangkat", "kalender") — untuk pengelompokan UI. */
+  category?: string;
   createdAt: number;
   updatedAt: number;
 }

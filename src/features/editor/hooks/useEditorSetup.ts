@@ -14,7 +14,7 @@ import { CustomAIKeymap } from '@/src/features/editor/hooks/useEditorAI';
 import tippy from 'tippy.js';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry } from '@/src/types';
-import { InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding } from '@/src/lib/inlineConsistency';
+import { InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding, InlineGlossaryFinding } from '@/src/lib/inlineConsistency';
 import { useRef, useEffect } from 'react';
 
 interface UseEditorSetupProps {
@@ -29,6 +29,8 @@ interface UseEditorSetupProps {
   getConsistencyQuotes?: () => InlineQuoteFinding[];
   /** Akses temuan salah-eja nama (Buku Gaya), stabil identitasnya. */
   getConsistencySpelling?: () => InlineSpellingFinding[];
+  /** Akses temuan glosarium istilah in-world (#8), stabil identitasnya. */
+  getConsistencyGlossary?: () => InlineGlossaryFinding[];
 }
 
 const CustomMention = Mention.extend({
@@ -44,7 +46,7 @@ const CustomMention = Mention.extend({
   },
 });
 
-export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags, getConsistencyQuotes, getConsistencySpelling }: UseEditorSetupProps) {
+export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags, getConsistencyQuotes, getConsistencySpelling, getConsistencyGlossary }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
   // Lapis "Kebenaran Tersembunyi": entri `hidden` disaring dari permukaan pembaca
   // (highlight & saran mention). Konsistensi (ConsistencyUnderline) tetap pakai daftar
@@ -55,6 +57,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
   const getFlagsRef = useRef(getConsistencyFlags);
   const getQuotesRef = useRef(getConsistencyQuotes);
   const getSpellingRef = useRef(getConsistencySpelling);
+  const getGlossaryRef = useRef(getConsistencyGlossary);
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;
@@ -72,6 +75,10 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
   useEffect(() => {
     getSpellingRef.current = getConsistencySpelling;
   }, [getConsistencySpelling]);
+
+  useEffect(() => {
+    getGlossaryRef.current = getConsistencyGlossary;
+  }, [getConsistencyGlossary]);
 
   useEffect(() => {
     onUpdateRef.current = onUpdate;
@@ -94,6 +101,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
         getFlags: () => getFlagsRef.current?.() ?? new Map(),
         getQuoteFindings: () => getQuotesRef.current?.() ?? [],
         getSpellingFindings: () => getSpellingRef.current?.() ?? [],
+        getGlossaryFindings: () => getGlossaryRef.current?.() ?? [],
         onOpenCodex: (entryId, event) => onCodexClick(entryId, event),
       }),
       RevisionComment,

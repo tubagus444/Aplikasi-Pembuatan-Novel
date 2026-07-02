@@ -5,7 +5,7 @@
 
 import type {
   Project, Chapter, CodexEntry, StoryBibleRule, AIAction,
-  Snapshot, TimelineEvent, Relationship, ChatSession, CustomCategory, PlotPromise,
+  Snapshot, TimelineEvent, Relationship, ChatSession, CustomCategory, PlotPromise, GlossaryEntry,
 } from '@/src/types';
 
 /**
@@ -20,6 +20,7 @@ import type {
  *    activeChapterId? → chapterIdMap
  *  - relationships.sourceId/targetId, timeline.characterIds[] → codexIdMap
  *  - plotPromises.codexId? & payoffCodexId? → codexIdMap, plotPromises.plantedChapterId? → chapterIdMap
+ *  - glossary: hanya projectId (tak menautkan tabel lain)
  *  - TIDAK di-remap: Chapter.pov (nama), CodexEntry.category & key/slug (string).
  */
 
@@ -36,6 +37,7 @@ export interface ProjectBackupData {
   chatSessions: ChatSession[];
   codexCategories?: CustomCategory[];
   plotPromises?: PlotPromise[];
+  glossary?: GlossaryEntry[];
 }
 
 export interface RemapMaps {
@@ -57,6 +59,7 @@ export interface RemappedDependents {
   relationships: Relationship[];
   chatSessions: ChatSession[];
   plotPromises: PlotPromise[];
+  glossary: GlossaryEntry[];
 }
 
 /** Salin baris tanpa `id` (agar Dexie menetapkan id baru). */
@@ -180,7 +183,10 @@ export function remapProjectDependents(
     return remapped as PlotPromise;
   });
 
-  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions, plotPromises };
+  // glossary: hanya set projectId (tak ada FK ke tabel lain).
+  const glossary = (data.glossary ?? []).map((g) => ({ ...stripId(g), projectId }));
+
+  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions, plotPromises, glossary };
 }
 
 /**

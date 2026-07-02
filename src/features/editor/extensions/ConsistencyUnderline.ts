@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import { Node as PMNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { getCodexMatches } from '@/src/services/contextEngine';
-import { InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding } from '@/src/lib/inlineConsistency';
+import { InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding, InlineGlossaryFinding } from '@/src/lib/inlineConsistency';
 
 /**
  * Konsistensi inline — plumbing garis bawah di editor.
@@ -26,6 +26,7 @@ interface ConsistencyUnderlineOptions {
   getFlags: () => Map<number, InlineConsistencyFlag>;
   getQuoteFindings?: () => InlineQuoteFinding[];
   getSpellingFindings?: () => InlineSpellingFinding[];
+  getGlossaryFindings?: () => InlineGlossaryFinding[];
   onOpenCodex?: (entryId: number, event: MouseEvent) => void;
 }
 
@@ -57,6 +58,18 @@ function spellingStyle(): string {
     'text-decoration: underline',
     'text-decoration-style: dashed',
     'text-decoration-color: #ef4444',
+    'text-decoration-skip-ink: none',
+    'text-underline-offset: 3px',
+    'cursor: help',
+  ].join('; ');
+}
+
+/** Gaya garis bawah untuk temuan Glosarium (teal, PUTUS-PUTUS → beda dari nama). */
+function glossaryStyle(): string {
+  return [
+    'text-decoration: underline',
+    'text-decoration-style: dashed',
+    'text-decoration-color: #14b8a6',
     'text-decoration-skip-ink: none',
     'text-underline-offset: 3px',
     'cursor: help',
@@ -95,6 +108,48 @@ function buildSpellingDecorations(doc: PMNode, findings: InlineSpellingFinding[]
               class: 'consistency-underline consistency-spelling',
               style: spellingStyle(),
               title: `Kemungkinan salah eja — maksudmu "${f.suggestion}"?`,
+            })
+          );
+          occurrences++;
+        }
+        if (m.index === regex.lastIndex) regex.lastIndex++;
+      }
+    });
+  }
+  return decorations;
+}
+
+/** Dekorasi temuan Glosarium — pencarian kata/frasa utuh (case-insensitive). */
+function buildGlossaryDecorations(doc: PMNode, findings: InlineGlossaryFinding[]): Decoration[] {
+  const decorations: Decoration[] = [];
+  for (const f of findings) {
+    const word = (f.word || '').trim();
+    if (word.length < 2) continue;
+    let regex: RegExp;
+    try {
+      // Case-insensitive: ejaan tak baku bisa muncul dalam berbagai kapitalisasi.
+      regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
+    } catch {
+      continue;
+    }
+    const title = f.kind === 'variant'
+      ? `Istilah tak baku — gunakan "${f.suggestion}"`
+      : `Kemungkinan salah eja istilah — maksudmu "${f.suggestion}"?`;
+    let occurrences = 0;
+    doc.descendants((node, pos) => {
+      if (!node.isText || !node.text || occurrences >= 20) return;
+      let m: RegExpExecArray | null;
+      regex.lastIndex = 0;
+      while ((m = regex.exec(node.text)) !== null && occurrences < 20) {
+        const start = pos + m.index;
+        const end = start + m[0].length;
+        if (start < doc.content.size && end <= doc.content.size) {
+          decorations.push(
+            Decoration.inline(start, end, {
+              nodeName: 'span',
+              class: 'consistency-underline consistency-glossary',
+              style: glossaryStyle(),
+              title,
             })
           );
           occurrences++;
@@ -153,6 +208,7 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
       getFlags: () => new Map(),
       getQuoteFindings: () => [],
       getSpellingFindings: () => [],
+      getGlossaryFindings: () => [],
       onOpenCodex: undefined,
     };
   },
@@ -216,17 +272,19 @@ export const ConsistencyUnderline = Extension.create<ConsistencyUnderlineOptions
                 const flags = options.getFlags();
                 const quoteFindings = options.getQuoteFindings?.() ?? [];
                 const spellingFindings = options.getSpellingFindings?.() ?? [];
+                const glossaryFindings = options.getGlossaryFindings?.() ?? [];
                 const entries = options.getEntries();
                 const flagged = entries.filter(e => e.id != null && flags.has(e.id!));
 
-                // Dekorasi kutipan AI + ejaan (sinkron) dihitung di akhir terhadap doc terkini.
+                // Dekorasi kutipan AI + ejaan + glosarium (sinkron) dihitung di akhir terhadap doc terkini.
                 const dispatchAll = (nameDecos: Decoration[]) => {
                   if (view.isDestroyed || myGeneration !== runGeneration) return;
                   const quoteDecos = buildQuoteDecorations(view.state.doc, quoteFindings);
                   const spellingDecos = buildSpellingDecorations(view.state.doc, spellingFindings);
+                  const glossaryDecos = buildGlossaryDecorations(view.state.doc, glossaryFindings);
                   view.dispatch(view.state.tr.setMeta(
                     'updateConsistencyDecos',
-                    DecorationSet.create(view.state.doc, [...nameDecos, ...quoteDecos, ...spellingDecos])
+                    DecorationSet.create(view.state.doc, [...nameDecos, ...quoteDecos, ...spellingDecos, ...glossaryDecos])
                   ));
                 };
 

@@ -272,6 +272,22 @@ export const FEATURES: Feature[] = [
     tip: 'Gratis token. Pakai leksikon morfem untuk toponimi transparan (mis. batu+laut → "Kelmar") lalu "Urai" untuk mengecek makna nama lama.',
   },
   {
+    id: 'glossary', group: 'world', Icon: Library, color: 'teal', view: 'glossary', openLabel: 'Buka Glosarium',
+    title: 'Glosarium istilah in-world',
+    where: 'Menu: Glosarium (grup Dunia & Lore)',
+    what: 'Jaga konsistensi ejaan istilah NON-nama (satuan, kalender, pangkat, idiom) — generalisasi "Buku Gaya" di luar nama Codex. Deterministik & nol token.',
+    steps: [
+      'Tambahkan istilah baku (mis. "liga", "Bulan Sabit") beserta definisi & kategori opsional.',
+      'Isi "Varian ejaan salah" (mis. "leage, liege") — ejaan keliru yang ingin Anda tangkap.',
+      'Di editor, istilah tak baku digarisbawahi teal putus-putus dengan saran ejaan baku (arahkan mouse).',
+    ],
+    detail: [
+      'Dua jenis temuan: varian yang Anda deklarasikan (presisi mutlak) + kandidat salah-eja mirip istilah baku (dibatasi ke kata berkapital agar tak salah-tanda).',
+      'Underline teal berbeda dari merah "Periksa Ejaan Nama" (yang khusus nama Codex). Toggle terpisah "Periksa Glosarium" di menu Tampilan.',
+    ],
+    tip: 'Sepenuhnya lokal & gratis token. Untuk istilah huruf-kecil (satuan/pangkat), andalkan daftar "Varian" karena deteksi mirip hanya untuk kata berkapital.',
+  },
+  {
     id: 'workshop', group: 'world', Icon: Hammer, color: 'purple', view: 'codex', openLabel: 'Buka Kamus Data',
     title: 'Lokakarya Codex (buat/edit via diskusi AI)',
     where: 'Tombol "Lokakarya" (header Codex) / "Diskusikan" (detail entri)',

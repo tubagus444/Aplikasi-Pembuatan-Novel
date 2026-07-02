@@ -10,11 +10,12 @@ import { useEditorCodexSync } from '@/src/features/editor/hooks/useEditorCodex';
 import { useEditorConsistency } from '@/src/features/editor/hooks/useEditorConsistency';
 import { useEditorAIConsistency } from '@/src/features/editor/hooks/useEditorAIConsistency';
 import { useEditorSpelling } from '@/src/features/editor/hooks/useEditorSpelling';
+import { useEditorGlossary } from '@/src/features/editor/hooks/useEditorGlossary';
 import { useTypewriterMode } from '@/src/features/editor/hooks/useTypewriterMode';
 import { useEditorAI } from '@/src/features/editor/hooks/useEditorAI';
 import { useEditorSearch } from '@/src/features/editor/hooks/useEditorSearch';
 import { CodexEntry, TimelineEvent } from '@/src/types';
-import { InlineChapterRef, InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding } from '@/src/lib/inlineConsistency';
+import { InlineChapterRef, InlineConsistencyFlag, InlineQuoteFinding, InlineSpellingFinding, InlineGlossaryFinding } from '@/src/lib/inlineConsistency';
 
 interface UseNovelEditorProps {
   chapterId: number;
@@ -59,6 +60,9 @@ export function useNovelEditor({
   // Temuan salah-eja nama (Buku Gaya) — deterministik, nol token.
   const spellingFindingsRef = useRef<InlineSpellingFinding[]>([]);
   const getConsistencySpelling = useCallback(() => spellingFindingsRef.current, []);
+  // Temuan glosarium istilah in-world (#8) — deterministik, nol token.
+  const glossaryFindingsRef = useRef<InlineGlossaryFinding[]>([]);
+  const getConsistencyGlossary = useCallback(() => glossaryFindingsRef.current, []);
 
   const editor = useEditorSetup({
     chapterId,
@@ -69,11 +73,13 @@ export function useNovelEditor({
     getConsistencyFlags,
     getConsistencyQuotes,
     getConsistencySpelling,
+    getConsistencyGlossary,
   });
 
   useEditorCodexSync(editor, codexEntries);
   useEditorConsistency(editor, consistencyFlagsRef, chapterId, chapters, codexEntries, timeline);
   useEditorSpelling(editor, spellingFindingsRef, chapterId, codexEntries);
+  useEditorGlossary(editor, glossaryFindingsRef, chapterId, chapter?.projectId ?? 0);
   const { checking: aiInlineChecking, checkAtSelection: checkConsistencySelection } = useEditorAIConsistency(
     editor, consistencyQuotesRef, chapterId, {
       chapterTitle: chapter?.title,

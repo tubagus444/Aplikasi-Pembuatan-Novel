@@ -4,13 +4,14 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SlidersHorizontal, Zap, Type, Minus, Plus, Check, SpellCheck } from 'lucide-react';
+import { SlidersHorizontal, Zap, Type, Minus, Plus, Check, SpellCheck, BookMarked } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 const SPELLCHECK_KEY = 'spellcheck_names';
+const GLOSSARY_KEY = 'glossary_check';
 /** Default AKTIF (fitur nol-token); hanya `'false'` yang mematikan. */
-function readSpellcheck(): boolean {
-  try { return localStorage.getItem(SPELLCHECK_KEY) !== 'false'; } catch { return true; }
+function readFlag(key: string): boolean {
+  try { return localStorage.getItem(key) !== 'false'; } catch { return true; }
 }
 
 interface ViewControlsMenuProps {
@@ -36,12 +37,13 @@ export function ViewControlsMenu({
 }: ViewControlsMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [spellcheck, setSpellcheck] = useState<boolean>(readSpellcheck);
+  const [spellcheck, setSpellcheck] = useState<boolean>(() => readFlag(SPELLCHECK_KEY));
+  const [glossary, setGlossary] = useState<boolean>(() => readFlag(GLOSSARY_KEY));
 
-  const toggleSpellcheck = () => {
-    const next = !spellcheck;
-    setSpellcheck(next);
-    try { localStorage.setItem(SPELLCHECK_KEY, next ? 'true' : 'false'); } catch { /* abaikan */ }
+  const toggleFlag = (key: string, value: boolean, setter: (v: boolean) => void) => {
+    const next = !value;
+    setter(next);
+    try { localStorage.setItem(key, next ? 'true' : 'false'); } catch { /* abaikan */ }
     // Beri tahu hook editor di tab yang sama ('storage' native tak menyala untuk tab pengubah).
     window.dispatchEvent(new Event('storage'));
   };
@@ -162,7 +164,14 @@ export function ViewControlsMenu({
             label="Periksa Ejaan Nama"
             hint="Tandai salah ketik nama Codex (nol token)"
             active={spellcheck}
-            onClick={toggleSpellcheck}
+            onClick={() => toggleFlag(SPELLCHECK_KEY, spellcheck, setSpellcheck)}
+          />
+          <ToggleRow
+            icon={BookMarked}
+            label="Periksa Glosarium"
+            hint="Tandai istilah tak baku (teal, nol token)"
+            active={glossary}
+            onClick={() => toggleFlag(GLOSSARY_KEY, glossary, setGlossary)}
           />
         </div>
       )}

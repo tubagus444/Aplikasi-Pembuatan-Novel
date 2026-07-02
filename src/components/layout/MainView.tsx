@@ -28,6 +28,7 @@ const ContinuityDashboard = lazy(() => import('@/src/features/consistency/compon
 const CharacterArcPanel = lazy(() => import('@/src/features/consistency/components/CharacterArcPanel').then(m => ({ default: m.CharacterArcPanel })));
 const ProseReportPanel = lazy(() => import('@/src/features/consistency/components/ProseReportPanel').then(m => ({ default: m.ProseReportPanel })));
 const PlotPromisePanel = lazy(() => import('@/src/features/consistency/components/PlotPromisePanel').then(m => ({ default: m.PlotPromisePanel })));
+const GlossaryPanel = lazy(() => import('@/src/features/consistency/components/GlossaryPanel').then(m => ({ default: m.GlossaryPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
 const SemanticSearchPanel = lazy(() => import('@/src/features/search/components/SemanticSearchPanel').then(m => ({ default: m.SemanticSearchPanel })));
@@ -219,6 +220,14 @@ export function MainView() {
             <ViewContainer key="promises" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <PlotPromisePanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'glossary' && projectId && (
+            <ViewContainer key="glossary" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <GlossaryPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

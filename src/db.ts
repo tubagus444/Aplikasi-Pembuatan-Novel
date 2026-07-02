@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise, GlossaryEntry } from '@/src/types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -23,6 +23,7 @@ export class AetherScribeDB extends Dexie {
   codexCategories!: Table<CustomCategory>;
   sceneEmbeddings!: Table<SceneEmbedding>;
   plotPromises!: Table<PlotPromise>;
+  glossary!: Table<GlossaryEntry>;
 
   constructor() {
     super('AetherScribeDB');
@@ -314,6 +315,28 @@ export class AetherScribeDB extends Dexie {
       codexCategories: '++id, projectId, slug, &[projectId+slug]',
       sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
       plotPromises: '++id, projectId, codexId'
+    });
+
+    // v25: tabel baru `glossary` untuk Glosarium istilah in-world (#8). Project-scoped
+    // (FK projectId saja). Append-only; tak ada migrasi data.
+    this.version(25).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId',
+      glossary: '++id, projectId'
     });
   }
 }
