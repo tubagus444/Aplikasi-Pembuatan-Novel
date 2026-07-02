@@ -14,6 +14,14 @@ export interface BackupData {
   // dilewati verifikasinya (backward-compatible). Menangkap file terpotong/rusak
   // SEBELUM ditimpakan ke DB.
   checksum?: string;
+  // Lingkup ekspor (#4). 'project' = ekspor SATU novel yang mandiri (untuk arsip /
+  // memindahkan). Tak ada / 'all' = cadangan penuh semua proyek (perilaku lama,
+  // backward-compatible). PENTING: file 'project' TIDAK boleh dipulihkan lewat jalur
+  // restore-penuh (yang meng-clear semua tabel) — itu akan menghapus proyek lain;
+  // impor per-proyek (remap id) adalah jalur terpisah yang menyusul.
+  scope?: 'all' | 'project';
+  // Nama proyek sumber saat scope='project' (untuk nama file & label impor nanti).
+  projectName?: string;
   data: {
     projects: any[];
     chapters: any[];
@@ -50,6 +58,46 @@ export const backupService = {
     return {
       version: 4, // v4: checksum SHA-256 integritas (v3: codexCategories)
       timestamp: Date.now(),
+      checksum: await this.computeChecksum(JSON.stringify(data)),
+      data
+    };
+  },
+
+  /**
+   * Ekspor SATU proyek sebagai cadangan mandiri (#4). Menyaring tiap tabel ke proyek
+   * `projectId`. `snapshots` dikunci per `chapterId` (bukan `projectId`) → dikumpulkan
+   * lewat daftar id bab proyek ini. `embeddings`/`sceneEmbeddings` sengaja TIDAK ikut:
+   * di-regenerasi dari codex/naskah setelah impor (hindari embedding basi + hemat ukuran).
+   * Bentuk envelope identik dgn `collectAllData` (checksum sama) plus `scope:'project'`
+   * agar jalur restore-penuh bisa menolaknya (lihat catatan di BackupData.scope).
+   */
+  async collectProjectData(projectId: number): Promise<BackupData> {
+    const project = await db.projects.get(projectId);
+    if (!project) throw new Error('Proyek tidak ditemukan');
+
+    const chapters = await db.chapters.where('projectId').equals(projectId).toArray();
+    const chapterIds = chapters.map(c => c.id!).filter((id): id is number => id != null);
+    const snapshots = chapterIds.length
+      ? await db.snapshots.where('chapterId').anyOf(chapterIds).toArray()
+      : [];
+
+    const data = {
+      projects: [project],
+      chapters,
+      codex: await db.codex.where('projectId').equals(projectId).toArray(),
+      bible: await db.bible.where('projectId').equals(projectId).toArray(),
+      aiActions: await db.aiActions.where('projectId').equals(projectId).toArray(),
+      snapshots,
+      timeline: await db.timeline.where('projectId').equals(projectId).toArray(),
+      relationships: await db.relationships.where('projectId').equals(projectId).toArray(),
+      chatSessions: await db.chatSessions.where('projectId').equals(projectId).toArray(),
+      codexCategories: await db.codexCategories.where('projectId').equals(projectId).toArray()
+    };
+    return {
+      version: 4,
+      timestamp: Date.now(),
+      scope: 'project',
+      projectName: project.name,
       checksum: await this.computeChecksum(JSON.stringify(data)),
       data
     };
