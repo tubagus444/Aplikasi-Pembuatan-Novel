@@ -122,13 +122,18 @@ export function useCodexPanel(projectId: number) {
   const handleSaveEntry = async (data: Partial<CodexEntry>) => {
     if (!data.name) return;
     
+    // Lapis "Kebenaran Tersembunyi" (#1): flag rahasia penulis dari form harus ikut
+    // tersimpan — tanpa ini toggle "Rahasia penulis" & textarea "Kebenaran tersembunyi"
+    // di CodexForm senyap tak berefek.
     if (editingId) {
       await db.codex.update(editingId, {
         name: data.name,
         category: data.category || 'character',
         description: data.description || '',
         aliases: data.aliases || [],
-        tags: data.tags || []
+        tags: data.tags || [],
+        hidden: !!data.hidden,
+        secret: data.secret?.trim() || ''
       });
     } else {
       await db.codex.add({
@@ -137,7 +142,9 @@ export function useCodexPanel(projectId: number) {
         category: data.category || 'character',
         description: data.description || '',
         aliases: data.aliases || [],
-        tags: data.tags || []
+        tags: data.tags || [],
+        hidden: !!data.hidden,
+        secret: data.secret?.trim() || ''
       } as CodexEntry);
     }
     
