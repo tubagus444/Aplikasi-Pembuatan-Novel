@@ -61,7 +61,9 @@ export function GlossaryPanel({ projectId }: { projectId: number }) {
 
       <AnimatePresence>
         {editing && (
-          <GlossaryForm projectId={projectId} initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
+          // key per-target: remount dengan state segar saat berpindah entri/"baru"
+          // (tanpa ini, edit A → edit B menyimpan isi A ke entri B).
+          <GlossaryForm key={editing === 'new' ? 'new' : editing.id} projectId={projectId} initial={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
         )}
       </AnimatePresence>
 

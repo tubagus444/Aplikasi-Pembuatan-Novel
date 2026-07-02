@@ -154,6 +154,9 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
       <AnimatePresence>
         {editing && chapters && (
           <PromiseForm
+            // key per-target: remount dengan state segar saat berpindah janji/"baru"
+            // (tanpa ini, edit A → edit B menyimpan isi A ke janji B).
+            key={editing === 'new' ? 'new' : editing.id}
             projectId={projectId}
             initial={editing === 'new' ? null : editing}
             codexEntries={codexEntries}
