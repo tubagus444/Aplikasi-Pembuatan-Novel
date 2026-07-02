@@ -58,8 +58,8 @@ function sampleData(): ProjectBackupData {
       { id: 14, projectId: 9, title: 'S2', messages: [], lastMessageAt: 2, chapterId: 777 },
     ],
     plotPromises: [
-      { id: 15, projectId: 9, title: 'Belati', codexId: 20, plantedChapterId: 10, status: 'open', createdAt: 1, updatedAt: 1 },
-      { id: 16, projectId: 9, title: 'Ramalan', keywords: ['ramalan'], codexId: 999, plantedChapterId: 888, status: 'open', createdAt: 1, updatedAt: 1 },
+      { id: 15, projectId: 9, title: 'Belati', codexId: 20, plantedChapterId: 10, payoffCodexId: 21, status: 'open', createdAt: 1, updatedAt: 1 },
+      { id: 16, projectId: 9, title: 'Ramalan', keywords: ['ramalan'], codexId: 999, plantedChapterId: 888, payoffCodexId: 999, status: 'open', createdAt: 1, updatedAt: 1 },
     ],
   };
 }
@@ -82,15 +82,17 @@ describe('remapProjectDependents', () => {
     for (const row of all) expect('id' in row).toBe(false);
   });
 
-  it('remap plotPromises: codexId & plantedChapterId (buang bila tak dikenal), keywords tetap', () => {
+  it('remap plotPromises: codexId, payoffCodexId & plantedChapterId (buang bila tak dikenal), keywords tetap', () => {
     const r = remapProjectDependents(sampleData(), maps);
     expect(r.plotPromises).toHaveLength(2);
-    // P1: codexId 20→200, plantedChapterId 10→100
+    // P1: codexId 20→200, plantedChapterId 10→100, payoffCodexId 21→201
     expect(r.plotPromises[0].codexId).toBe(200);
     expect(r.plotPromises[0].plantedChapterId).toBe(100);
-    // P2: codexId 999 & plantedChapterId 888 tak dikenal → key dibuang; keywords tak disentuh
+    expect(r.plotPromises[0].payoffCodexId).toBe(201);
+    // P2: codexId 999, plantedChapterId 888 & payoffCodexId 999 tak dikenal → key dibuang; keywords tak disentuh
     expect(r.plotPromises[1].codexId).toBeUndefined();
     expect(r.plotPromises[1].plantedChapterId).toBeUndefined();
+    expect(r.plotPromises[1].payoffCodexId).toBeUndefined();
     expect(r.plotPromises[1].keywords).toEqual(['ramalan']);
   });
 

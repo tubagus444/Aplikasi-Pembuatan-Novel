@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { analyzePromises } from './plotPromises';
+import { analyzePromises, analyzePayoffs } from './plotPromises';
 import { CodexEntry, PlotPromise } from '@/src/types';
 
 // 6 bab (idx 0..5). Belati (Codex #1) disebut di Bab 1 & 2 saja.
@@ -84,5 +84,69 @@ describe('analyzePromises', () => {
       [promise({ codexId: 1 })], chapters, codex, { dormancyThreshold: 8 },
     );
     expect(analyses[0].state).toBe('active'); // dormancy 4 < 8
+  });
+});
+
+describe('analyzePayoffs', () => {
+  // Rahasia (codex #7) yang dibayar oleh beberapa kait berbasis keyword.
+  const chapters = makeChapters({ 0: 'Ada ramalan.', 1: 'Bisikan hantu.' });
+
+  it('mengabaikan janji tanpa payoffCodexId', () => {
+    const { analyses } = analyzePromises([promise({ keywords: ['ramalan'] })], chapters, codex);
+    expect(analyzePayoffs(analyses)).toHaveLength(0);
+  });
+
+  it('mengelompokkan kait per target & menghitung yang muncul di prosa', () => {
+    const { analyses } = analyzePromises(
+      [
+        promise({ keywords: ['ramalan'], payoffCodexId: 7 }), // muncul (Bab 1)
+        promise({ keywords: ['bisikan'], payoffCodexId: 7 }), // muncul (Bab 2)
+      ],
+      chapters, codex,
+    );
+    const payoffs = analyzePayoffs(analyses);
+    expect(payoffs).toHaveLength(1);
+    expect(payoffs[0].codexId).toBe(7);
+    expect(payoffs[0].setupCount).toBe(2);
+    expect(payoffs[0].seenSetups).toBe(2);
+    expect(payoffs[0].state).toBe('planted');
+  });
+
+  it('semua kait tak muncul di prosa → "unplanted" (alarm)', () => {
+    const { analyses } = analyzePromises(
+      [promise({ keywords: ['takpernahada'], payoffCodexId: 7 })],
+      chapters, codex,
+    );
+    const payoffs = analyzePayoffs(analyses);
+    expect(payoffs[0].state).toBe('unplanted');
+    expect(payoffs[0].seenSetups).toBe(0);
+  });
+
+  it('kait muncul tapi di bawah ambang → "thin"', () => {
+    const { analyses } = analyzePromises(
+      [promise({ keywords: ['ramalan'], payoffCodexId: 7 })], // 1 muncul, min default 2
+      chapters, codex,
+    );
+    expect(analyzePayoffs(analyses)[0].state).toBe('thin');
+  });
+
+  it('ambang minSeenSetups dapat disetel', () => {
+    const { analyses } = analyzePromises(
+      [promise({ keywords: ['ramalan'], payoffCodexId: 7 })],
+      chapters, codex,
+    );
+    expect(analyzePayoffs(analyses, { minSeenSetups: 1 })[0].state).toBe('planted');
+  });
+
+  it('mengurutkan target paling genting dulu (unplanted → thin → planted)', () => {
+    const { analyses } = analyzePromises(
+      [
+        promise({ keywords: ['ramalan'], payoffCodexId: 5 }),       // thin
+        promise({ keywords: ['takada'], payoffCodexId: 8 }),        // unplanted
+      ],
+      chapters, codex,
+    );
+    const payoffs = analyzePayoffs(analyses);
+    expect(payoffs.map(p => p.state)).toEqual(['unplanted', 'thin']);
   });
 });

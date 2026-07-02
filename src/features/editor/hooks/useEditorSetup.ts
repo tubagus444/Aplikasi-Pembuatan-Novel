@@ -46,6 +46,10 @@ const CustomMention = Mention.extend({
 
 export function useEditorSetup({ chapterId, initialContent, codexEntries, onCodexClick, onUpdate, getConsistencyFlags, getConsistencyQuotes, getConsistencySpelling }: UseEditorSetupProps) {
   const codexEntriesRef = useRef<CodexEntry[]>(codexEntries);
+  // Lapis "Kebenaran Tersembunyi": entri `hidden` disaring dari permukaan pembaca
+  // (highlight & saran mention). Konsistensi (ConsistencyUnderline) tetap pakai daftar
+  // penuh via codexEntriesRef agar bisa menandai kebocoran rahasia.
+  const visibleCodexEntriesRef = useRef<CodexEntry[]>(codexEntries.filter(e => !e.hidden));
   const onUpdateRef = useRef(onUpdate);
   // Akses flag/temuan konsistensi lewat ref agar closure extension selalu baca versi terkini.
   const getFlagsRef = useRef(getConsistencyFlags);
@@ -54,6 +58,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
 
   useEffect(() => {
     codexEntriesRef.current = codexEntries;
+    visibleCodexEntriesRef.current = codexEntries.filter(e => !e.hidden);
   }, [codexEntries]);
 
   useEffect(() => {
@@ -93,7 +98,7 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
       }),
       RevisionComment,
       PassiveCodexHighlight.configure({
-        getCodexEntries: () => codexEntriesRef.current,
+        getCodexEntries: () => visibleCodexEntriesRef.current,
         onCodexClick: (entryId, event) => onCodexClick(entryId, event)
       }),
       Placeholder.configure({
@@ -105,9 +110,9 @@ export function useEditorSetup({ chapterId, initialContent, codexEntries, onCode
         },
         suggestion: {
           items: ({ query }) => {
-            const entries = codexEntriesRef.current;
+            const entries = visibleCodexEntriesRef.current;
             return entries
-              .filter(item => 
+              .filter(item =>
                 item.name.toLowerCase().includes(query.toLowerCase()) ||
                 item.aliases?.some(a => a.toLowerCase().includes(query.toLowerCase()))
               )

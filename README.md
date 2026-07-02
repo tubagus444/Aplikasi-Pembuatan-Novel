@@ -8,7 +8,7 @@ menjaga konteks, dan mempercepat revisi** — tanpa membutuhkan database backend
 ## Fitur Utama
 
 - **Editor kaya** berbasis TipTap: highlight codex, mention `@`, cari & ganti (dalam-bab & lintas-bab), mode fokus/typewriter, zoom, catatan revisi (margin notes), dan snapshot/riwayat versi per bab.
-- **Story Bible & Codex** — basis data worldbuilding lokal (karakter, lokasi, item, sihir, event) lengkap dengan alias, kategori kustom, dan relasi antar-entitas (Graph-RAG). **Lokakarya Codex**: bangun/rombak entri lewat diskusi AI.
+- **Story Bible & Codex** — basis data worldbuilding lokal (karakter, lokasi, item, sihir, event) lengkap dengan alias, kategori kustom, dan relasi antar-entitas (Graph-RAG). **Lokakarya Codex**: bangun/rombak entri lewat diskusi AI. **Kebenaran Tersembunyi**: tandai entri/fakta sebagai rahasia penulis (kanon vs yang diketahui pembaca) — disembunyikan dari sorotan, saran & ekspor, tapi tetap diberikan ke AI agar konsistensi twist terjaga.
 - **Mesin Konteks hybrid** yang menyuntikkan lore relevan ke prompt AI:
   - Pencocokan nama/alias eksak (Aho-Corasick, di Web Worker).
   - Pencarian semantik lokal via embeddings `Xenova/all-MiniLM-L6-v2` (berjalan di browser, di-cache di IndexedDB).

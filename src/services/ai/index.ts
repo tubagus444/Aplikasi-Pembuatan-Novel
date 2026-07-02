@@ -107,7 +107,14 @@ function buildCachedContextSegments(bibleRules: StoryBibleRule[], codexEntries: 
   const sortedCodex = [...codexEntries].sort((a, b) => a.name.localeCompare(b.name));
 
   const bibleString = formatBibleBlock(sortedRules) || 'No specific rules set.';
-  const loreString = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, getMaxCachedLoreChars()) || 'No specific lore.';
+  // Lapis "Kebenaran Tersembunyi": entri `hidden` TETAP diumpankan (agar AI bisa
+  // menangkap kontradiksi/kebocoran), dan `secret` ditempel sebagai kebenaran penulis
+  // yang tak boleh bocor ke prosa sebelum di-reveal. Deterministik → cache prompt aman.
+  const loreString = sortedCodex.map(e => {
+    let line = `[${e.name}] (${e.category}): ${e.description}`;
+    if (e.secret?.trim()) line += `\n[RAHASIA PENULIS — jangan bocorkan ke prosa/pembaca] ${e.secret.trim()}`;
+    return line;
+  }).join('\n\n').substring(0, getMaxCachedLoreChars()) || 'No specific lore.';
   const graphString = buildRelationshipGraph(relationships, codexEntries);
 
   return [
@@ -186,8 +193,10 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
         desc = desc.substring(0, limit) + '...';
       }
 
-      const formattedEntry = `[${e.name}]: ${desc}`;
-      
+      let formattedEntry = `[${e.name}]: ${desc}`;
+      // Kebenaran penulis (lihat buildCachedContextSegments) — ikut di jalur RAG legacy.
+      if (e.secret?.trim()) formattedEntry += ` [RAHASIA PENULIS: ${e.secret.trim().substring(0, subLimit)}]`;
+
       if (currentChars + formattedEntry.length <= MAX_LORE_CHARS) {
         loreParts.push(formattedEntry);
         currentChars += formattedEntry.length + 1;

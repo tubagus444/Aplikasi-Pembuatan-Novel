@@ -16,6 +16,12 @@ export interface CodexExportOptions {
   categories?: CategoryDef[];
   /** Timestamp untuk baris meta (untuk tes deterministik). */
   now?: number;
+  /**
+   * Lapis "Kebenaran Tersembunyi": sertakan entri `hidden` (rahasia penulis).
+   * Default `false` — ekspor adalah "world bible" yang bisa dibagikan, jadi entri
+   * rahasia disaring. Field `secret` TAK PERNAH dicetak apa pun nilai opsi ini.
+   */
+  includeHidden?: boolean;
 }
 
 function entryBlock(e: CodexEntry): string {
@@ -30,8 +36,10 @@ function entryBlock(e: CodexEntry): string {
   return lines.join('\n');
 }
 
-export function codexToMarkdown(entries: CodexEntry[], opts: CodexExportOptions = {}): string {
+export function codexToMarkdown(allEntries: CodexEntry[], opts: CodexExportOptions = {}): string {
   const categories = opts.categories ?? BUILTIN_CATEGORIES;
+  // Saring entri rahasia dari output pembaca kecuali diminta eksplisit.
+  const entries = opts.includeHidden ? allEntries : allEntries.filter((e) => !e.hidden);
   const title = (opts.projectName || 'Tanpa Judul').trim();
   const date = new Date(opts.now ?? Date.now()).toISOString().slice(0, 10);
   const header = `# Codex — ${title}\n\n_Diekspor dari AetherScribe · ${entries.length} entri · ${date}_\n`;

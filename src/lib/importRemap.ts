@@ -19,7 +19,7 @@ import type {
  *  - snapshots.chapterId (wajib), timeline.chapterId?, chatSessions.chapterId? +
  *    activeChapterId? → chapterIdMap
  *  - relationships.sourceId/targetId, timeline.characterIds[] → codexIdMap
- *  - plotPromises.codexId? → codexIdMap, plotPromises.plantedChapterId? → chapterIdMap
+ *  - plotPromises.codexId? & payoffCodexId? → codexIdMap, plotPromises.plantedChapterId? → chapterIdMap
  *  - TIDAK di-remap: Chapter.pov (nama), CodexEntry.category & key/slug (string).
  */
 
@@ -157,14 +157,20 @@ export function remapProjectDependents(
     return remapped as ChatSession;
   });
 
-  // plotPromises: set projectId; codexId & plantedChapterId opsional (buang key bila
-  // tak dikenal — janji jadi berbasis judul/keyword saja, tetap valid). keywords tak disentuh.
+  // plotPromises: set projectId; codexId, payoffCodexId & plantedChapterId opsional
+  // (buang key bila tak dikenal — janji jadi berbasis judul/keyword saja, tetap valid).
+  // keywords tak disentuh.
   const plotPromises = (data.plotPromises ?? []).map((p) => {
     const remapped: Record<string, any> = { ...stripId(p), projectId };
     if (p.codexId !== undefined) {
       const nc = codexIdMap.get(p.codexId);
       if (nc !== undefined) remapped.codexId = nc;
       else delete remapped.codexId;
+    }
+    if (p.payoffCodexId !== undefined) {
+      const nc = codexIdMap.get(p.payoffCodexId);
+      if (nc !== undefined) remapped.payoffCodexId = nc;
+      else delete remapped.payoffCodexId;
     }
     if (p.plantedChapterId !== undefined) {
       const nc = chapterIdMap.get(p.plantedChapterId);

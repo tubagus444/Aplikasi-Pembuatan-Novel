@@ -19,7 +19,7 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { stripHtml } from '@/src/lib/editorUtils';
 import { PlotPromise, PlotPromiseImportance, PlotPromiseStatus } from '@/src/types';
-import { analyzePromises, PromiseState } from '@/src/lib/plotPromises';
+import { analyzePromises, analyzePayoffs, PromiseState, PayoffState } from '@/src/lib/plotPromises';
 import { cn } from '@/src/lib/utils';
 
 interface PlotPromisePanelProps {
@@ -77,6 +77,17 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
   };
 
   const analyses = report?.analyses ?? [];
+
+  // Lookup nama/rahasia entri Codex untuk menampilkan target payoff.
+  const codexById = useMemo(() => {
+    const m = new Map<number, { name: string; hidden?: boolean }>();
+    for (const c of codexEntries) if (c.id != null) m.set(c.id, { name: c.name, hidden: c.hidden });
+    return m;
+  }, [codexEntries]);
+
+  // Payoff/reveal (#2): kelompokkan kait per rahasia yang dibayarnya.
+  const payoffs = useMemo(() => analyzePayoffs(analyses), [analyses]);
+
   const visible = onlyAttention
     ? analyses.filter(a => a.state === 'dormant' || a.state === 'unseen')
     : analyses;
@@ -152,6 +163,11 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
         )}
       </AnimatePresence>
 
+      {/* Pembayaran (payoff/reveal) — hanya bila ada janji yang menunjuk rahasia. */}
+      {!loading && payoffs.length > 0 && (
+        <PayoffSection payoffs={payoffs} codexById={codexById} />
+      )}
+
       {/* Daftar */}
       {loading ? (
         <div className="flex items-center justify-center py-16 text-slate-400">
@@ -171,6 +187,7 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
                   chapterCount={report!.chapterCount}
                   chapterTitles={chapterTitles}
                   chapterIds={chapters?.map(c => c.id!) ?? []}
+                  payoffName={a.promise.payoffCodexId != null ? codexById.get(a.promise.payoffCodexId)?.name : undefined}
                   onOpenChapter={openChapter}
                   onEdit={() => setEditing(a.promise)}
                   onDelete={() => remove(a.promise)}
@@ -205,13 +222,83 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+const PAYOFF_META: Record<PayoffState, { label: string; badge: string; icon: React.ReactNode; hint: string }> = {
+  unplanted: {
+    label: 'Belum ditanam',
+    badge: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50',
+    icon: <AlertTriangle size={13} />,
+    hint: 'Reveal ini dideklarasikan, tapi tak satu kait pun muncul di prosa.',
+  },
+  thin: {
+    label: 'Tanam tipis',
+    badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50',
+    icon: <EyeOff size={13} />,
+    hint: 'Foreshadowing sedikit — pertimbangkan menambah kait sebelum reveal.',
+  },
+  planted: {
+    label: 'Cukup ditanam',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50',
+    icon: <CheckCircle2 size={13} />,
+    hint: 'Kait yang muncul di prosa memadai.',
+  },
+};
+
+function PayoffSection({
+  payoffs, codexById,
+}: {
+  payoffs: ReturnType<typeof analyzePayoffs>;
+  codexById: Map<number, { name: string; hidden?: boolean }>;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Target size={16} className="text-purple-500" />
+        <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Pembayaran (Payoff / Reveal)</h2>
+      </div>
+      <p className="text-[11px] text-slate-400 dark:text-slate-500 -mt-1">
+        Rahasia/reveal beserta kait yang menyiapkannya. "Belum ditanam" = kait ada tapi tak muncul di prosa.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {payoffs.map((po) => {
+          const target = codexById.get(po.codexId);
+          const meta = PAYOFF_META[po.state];
+          return (
+            <div key={po.codexId} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {target?.hidden && <EyeOff size={13} className="text-purple-500 shrink-0" />}
+                <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">{target?.name ?? 'Entri terhapus'}</span>
+                <span className={cn('ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border', meta.badge)}>
+                  {meta.icon}{meta.label}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {po.seenSetups}/{po.setupCount} kait muncul di prosa · {meta.hint}
+              </p>
+              <ul className="space-y-0.5">
+                {po.setups.map((s) => (
+                  <li key={s.promise.id} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', s.mentions > 0 ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600')} />
+                    <span className="truncate">{s.promise.title}</span>
+                    <span className="text-slate-400 dark:text-slate-500 shrink-0">{s.mentions > 0 ? `${s.mentions}×` : 'tak muncul'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function PromiseCard({
-  analysis, chapterCount, chapterTitles, chapterIds, onOpenChapter, onEdit, onDelete, onSetStatus,
+  analysis, chapterCount, chapterTitles, chapterIds, payoffName, onOpenChapter, onEdit, onDelete, onSetStatus,
 }: {
   analysis: ReturnType<typeof analyzePromises>['analyses'][number];
   chapterCount: number;
   chapterTitles: string[];
   chapterIds: number[];
+  payoffName?: string;
   onOpenChapter: (id: number) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -274,6 +361,11 @@ function PromiseCard({
 
       <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[11px] text-slate-400 dark:text-slate-500">
         {p.codexId != null ? <span>Terpaut entri Codex</span> : p.keywords?.length ? <span>Kata kunci: {p.keywords.join(', ')}</span> : <span className="text-amber-500">Belum ditautkan</span>}
+        {payoffName && (
+          <span className="inline-flex items-center gap-0.5 text-purple-600 dark:text-purple-400">
+            <Target size={11} /> Membayar: {payoffName}
+          </span>
+        )}
         {p.expectedBy && <span>Target: {p.expectedBy}</span>}
         {(() => {
           if (p.plantedChapterId == null) return null;
@@ -327,7 +419,7 @@ function PromiseForm({
 }: {
   projectId: number;
   initial: PlotPromise | null;
-  codexEntries: { id?: number; name: string }[];
+  codexEntries: { id?: number; name: string; hidden?: boolean }[];
   chapters: { id: number; title: string }[];
   onClose: () => void;
 }) {
@@ -339,6 +431,7 @@ function PromiseForm({
   const [importance, setImportance] = useState<PlotPromiseImportance>(initial?.importance ?? 'medium');
   const [expectedBy, setExpectedBy] = useState(initial?.expectedBy ?? '');
   const [plantedChapterId, setPlantedChapterId] = useState<number | ''>(initial?.plantedChapterId ?? '');
+  const [payoffCodexId, setPayoffCodexId] = useState<number | ''>(initial?.payoffCodexId ?? '');
   const [saving, setSaving] = useState(false);
 
   const canSave = title.trim().length > 0;
@@ -356,15 +449,17 @@ function PromiseForm({
       importance,
       expectedBy: expectedBy.trim() || undefined,
       plantedChapterId: plantedChapterId !== '' ? Number(plantedChapterId) : undefined,
+      payoffCodexId: payoffCodexId !== '' ? Number(payoffCodexId) : undefined,
       updatedAt: now,
     };
     try {
       if (initial?.id != null) {
-        // Bersihkan field yang mungkin beralih mode (codexId ↔ keywords).
+        // Bersihkan field yang mungkin beralih mode (codexId ↔ keywords) / dilepas.
         await db.plotPromises.update(initial.id, {
           ...base,
           codexId: base.codexId ?? undefined,
           keywords: base.keywords ?? undefined,
+          payoffCodexId: base.payoffCodexId ?? undefined,
         });
       } else {
         await db.plotPromises.add({
@@ -438,6 +533,19 @@ function PromiseForm({
             <input value={expectedBy} onChange={e => setExpectedBy(e.target.value)} placeholder="mis. sebelum klimaks" className={inputCls} />
           </Field>
         </div>
+
+        {/* Payoff / reveal (#2) — janji ini menyiapkan/mengungkap entri Codex tertentu. */}
+        <Field label="Membayar / mengungkap (opsional)">
+          <select value={payoffCodexId} onChange={e => setPayoffCodexId(e.target.value === '' ? '' : Number(e.target.value))} className={inputCls}>
+            <option value="">— Tidak menunjuk rahasia/reveal —</option>
+            {codexEntries.filter(c => c.id != null).map(c => (
+              <option key={c.id} value={c.id}>{c.name}{c.hidden ? ' — rahasia' : ''}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+            Kaitkan kait ini ke rahasia/reveal yang dibayarnya. Panel "Pembayaran" akan menandai rahasia yang kaitnya kurang ditanam.
+          </p>
+        </Field>
 
         <div className="flex items-center justify-end gap-2 pt-1">
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>

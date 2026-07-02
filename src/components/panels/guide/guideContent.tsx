@@ -17,7 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
-  ClipboardPaste,
+  ClipboardPaste, EyeOff,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -222,6 +222,23 @@ export const FEATURES: Feature[] = [
     tip: 'Selesaikan editing Codex/Bible dulu sebelum sesi menulis — mengedit lore membatalkan cache prompt sehingga panggilan AI berikutnya jadi lebih mahal.',
   },
   {
+    id: 'codex-secret', group: 'world', Icon: EyeOff, color: 'purple', view: 'codex', openLabel: 'Buka Kamus Data',
+    title: 'Kebenaran Tersembunyi (kanon vs rahasia penulis)',
+    where: 'Form entri Codex: kotak ungu "Rahasia penulis"',
+    what: 'Simpan yang BENAR-BENAR terjadi terpisah dari yang diketahui pembaca — untuk mystery-box & dramatic irony, tanpa bocor ke naskah.',
+    steps: [
+      'Centang "Rahasia penulis" agar SELURUH entri disembunyikan dari pembaca (mystery-box: entitas yang keberadaannya sendiri masih rahasia).',
+      'Atau isi "Kebenaran tersembunyi" pada entri yang tetap publik — pola "Dunia percaya… / Yang sebenarnya…" (mis. raja yang tampak bijak, sebenarnya dalang kudeta).',
+      'Entri rahasia bertanda ikon mata-tercoret di kartu & detailnya.',
+    ],
+    detail: [
+      'Yang disembunyikan TIDAK muncul di sorotan editor, saran @-mention, maupun ekspor Codex.',
+      'Tetapi TETAP diberikan ke AI: Cek Konsistensi bisa menangkap bila prosa keceplosan membocorkan atau bertentangan dengan rahasia sebelum saatnya reveal.',
+      'Penanda "reveal di bab N" + deteksi kebocoran otomatis direncanakan menyusul (fase 2).',
+    ],
+    tip: 'Nol biaya tambahan: rahasia menumpang knowledge base yang sudah dikirim ke AI. Gunakan untuk menjaga twist tetap konsisten sepanjang novel panjang.',
+  },
+  {
     id: 'codex-bridge', group: 'world', Icon: ClipboardPaste, color: 'teal', view: 'codex', openLabel: 'Buka Kamus Data',
     title: 'Impor/Ekspor Codex (jembatan teks ⇄ Markdown)',
     where: 'Kamus Data: tombol "Tempel teks" (form Entri Baru) & "Ekspor" (header)',
@@ -237,6 +254,22 @@ export const FEATURES: Feature[] = [
       'Untuk memasukkan BANYAK entri sekaligus dari berkas lore lama, gunakan jalur "Impor Novel" (Pengaturan → Backup) memakai berkas ekspor per-novel — masuk sebagai proyek baru, non-destruktif.',
     ],
     tip: 'Seluruhnya lokal & nol token. Tempel-teks memangkas entri manual; ekspor rutin memberi cadangan lore yang enak dibaca & mudah di-diff.',
+  },
+  {
+    id: 'name-forge', group: 'world', Icon: Wand2, color: 'indigo', view: 'codex', openLabel: 'Buka Kamus Data',
+    title: 'Bengkel Nama (generator & glos)',
+    where: 'Detail entri Codex → ikon dadu',
+    what: 'Hasilkan nama NPC/tempat yang konsisten dengan "palet bunyi" sebuah faksi/ras, dan uraikan makna nama majemuk. Deterministik & nol token.',
+    steps: [
+      'Buka sebuah entri (mis. sebuah ras/faksi) → klik ikon dadu untuk membuka Bengkel Nama.',
+      'Pilih preset ("Mengalir", "Keras", "Majemuk") atau susun palet sendiri: pola suku kata (C/V), onset, nukleus, coda, dan leksikon morfem (akar = makna).',
+      'Klik "Fonetik" untuk nama dari bunyi, atau "Majemuk" untuk nama bermakna dari morfem. Klik nama untuk menyalin. "Urai" menguraikan sebuah nama ke akar-akarnya.',
+    ],
+    detail: [
+      'Palet tersimpan pada entri itu (field namePalette) dan ikut backup/impor — tidak dikirim ke AI.',
+      'Sepenuhnya lokal: onset/coda = konsonan awal/akhir suku kata, nukleus = vokal; pola "CVC" berarti konsonan-vokal-konsonan.',
+    ],
+    tip: 'Gratis token. Pakai leksikon morfem untuk toponimi transparan (mis. batu+laut → "Kelmar") lalu "Urai" untuk mengecek makna nama lama.',
   },
   {
     id: 'workshop', group: 'world', Icon: Hammer, color: 'purple', view: 'codex', openLabel: 'Buka Kamus Data',
@@ -379,11 +412,13 @@ export const FEATURES: Feature[] = [
     steps: [
       'Catat sebuah janji: dari editor (blok teks → "Catat Janji" di menu melayang), dari detail Codex (ikon crosshair), atau langsung di panel.',
       'Aplikasi melacak kemunculannya per bab (via nama/alias Codex atau kata kunci) dan menandai bila "Tertidur" terlalu lama.',
+      'Payoff/Reveal (opsional): kaitkan janji ke rahasia/reveal yang DIBAYARNYA (field "Membayar/mengungkap", idealnya sebuah "rahasia penulis"). Seksi "Pembayaran" lalu memetakan kait per rahasia.',
       'Tandai "Terbayar" saat janji ditepati, atau "Ditinggalkan" bila sengaja dibuang.',
     ],
     detail: [
       'Akurat karena tidak menebak: yang dilacak hanya hal yang Anda deklarasikan. Status "Tertidur N bab" adalah pengingat, bukan kesalahan.',
       'Janji dalam prosa (bukan entitas) dilacak lewat kata kunci; janji yang berupa entitas dilacak dengan menautkannya ke entri Codex.',
+      'Di seksi "Pembayaran", rahasia dengan kait yang "Belum ditanam" (tak muncul di prosa) atau "Tanam tipis" ditandai — sinyal foreshadowing kurang sebelum reveal.',
     ],
     tip: 'Sepenuhnya lokal & gratis token. Pakai filter "Perlu perhatian" untuk fokus ke janji tertidur/tak ditemukan.',
   },

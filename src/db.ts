@@ -248,6 +248,73 @@ export class AetherScribeDB extends Dexie {
       sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
       plotPromises: '++id, projectId, codexId'
     });
+
+    // v22: field baru `hidden`/`secret` di CodexEntry untuk Lapis "Kebenaran
+    // Tersembunyi" (kanon vs rahasia penulis). Keduanya opsional & TIDAK diindeks
+    // (penyaringan dilakukan on-demand di konsumen, bukan lewat query index) →
+    // skema identik dengan v21, append-only, tanpa migrasi data.
+    this.version(22).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId'
+    });
+
+    // v23: field baru `payoffCodexId` di PlotPromise (Janji Plot → payoff/reveal, #2).
+    // Tautan agregasi ke entri Codex yang dibayar — TIDAK diindeks (pengelompokan
+    // on-demand di panel atas promises yang sudah dimuat) → skema identik dengan v22,
+    // append-only, tanpa migrasi data.
+    this.version(23).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId'
+    });
+
+    // v24: field baru `namePalette` di CodexEntry (Bengkel Nama, #3). JSON inert
+    // (BUKAN FK, tak diindeks) → skema identik dengan v23, append-only, tanpa migrasi.
+    this.version(24).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId'
+    });
   }
 }
 

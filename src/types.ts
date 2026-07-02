@@ -165,6 +165,24 @@ export interface Project {
 export type BuiltinCodexCategory = 'character' | 'location' | 'item' | 'magic' | 'event' | 'other';
 export type CodexCategory = BuiltinCodexCategory | (string & {});
 
+// Bengkel Nama (#3) — palet fonotaktik per-faksi. Logika di `src/lib/nameForge.ts`.
+export interface Morpheme {
+  /** Potongan bunyi (huruf kecil), mis. "kel", "haven". */
+  root: string;
+  /** Makna akar, mis. "batu", "pelabuhan". */
+  meaning: string;
+}
+export interface NamePalette {
+  /** Pola suku kata: C=konsonan, V=nukleus. C sebelum V = onset, sesudah V = coda. */
+  patterns: string[];
+  onsets: string[];
+  nuclei: string[];
+  codas: string[];
+  minSyllables?: number;
+  maxSyllables?: number;
+  morphemes?: Morpheme[];
+}
+
 export interface CodexEntry {
   id?: number;
   projectId: number;
@@ -173,6 +191,21 @@ export interface CodexEntry {
   category: CodexCategory;
   description: string;
   tags: string[];
+  // Lapis "Kebenaran Tersembunyi" (kanon vs rahasia penulis):
+  // - `hidden`: entri sepenuhnya rahasia (mystery-box). Disaring dari SEMUA permukaan
+  //   pembaca (highlight editor, saran mention, ekspor Codex), tetapi TETAP diumpankan
+  //   ke knowledge base AI agar Cek Konsistensi/Kontinuitas bisa menangkap kebocoran.
+  // - `secret`: "kebenaran penulis" pada entri yang tetap publik (pola bible
+  //   "Dunia percaya… / Yang sebenarnya…"). Masuk KB AI, tak pernah ke output pembaca.
+  hidden?: boolean;
+  secret?: string;
+  /**
+   * Bengkel Nama (#3): palet fonotaktik + leksikon morfem untuk entri faksi/ras.
+   * JSON inert (BUKAN FK, tak diindeks, tak masuk KB AI/ekspor) — dipakai generator
+   * & glos nama di `src/lib/nameForge.ts`. Ikut backup/impor otomatis sebagai bagian
+   * objek codex.
+   */
+  namePalette?: NamePalette;
 }
 
 // Kategori Codex kustom per-proyek. `slug` dipakai sebagai nilai `CodexEntry.category`
@@ -279,7 +312,7 @@ export type PlotPromiseImportance = 'high' | 'medium' | 'low';
  * `src/lib/plotPromises.ts`.
  *
  * FK (untuk importRemap & deleteProject): `projectId`, `codexId?` → codexIdMap,
- * `plantedChapterId?` → chapterIdMap.
+ * `plantedChapterId?` → chapterIdMap, `payoffCodexId?` → codexIdMap.
  */
 export interface PlotPromise {
   id?: number;
@@ -292,6 +325,14 @@ export interface PlotPromise {
   keywords?: string[];
   /** Bab tempat janji ditanam (opsional; kosong = kemunculan pertama yang terdeteksi). */
   plantedChapterId?: number;
+  /**
+   * Entri Codex yang DIBAYAR/diungkap janji ini (payoff/reveal), idealnya entri
+   * `hidden` (rahasia penulis, lihat #1). Beda dari `codexId` (= apa janji ITU
+   * sendiri): `payoffCodexId` = apa yang dibayarnya. Dipakai `analyzePayoffs` untuk
+   * mengelompokkan "rahasia X disiapkan oleh kait A, B, C" & menandai yang kurang
+   * ditanam. Tak dilacak di teks — murni tautan agregasi.
+   */
+  payoffCodexId?: number;
   /** Catatan bebas kapan seharusnya terbayar, mis. "sebelum klimaks". */
   expectedBy?: string;
   importance?: PlotPromiseImportance;

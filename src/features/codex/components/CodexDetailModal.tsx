@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair } from 'lucide-react';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices } from 'lucide-react';
 import { CodexEntry, Relationship } from '@/src/types';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { QuickPromiseModal } from '@/src/features/consistency/components/QuickPromiseModal';
+import { NameForgeModal } from '@/src/features/codex/components/NameForgeModal';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
@@ -45,6 +46,7 @@ export function CodexDetailModal({
   const [bondType, setBondType] = useState('Friend');
   const [bondTarget, setBondTarget] = useState<number | ''>('');
   const [showPromise, setShowPromise] = useState(false);
+  const [showForge, setShowForge] = useState(false);
 
   const handleAddBond = () => {
     if (!bondTarget) return;
@@ -79,7 +81,14 @@ export function CodexDetailModal({
               <CategoryIcon category={entry.category} categories={categories} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{entry.name}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{entry.name}</h2>
+                {entry.hidden && (
+                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800/60">
+                    <EyeOff size={11} /> Rahasia
+                  </span>
+                )}
+              </div>
               <span className="text-xs uppercase tracking-widest font-bold text-indigo-500 dark:text-indigo-400">
                 {getCategoryLabel(entry.category, categories)}
               </span>
@@ -93,6 +102,13 @@ export function CodexDetailModal({
               title="Tandai sebagai Janji Plot (Chekhov's Gun)"
             >
               <Crosshair size={20} />
+            </button>
+            <button
+              onClick={() => setShowForge(true)}
+              className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-xl transition-all"
+              title="Bengkel Nama — generator & glos nama (palet fonotaktik)"
+            >
+              <Dices size={20} />
             </button>
             <button
               onClick={() => { onClose(); openWorkshop({ mode: 'edit', entryId: entry.id!, seedName: entry.name }); }}
@@ -160,6 +176,17 @@ export function CodexDetailModal({
               <span className="italic opacity-60">Deskripsi belum diisi.</span>
             )}
           </div>
+
+          {/* Kebenaran tersembunyi — hanya untuk penulis, tak pernah ke output pembaca */}
+          {entry.secret?.trim() && (
+            <div className="mb-10 rounded-2xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/50 dark:bg-purple-900/15 p-5">
+              <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-700 dark:text-purple-300 mb-2">
+                <EyeOff size={14} /> Kebenaran Tersembunyi
+                <span className="font-normal normal-case tracking-normal text-purple-400 dark:text-purple-500">· hanya penulis &amp; AI</span>
+              </h4>
+              <p className="font-serif text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{entry.secret.trim()}</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Relationships — dikelola di sini (tambah/hapus) */}
@@ -246,6 +273,10 @@ export function CodexDetailModal({
           seed={{ projectId, title: entry.name, codexId: entry.id!, codexName: entry.name }}
           onClose={() => setShowPromise(false)}
         />
+      )}
+
+      {showForge && (
+        <NameForgeModal entry={entry} onClose={() => setShowForge(false)} />
       )}
     </div>
   );

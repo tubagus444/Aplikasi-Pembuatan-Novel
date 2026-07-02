@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle, ClipboardPaste } from 'lucide-react';
+import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle, ClipboardPaste, EyeOff } from 'lucide-react';
 import { CodexEntry, CodexCategory } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { expandCodexEntry } from '@/src/services/ai';
@@ -277,6 +277,43 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
                 if (prevDescription !== null) setPrevDescription(null);
               }}
             />
+          </div>
+        </div>
+
+        {/* Lapis "Kebenaran Tersembunyi" — kanon vs rahasia penulis */}
+        <div className="mt-6 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-900/10 p-4">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={!!formData.hidden}
+              onChange={e => setFormData({ ...formData, hidden: e.target.checked })}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-purple-500"
+            />
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-purple-800 dark:text-purple-300">
+                <EyeOff size={14} /> Rahasia penulis (sembunyikan entri dari pembaca)
+              </span>
+              <span className="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Entri disaring dari sorotan editor, saran, dan ekspor Codex — tetapi tetap
+                diberikan ke AI agar Cek Konsistensi bisa menangkap kebocoran.
+              </span>
+            </span>
+          </label>
+
+          <div className="mt-4">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Kebenaran tersembunyi <span className="font-normal text-slate-400">(opsional — hanya untuk AI &amp; penulis)</span>
+            </label>
+            <textarea
+              className="w-full min-h-[80px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition-shadow dark:text-slate-100 resize-y font-serif leading-relaxed"
+              placeholder={"Pola “Dunia percaya… / Yang sebenarnya…”.\nMis.: Dunia percaya Sang Raja bijak; sebenarnya ia dalang kudeta."}
+              value={formData.secret ?? ''}
+              onChange={e => setFormData({ ...formData, secret: e.target.value })}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Tak pernah muncul di prosa/ekspor. Diumpankan ke AI sebagai kanon rahasia agar
+              narasi tak keceplosan sebelum reveal.
+            </p>
           </div>
         </div>
 

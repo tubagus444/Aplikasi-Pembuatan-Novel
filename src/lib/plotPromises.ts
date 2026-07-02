@@ -124,3 +124,64 @@ export function analyzePromises(
 
   return { analyses, chapterCount };
 }
+
+// ── Payoff / reveal (#2) ──────────────────────────────────────────────────────
+// Dimensi tambahan: sebuah janji bisa MEMBAYAR (mengungkap) satu entri Codex —
+// idealnya entri `hidden` (rahasia penulis, #1). Kita membalik pandangan: per entri
+// target, kumpulkan kait (setup) yang menunjuk kepadanya, lalu tandai target yang
+// KURANG DITANAM (kait dideklarasikan tapi nyaris tak muncul di prosa). Deterministik
+// & nol token — menumpang `mentions` yang sudah dihitung `analyzePromises`.
+
+export type PayoffState =
+  | 'unplanted' // ada kait, tapi TAK SATU pun muncul di prosa → alarm: reveal tanpa tanam
+  | 'thin'      // sebagian muncul tapi < ambang → foreshadowing tipis
+  | 'planted';  // cukup kait yang benar-benar muncul
+
+export interface PayoffAnalysis {
+  /** Entri Codex yang dibayar (PlotPromise.payoffCodexId). */
+  codexId: number;
+  /** Kait (janji) yang menunjuk ke target ini, membawa analisis kemunculannya. */
+  setups: PromiseAnalysis[];
+  /** setups.length. */
+  setupCount: number;
+  /** Jumlah kait yang benar-benar muncul di prosa (mentions > 0). */
+  seenSetups: number;
+  /** Jumlah kait yang ditandai penulis sebagai 'paid'. */
+  paidSetups: number;
+  state: PayoffState;
+}
+
+export interface PayoffOptions {
+  /** Minimal kait yang MUNCUL di prosa agar target dianggap cukup ditanam. Default 2. */
+  minSeenSetups?: number;
+}
+
+/**
+ * Kelompokkan analisis janji per `payoffCodexId` → laporan per target. Diurutkan
+ * deterministik (state paling genting dulu, lalu codexId) agar stabil di UI & tes.
+ */
+export function analyzePayoffs(analyses: PromiseAnalysis[], options?: PayoffOptions): PayoffAnalysis[] {
+  const minSeen = options?.minSeenSetups ?? 2;
+
+  const byTarget = new Map<number, PromiseAnalysis[]>();
+  for (const a of analyses) {
+    const target = a.promise.payoffCodexId;
+    if (target == null) continue;
+    const list = byTarget.get(target) ?? [];
+    list.push(a);
+    byTarget.set(target, list);
+  }
+
+  const result: PayoffAnalysis[] = [];
+  for (const [codexId, setups] of byTarget) {
+    const seenSetups = setups.filter((s) => s.mentions > 0).length;
+    const paidSetups = setups.filter((s) => s.promise.status === 'paid').length;
+    const state: PayoffState =
+      seenSetups === 0 ? 'unplanted' : seenSetups < minSeen ? 'thin' : 'planted';
+    result.push({ codexId, setups, setupCount: setups.length, seenSetups, paidSetups, state });
+  }
+
+  const STATE_ORDER: Record<PayoffState, number> = { unplanted: 0, thin: 1, planted: 2 };
+  result.sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || a.codexId - b.codexId);
+  return result;
+}

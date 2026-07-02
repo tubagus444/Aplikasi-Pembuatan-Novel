@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, Edit2, Trash2 } from 'lucide-react';
+import { Tag, Link2, Edit2, Trash2, EyeOff } from 'lucide-react';
 import { CodexEntry, Relationship } from '@/src/types';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
@@ -47,7 +47,14 @@ export function CodexCard({
               <CategoryIcon category={entry.category} categories={categories} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base truncate">{entry.name}</h3>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base truncate">{entry.name}</h3>
+                {entry.hidden && (
+                  <span title="Rahasia penulis — disembunyikan dari pembaca" className="shrink-0 text-purple-500 dark:text-purple-400">
+                    <EyeOff size={13} />
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
                 {getCategoryLabel(entry.category, categories)}
               </span>

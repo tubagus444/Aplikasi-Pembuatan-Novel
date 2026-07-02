@@ -67,4 +67,34 @@ describe('codexToMarkdown', () => {
     expect(md).toContain('· 0 entri ·');
     expect(md).toContain('_(Tidak ada entri Codex.)_');
   });
+
+  it('mengecualikan entri rahasia (hidden) secara default & menghitung ulang jumlahnya', () => {
+    const md = codexToMarkdown(
+      [
+        entry({ name: 'Publik', category: 'character', description: 'd' }),
+        entry({ name: 'RajaJahat', category: 'character', description: 'd', hidden: true }),
+      ],
+      { now: NOW },
+    );
+    expect(md).toContain('### Publik');
+    expect(md).not.toContain('### RajaJahat');
+    expect(md).toContain('· 1 entri ·'); // hidden tak ikut dihitung
+  });
+
+  it('menyertakan entri rahasia bila includeHidden: true', () => {
+    const md = codexToMarkdown(
+      [entry({ name: 'RajaJahat', category: 'character', description: 'd', hidden: true })],
+      { now: NOW, includeHidden: true },
+    );
+    expect(md).toContain('### RajaJahat');
+  });
+
+  it('tidak pernah mencetak field secret (kebenaran penulis)', () => {
+    const md = codexToMarkdown(
+      [entry({ name: 'Raja', category: 'character', description: 'raja yang bijak', secret: 'sebenarnya dalang kudeta' })],
+      { now: NOW, includeHidden: true },
+    );
+    expect(md).toContain('raja yang bijak');
+    expect(md).not.toContain('dalang kudeta');
+  });
 });
