@@ -262,14 +262,17 @@ export const FEATURES: Feature[] = [
     what: 'Hasilkan nama NPC/tempat yang konsisten dengan "palet bunyi" sebuah faksi/ras, dan uraikan makna nama majemuk. Deterministik & nol token.',
     steps: [
       'Buka sebuah entri (mis. sebuah ras/faksi) → klik ikon dadu untuk membuka Bengkel Nama.',
-      'Pilih preset ("Mengalir", "Keras", "Majemuk") atau susun palet sendiri: pola suku kata (C/V), onset, nukleus, coda, dan leksikon morfem (akar = makna).',
-      'Klik "Fonetik" untuk nama dari bunyi, atau "Majemuk" untuk nama bermakna dari morfem. Klik nama untuk menyalin. "Urai" menguraikan sebuah nama ke akar-akarnya.',
+      'Langkah 1 — pilih satu preset ("Mengalir" untuk nama halus, "Keras" untuk nama kasar, "Majemuk" untuk nama bermakna). Ini sudah cukup; tak perlu menyentuh kolom lain.',
+      'Langkah 3 — klik "Fonetik" untuk nama dari bunyi (atau "Majemuk" bila preset punya leksikon morfem). Klik sebuah nama untuk menyalin, atau tombol "+ alias" agar nama itu langsung jadi alias entri ini.',
+      'Ingin menyetel sendiri? Buka "2 · Atur bunyi (lanjutan)" untuk mengubah bunyi awal/vokal/akhir & pola suku kata. Kotak "Urai" menguraikan sebuah nama lama ke akar-akarnya.',
     ],
     detail: [
-      'Palet tersimpan pada entri itu (field namePalette) dan ikut backup/impor — tidak dikirim ke AI.',
-      'Sepenuhnya lokal: onset/coda = konsonan awal/akhir suku kata, nukleus = vokal; pola "CVC" berarti konsonan-vokal-konsonan.',
+      'Alur ringkas: (1) pilih preset → (3) klik Fonetik → salin atau "+ alias". Bagian "lanjutan" (langkah 2) opsional — hanya bila ingin meracik bunyi sendiri.',
+      'Istilah bunyi: "bunyi awal" (onset) = konsonan pembuka, "vokal" (nukleus) = inti suku kata, "bunyi akhir" (coda) = konsonan penutup. Pola "CVC" berarti konsonan-vokal-konsonan (mis. "kan").',
+      'Nama Majemuk butuh "leksikon morfem" (daftar "akar = makna"). Merangkai dua akar jadi nama bermakna, mis. batu+laut → "Kelmar".',
+      'Palet tersimpan pada entri itu (field namePalette) dan ikut backup/impor — tidak dikirim ke AI. Tombol "+ alias" langsung menulis ke daftar alias entri (dipakai untuk pelacakan konteks/kontinuitas).',
     ],
-    tip: 'Gratis token. Pakai leksikon morfem untuk toponimi transparan (mis. batu+laut → "Kelmar") lalu "Urai" untuk mengecek makna nama lama.',
+    tip: 'Cukup pilih preset lalu klik Fonetik — abaikan kolom lanjutan sampai perlu. Nama yang sreg? Klik "+ alias" agar langsung tercatat, tak sekadar tersalin. "Urai" berguna mengecek makna nama lama.',
   },
   {
     id: 'glossary', group: 'world', Icon: Library, color: 'teal', view: 'glossary', openLabel: 'Buka Glosarium',
