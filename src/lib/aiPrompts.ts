@@ -206,8 +206,53 @@ ${excerpts}
 
 JSON array temuan:`.trim()
   },
+  BIBLE_ASSIST: {
+    SYSTEM: () => `
+You are a developmental editor and story-development partner. The writer is filling out a Story Bible and wants help drafting ONE specific field. Use the story profile they have provided so far to produce a suggestion that is consistent with it.
+
+RULES:
+1. Generate ONLY the requested field — nothing else. No preamble, no labels, no headings, no quotes, no code fences, no meta commentary.
+2. Ground your suggestion in the profile. If the profile is thin, make a tasteful, evocative choice that fits the genre/tone; do NOT contradict anything already stated.
+3. Write in Indonesian, in prose the writer can paste directly into the field.
+4. Respect the length/format guidance for the field. Be vivid but concise — no filler.`.trim(),
+    USER: (fieldLabel: string, fieldGuide: string, profileBlock: string) => `
+PROFIL CERITA SAAT INI:
+${profileBlock || '(belum ada detail lain yang diisi)'}
+
+Buatkan draf untuk bidang "${fieldLabel}".
+Panduan bidang ini: ${fieldGuide}
+
+Tulis HANYA teks untuk "${fieldLabel}":`.trim()
+  },
   TEST_CONNECTION: {
     SYSTEM: () => "Connectivity tester. Reply 'OK' only.",
     USER: () => "Hi"
+  }
+};
+
+/**
+ * Panduan per-bidang Story Bible untuk fitur AI-assist: label manusiawi + arahan
+ * gaya/panjang yang dikirim ke model. Sumber tunggal agar prompt konsisten.
+ */
+export const BIBLE_ASSIST_FIELD_GUIDE: Record<string, { label: string; guide: string }> = {
+  tagline: {
+    label: 'Tagline',
+    guide: 'Satu kalimat pendek dan menggugah (maks ~15 kata) bergaya sampul buku yang memancing rasa penasaran. BUKAN ringkasan plot.'
+  },
+  premise: {
+    label: 'Premis Utama (Logline)',
+    guide: 'Satu paragraf padat (maks ~500 karakter): protagonis + tujuan/misi + konflik atau taruhan utama. Tonjolkan motif psikologis terkuat mengapa protagonis harus bertindak.'
+  },
+  setting: {
+    label: 'Latar / Setting Semesta',
+    guide: 'Deskripsi dunia dalam 1–2 paragraf padat: geografi/atmosfer, struktur sosial & kekuasaan, aturan sihir/teknologi, serta keunikan yang membedakannya.'
+  },
+  themes: {
+    label: 'Tema & Filosofi',
+    guide: 'Pertanyaan moral/filosofis besar dan motif berulang yang dieksplorasi cerita. Fokus pada makna, bukan ringkasan kejadian.'
+  },
+  targetAudience: {
+    label: 'Target Pembaca',
+    guide: 'Segmen & usia pembaca, selera yang dilayani, dan 1–2 judul buku pembanding (comp titles) yang relevan.'
   }
 };

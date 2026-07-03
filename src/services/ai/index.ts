@@ -3,7 +3,7 @@ import { getRelevantContext, getRelevantBibleRules } from '@/src/services/contex
 import { callProxy, getLightModelForProvider } from '@/src/services/ai/proxy';
 import { GenerateParams, ChatParams, ConsistencyParams, AIRenderParams } from '@/src/services/ai/types';
 import { ErrorService } from '@/src/services/errorService';
-import { AI_PROMPTS } from '@/src/lib/aiPrompts';
+import { AI_PROMPTS, BIBLE_ASSIST_FIELD_GUIDE } from '@/src/lib/aiPrompts';
 import { cleanRewriteOutput } from '@/src/lib/cleanRewriteOutput';
 import { formatBibleBlock } from '@/src/lib/storyBible';
 import { formatFieldsForAI } from '@/src/lib/codexFields';
@@ -167,7 +167,9 @@ function getSettings() {
 function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relationships: Relationship[] = [], depth: ContextDepth = 'balanced'): string {
   // If depth is minimal, we only include the most core rules and no lore
   if (depth === 'minimal') {
-    const coreKeys = ['__STORY_TITLE__', '__GENRES__', '__POV__'];
+    // Premis + Tema mengarahkan AI jauh lebih kuat daripada Judul; Judul sengaja
+    // TIDAK disertakan di mode minimal (nyaris tak berguna untuk generasi).
+    const coreKeys = ['__CORE_PREMISE__', '__GENRES__', '__TONES__', '__POV__', '__THEMES__'];
     const bible = formatBibleBlock(rules.filter(r => coreKeys.includes(r.key)));
 
     return bible ? `CORE RULES:\n${bible}` : '';
@@ -844,6 +846,87 @@ export async function expandCodexEntry(
     maxTokens: 1000,
     actionType: 'expand'
   });
+}
+
+export type BibleAssistField = 'tagline' | 'premise' | 'setting' | 'themes' | 'targetAudience';
+
+export interface BibleContextInput {
+  title?: string;
+  tagline?: string;
+  genres?: string[];
+  tones?: string[];
+  pov?: string;
+  pacing?: string;
+  premise?: string;
+  setting?: string;
+  themes?: string;
+  targetAudience?: string;
+}
+
+/** Bidang assist → key Story Bible di DB (dipakai untuk mengecualikan bidang target dari profil). */
+const BIBLE_FIELD_TO_KEY: Record<BibleAssistField, string> = {
+  tagline: '__STORY_TAGLINE__',
+  premise: '__CORE_PREMISE__',
+  setting: '__WORLD_SETTING__',
+  themes: '__THEMES__',
+  targetAudience: '__TARGET_AUDIENCE__',
+};
+
+/** Membersihkan output model dari code fence / tanda kutip pembungkus yang kadang lolos. */
+function stripWrappers(text: string): string {
+  let t = text.trim();
+  const fence = t.match(/^```(?:\w+)?\s*([\s\S]*?)\s*```$/);
+  if (fence) t = fence[1].trim();
+  if (t.length > 1 && ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith('“') && t.endsWith('”')))) {
+    t = t.slice(1, -1).trim();
+  }
+  return t;
+}
+
+/**
+ * AI-assist Story Bible: menghasilkan draf SATU bidang (premis/latar/tema/…) yang
+ * konsisten dengan profil cerita yang sudah diisi. Bidang target dikecualikan dari
+ * profil agar model tak sekadar menyalinnya. Kreatif namun ter-grounded (temp 0.8),
+ * dirutekan ke model penuh (actionType 'expand'). Bisa dibatalkan lewat cancelAI('bible-assist').
+ */
+export async function suggestBibleField(field: BibleAssistField, ctx: BibleContextInput): Promise<string> {
+  const guide = BIBLE_ASSIST_FIELD_GUIDE[field];
+  if (!guide) throw new AIError('Bidang Story Bible tidak dikenal.', 'API_ERROR');
+
+  const targetKey = BIBLE_FIELD_TO_KEY[field];
+  // Susun profil dari bidang yang TERISI, kecuali bidang target itu sendiri.
+  const rules: { key: string; instruction: string }[] = [
+    { key: '__STORY_TITLE__', instruction: ctx.title || '' },
+    { key: '__STORY_TAGLINE__', instruction: ctx.tagline || '' },
+    { key: '__GENRES__', instruction: JSON.stringify(ctx.genres || []) },
+    { key: '__TONES__', instruction: JSON.stringify(ctx.tones || []) },
+    { key: '__POV__', instruction: ctx.pov || '' },
+    { key: '__PACING__', instruction: ctx.pacing || '' },
+    { key: '__CORE_PREMISE__', instruction: ctx.premise || '' },
+    { key: '__WORLD_SETTING__', instruction: ctx.setting || '' },
+    { key: '__THEMES__', instruction: ctx.themes || '' },
+    { key: '__TARGET_AUDIENCE__', instruction: ctx.targetAudience || '' },
+  ].filter(r => r.key !== targetKey);
+
+  const profileBlock = formatBibleBlock(rules);
+  const systemInstruction = AI_PROMPTS.BIBLE_ASSIST.SYSTEM();
+  const userPrompt = AI_PROMPTS.BIBLE_ASSIST.USER(guide.label, guide.guide, profileBlock);
+
+  const controller = new AbortController();
+  registerAbort('bible-assist', controller);
+  try {
+    const res = await callAI({
+      systemInstruction,
+      userPrompt,
+      temperature: 0.8,
+      maxTokens: 800,
+      actionType: 'expand',
+      signal: controller.signal,
+    });
+    return stripWrappers(res);
+  } finally {
+    unregisterAbort('bible-assist', controller);
+  }
 }
 
 export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {

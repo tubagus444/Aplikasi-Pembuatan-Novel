@@ -396,12 +396,14 @@ export const FEATURES: Feature[] = [
     steps: [
       'Tetapkan Tone (mis. "Gelap, gotik, tanpa romansa") dan POV (mis. "Orang pertama, Aku").',
       'Isi Premis, Tema, dan Catatan Penulis sebagai arahan tambahan.',
-      'Aktif/nonaktifkan aturan tertentu agar fleksibel saat bereksperimen.',
+      'Buntu? Klik "Kembangkan dengan AI" di bidang Tagline/Premis/Latar/Tema/Target Pembaca — AI membaca profil yang sudah terisi lalu mengusulkan draf yang konsisten.',
     ],
     detail: [
       'Nilai ini disuntikkan ke instruksi AI di semua jalur (Magic Edit, Studio, Konsistensi) sehingga keluaran selalu sesuai pakem cerita.',
       'Bersama Codex, Buku Cerita membentuk "knowledge base" statis yang di-cache provider — itu sebabnya menyuntingnya membatalkan cache.',
+      'Saran AI bisa diterima dengan "Ganti isi" atau "Tambahkan", diulang untuk variasi, atau dibatalkan di tengah jalan — Anda tetap pemegang keputusan; tak ada yang tersimpan sebelum Anda menerapkannya.',
     ],
+    tip: 'AI-assist paling akurat setelah Judul + Genre + Tone terisi; makin lengkap profilnya, makin nyambung sarannya.',
   },
 
   // ── ANALISIS & KONSISTENSI ─────────────────────────────────────────────────

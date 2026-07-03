@@ -7,18 +7,20 @@ import React, { useState, useMemo } from 'react';
 import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useBiblePanel } from '@/src/features/lore/hooks/useBiblePanel';
+import { useBibleAssist } from '@/src/features/lore/hooks/useBibleAssist';
 import { useToast } from '@/src/hooks/useToast';
 import { GENRES, TONES, POVS, PACINGS } from '@/src/lib/storyBible';
-import { 
-  BookOpen, 
-  Sparkles, 
-  Globe, 
-  Zap, 
-  User, 
-  Clock, 
-  StickyNote, 
-  CheckCircle2, 
-  MapPin, 
+import type { BibleAssistField, BibleContextInput } from '@/src/services/ai';
+import {
+  BookOpen,
+  Sparkles,
+  Globe,
+  Zap,
+  User,
+  Clock,
+  StickyNote,
+  CheckCircle2,
+  MapPin,
   Palette,
   Target,
   Activity,
@@ -32,7 +34,10 @@ import {
   ArrowRight,
   RefreshCw,
   Compass,
-  Award
+  Award,
+  Wand2,
+  Loader2,
+  X
 } from 'lucide-react';
 
 interface BiblePanelProps {
@@ -62,6 +67,95 @@ const PROMPT_SUGGESTIONS = {
   ]
 };
 
+// Zona AI-assist per-bidang: tombol "Kembangkan dengan AI" + kotak pratinjau
+// saran (ganti/tambah/ulangi). Hanya satu bidang aktif pada satu waktu (state di
+// useBibleAssist), jadi kotak hanya muncul di bawah bidang yang sedang diproses.
+interface AiAssistZoneProps {
+  field: BibleAssistField;
+  assist: ReturnType<typeof useBibleAssist>['assist'];
+  canAppend: boolean;
+  onGenerate: (field: BibleAssistField) => void;
+  onCancel: () => void;
+  onClose: () => void;
+  onApply: (field: BibleAssistField, mode: 'replace' | 'append') => void;
+}
+
+function AiAssistZone({ field, assist, canAppend, onGenerate, onCancel, onClose, onApply }: AiAssistZoneProps) {
+  const isActive = assist.field === field;
+  const loading = isActive && assist.status === 'loading';
+
+  return (
+    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onGenerate(field)}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white text-[11px] font-bold shadow-sm shadow-indigo-500/20 hover:from-indigo-500 hover:to-indigo-400 transition-all disabled:opacity-60 disabled:cursor-wait"
+        >
+          {loading ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
+          {loading ? 'Menghasilkan…' : 'Kembangkan dengan AI'}
+        </button>
+        {loading && (
+          <button
+            onClick={onCancel}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:text-rose-500 transition-colors"
+          >
+            <X size={12} /> Batal
+          </button>
+        )}
+      </div>
+
+      {isActive && assist.status === 'error' && (
+        <div className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/20 text-[11px] text-rose-600 dark:text-rose-400">
+          <span className="flex-1">{assist.error}</span>
+          <button onClick={() => onGenerate(field)} className="font-bold underline shrink-0">Coba lagi</button>
+        </div>
+      )}
+
+      {isActive && assist.status === 'ready' && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
+            <Sparkles size={11} /> Saran AI
+          </div>
+          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{assist.suggestion}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onApply(field, 'replace')}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-500 transition-colors"
+            >
+              <Check size={12} /> Ganti isi
+            </button>
+            {canAppend && (
+              <button
+                onClick={() => onApply(field, 'append')}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:border-indigo-500/40 transition-colors"
+              >
+                <ArrowRight size={12} /> Tambahkan
+              </button>
+            )}
+            <button
+              onClick={() => onGenerate(field)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:text-indigo-500 transition-colors"
+            >
+              <RefreshCw size={12} /> Ulangi
+            </button>
+            <button
+              onClick={onClose}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 export function BiblePanel({ projectId }: BiblePanelProps) {
   const {
     formData,
@@ -75,6 +169,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
   } = useBiblePanel(projectId);
 
   const { toast } = useToast();
+  const { assist, generate, clear: clearAssist, cancel: cancelAssist } = useBibleAssist();
   const [activeTab, setActiveTab] = useState<'overview' | 'world' | 'narrative' | 'notes'>('overview');
 
   // Check if safe values exist
@@ -116,6 +211,45 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
     const updatedValue = currentValue ? `${currentValue}\n${text}` : text;
     flushField(field, updatedValue);
     toast.success("Inspirasi berhasil disematkan!");
+  };
+
+  // === AI-assist Story Bible ===
+  // Plafon panjang saat MENERAPKAN saran (selaras dengan cap onChange tiap bidang);
+  // tema/catatan tak dibatasi. Mencegah saran panjang menembus batas UI.
+  const BIBLE_FIELD_CAPS: Partial<Record<BibleAssistField, number>> = {
+    tagline: 200,
+    premise: 500,
+    setting: 1000,
+    targetAudience: 500,
+  };
+
+  const buildAssistCtx = (): BibleContextInput => ({
+    title: safeTitle,
+    tagline: safeTagline,
+    genres: safeGenres,
+    tones: safeTones,
+    pov: safePov,
+    pacing: safePacing,
+    premise: safePremise,
+    setting: safeSetting,
+    themes: safeThemes,
+    targetAudience: safeTargetAudience,
+  });
+
+  const handleGenerate = (field: BibleAssistField) => {
+    generate(field, buildAssistCtx());
+  };
+
+  const applyAssist = (field: BibleAssistField, mode: 'replace' | 'append') => {
+    const suggestion = assist.suggestion;
+    if (!suggestion) return;
+    const current = (formData[field] as string) || '';
+    let next = mode === 'append' && current ? `${current}\n${suggestion}` : suggestion;
+    const cap = BIBLE_FIELD_CAPS[field];
+    if (cap) next = next.substring(0, cap);
+    flushField(field, next);
+    clearAssist();
+    toast.success('Saran AI diterapkan!');
   };
 
   // Calculate fields filled per category for micro progress details
@@ -286,6 +420,16 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
           </div>
         </div>
 
+        <AiAssistZone
+          field="tagline"
+          assist={assist}
+          canAppend={false}
+          onGenerate={handleGenerate}
+          onCancel={cancelAssist}
+          onClose={clearAssist}
+          onApply={applyAssist}
+        />
+
         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 dark:text-slate-500">
           <div className="flex items-center gap-2">
             <Award size={14} className="text-amber-500" />
@@ -433,6 +577,16 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                   </div>
                 </div>
                 
+                <AiAssistZone
+                  field="premise"
+                  assist={assist}
+                  canAppend={!!safePremise}
+                  onGenerate={handleGenerate}
+                  onCancel={cancelAssist}
+                  onClose={clearAssist}
+                  onApply={applyAssist}
+                />
+
                 <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 italic">
                   <Sparkles size={11} className="text-amber-500" />
                   <span>Petunjuk: Sebutkan motif psikologis terkuat mengapa protagonis harus bertindak.</span>
@@ -514,6 +668,16 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                     ))}
                   </div>
                 </div>
+
+                <AiAssistZone
+                  field="setting"
+                  assist={assist}
+                  canAppend={!!safeSetting}
+                  onGenerate={handleGenerate}
+                  onCancel={cancelAssist}
+                  onClose={clearAssist}
+                  onApply={applyAssist}
+                />
               </motion.div>
 
               {/* Themes Card */}
@@ -585,6 +749,16 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                     ))}
                   </div>
                 </div>
+
+                <AiAssistZone
+                  field="themes"
+                  assist={assist}
+                  canAppend={!!safeThemes}
+                  onGenerate={handleGenerate}
+                  onCancel={cancelAssist}
+                  onClose={clearAssist}
+                  onApply={applyAssist}
+                />
               </motion.div>
 
             </motion.div>
@@ -825,6 +999,16 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
                   onChange={e => handleFieldChange('targetAudience', e.target.value.substring(0, 500))}
                   onBlur={() => handleBlur('targetAudience')}
                 />
+
+                <AiAssistZone
+                  field="targetAudience"
+                  assist={assist}
+                  canAppend={!!safeTargetAudience}
+                  onGenerate={handleGenerate}
+                  onCancel={cancelAssist}
+                  onClose={clearAssist}
+                  onApply={applyAssist}
+                />
               </motion.div>
 
             </motion.div>
@@ -932,7 +1116,7 @@ export function BiblePanel({ projectId }: BiblePanelProps) {
 
       {/* Decorative credit footer */}
       <div className="mt-8 text-center">
-        <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-600 font-bold">Terakhir diperbarui hari ini</p>
+        <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-600 font-bold">Tersimpan otomatis di peramban</p>
       </div>
 
     </div>
