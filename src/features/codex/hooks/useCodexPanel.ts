@@ -119,6 +119,8 @@ export function useCodexPanel(projectId: number) {
       tags: entry.tags || [],
       hidden: entry.hidden,
       secret: entry.secret,
+      worldStatus: entry.worldStatus,
+      todo: entry.todo,
       customFields: entry.customFields || []
     });
     setEditingId(entry.id!);
@@ -143,6 +145,10 @@ export function useCodexPanel(projectId: number) {
         tags: data.tags || [],
         hidden: !!data.hidden,
         secret: data.secret?.trim() || '',
+        // Kelengkapan worldbuilding (#11). worldStatus dibiarkan undefined bila belum
+        // ditetapkan penulis (agar saran otomatis tetap berlaku), bukan dipaksa nilai.
+        worldStatus: data.worldStatus,
+        todo: data.todo?.trim() || '',
         // Template field per kategori (#17). Denormalisasi label sudah dilakukan CodexForm.
         customFields: data.customFields || []
       });
@@ -156,6 +162,8 @@ export function useCodexPanel(projectId: number) {
         tags: data.tags || [],
         hidden: !!data.hidden,
         secret: data.secret?.trim() || '',
+        worldStatus: data.worldStatus,
+        todo: data.todo?.trim() || '',
         customFields: data.customFields || []
       } as CodexEntry);
     }

@@ -17,7 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
-  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal,
+  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -337,6 +337,23 @@ export const FEATURES: Feature[] = [
       'Ini kebalikan dari pencocokan biasa: alih-alih menyorot yang sudah ada di Codex, ia mencari yang BELUM ada.',
       'Berjalan deterministik & lokal (nol token); enrichment deskripsi barulah opsional memakai AI.',
     ],
+  },
+  {
+    id: 'completeness', group: 'world', Icon: ClipboardList, color: 'indigo', view: 'completeness', openLabel: 'Buka Kelengkapan Dunia',
+    title: 'Kelengkapan Dunia (status & TODO lore)',
+    where: 'Menu: Dunia & Lore → Kelengkapan Dunia',
+    what: 'Peta seberapa matang tiap bagian worldbuilding Anda: status kematangan per entri (Solid/Parsial/Rangka) plus daftar pekerjaan (TODO) yang tersisa.',
+    steps: [
+      'Di form entri Codex, tetapkan Status kelengkapan (atau biarkan "Otomatis" — alat menyarankan dari kepadatan isi) dan tuliskan catatan/TODO (satu baris per item).',
+      'Buka Kelengkapan Dunia untuk melihat rekap: persentase solid, rincian per kategori, daftar entri "Masih Rangka", dan semua TODO tersisa.',
+      'Klik entri atau item TODO untuk langsung melompat ke detailnya di Kamus Data dan menggarapnya.',
+    ],
+    detail: [
+      'Filosofi "penulis mendeklarasikan, alat membukukan": status yang Anda set menang; bila kosong, badge menampilkan saran (bertanda "?") tanpa mengubah data.',
+      'Deterministik & nol token — murni metadata alur kerja. Status/TODO TIDAK diberikan ke AI maupun ekspor manuskrip.',
+      'Berguna untuk melihat bagian dunia mana yang masih kerangka dan perlu diprioritaskan sebelum menulis jauh.',
+    ],
+    tip: 'Nol token: hanya menghitung & meringkas data yang sudah ada.',
   },
   {
     id: 'relationships', group: 'world', Icon: Share2, color: 'rose', view: 'relationships',

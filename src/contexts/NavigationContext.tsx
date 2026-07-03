@@ -12,7 +12,7 @@ import { useProject } from '@/src/contexts/ProjectContext';
 const VIEW_MODE_STORAGE_KEY = 'aether_view_mode';
 const VALID_VIEW_MODES: ViewMode[] = [
   'write', 'outline', 'codex', 'bible', 'settings', 'actions', 'relationships',
-  'guide', 'errors', 'brainstorm', 'dashboard', 'consistency', 'timeline', 'orphans', 'continuity', 'arc', 'prose', 'workshop', 'search', 'promises', 'glossary',
+  'guide', 'errors', 'brainstorm', 'dashboard', 'consistency', 'timeline', 'orphans', 'continuity', 'arc', 'prose', 'workshop', 'search', 'promises', 'glossary', 'completeness',
 ];
 
 /** Baca panel terakhir dari localStorage; fallback ke 'write' bila kosong/tidak valid. */
@@ -38,6 +38,11 @@ interface NavigationContextType {
   /** Pindah ke editor pada bab tertentu lalu sorot sepotong teks (mis. dari Cek Konsistensi). */
   jumpToText: (chapterId: number, text: string) => void;
   clearPendingHighlight: () => void;
+  /** Entri Codex yang harus dibuka detailnya setelah berpindah ke panel Codex (deep-link). */
+  pendingCodexEntryId: number | null;
+  /** Pindah ke panel Codex lalu buka modal detail entri tertentu (mis. dari panel Kelengkapan). */
+  openCodexEntry: (entryId: number) => void;
+  clearPendingCodexEntry: () => void;
   /** Sasaran sesi Lokakarya Codex yang sedang aktif (null bila tidak sedang di Lokakarya). */
   workshopTarget: WorkshopTarget | null;
   /** Buka Lokakarya Codex untuk entitas tertentu; mengingat panel asal untuk tombol Kembali. */
@@ -53,6 +58,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
   const [activeChapterId, setActiveChapterId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(loadInitialViewMode);
   const [pendingHighlight, setPendingHighlight] = useState<string | null>(null);
+  const [pendingCodexEntryId, setPendingCodexEntryId] = useState<number | null>(null);
   const [workshopTarget, setWorkshopTarget] = useState<WorkshopTarget | null>(null);
   // Lacak proyek sebelumnya agar bisa membedakan refresh (restore panel) vs ganti proyek (reset ke editor).
   const prevProjectIdRef = useRef<number | null>(null);
@@ -66,6 +72,13 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const clearPendingHighlight = useCallback(() => setPendingHighlight(null), []);
+
+  const openCodexEntry = useCallback((entryId: number) => {
+    setPendingCodexEntryId(entryId);
+    setViewMode('codex');
+  }, []);
+
+  const clearPendingCodexEntry = useCallback(() => setPendingCodexEntryId(null), []);
 
   const openWorkshop = useCallback((target: WorkshopTarget) => {
     setViewMode(prev => {
@@ -140,6 +153,9 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       pendingHighlight,
       jumpToText,
       clearPendingHighlight,
+      pendingCodexEntryId,
+      openCodexEntry,
+      clearPendingCodexEntry,
       workshopTarget,
       openWorkshop,
       closeWorkshop

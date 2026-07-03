@@ -16,6 +16,7 @@ menjaga konteks, dan mempercepat revisi** — tanpa membutuhkan database backend
 - **Analisis & konsistensi** — sebagian **nol token** (deterministik, lokal):
   - Cek Konsistensi per-bab (AI) & Konsistensi Inline (garis bawah: timeline amber, ejaan nama/"Buku Gaya" merah, temuan AI ungu).
   - Peta Kontinuitas, Lensa Karakter, Wawasan Prosa, Timeline Cerita, Saran Entitas, dan Janji Plot (Chekhov's Gun).
+  - **Kelengkapan Dunia**: status kematangan per entri lore (Solid/Parsial/Rangka, manual + saran otomatis) plus daftar TODO — peta bagian worldbuilding yang masih perlu digarap.
 - **Asisten AI**: Magic Edit (tulis ulang per-seleksi), Studio Asisten & Scribble (chat), snippet/aksi kustom, plus pencarian adegan semantik.
 - **AI multi-provider** dengan fallback otomatis, circuit breaker, dan exponential backoff:
   Google Gemini, Anthropic Claude, Groq, OpenRouter, Hugging Face, dan Ollama (lokal). Prompt caching & penyetel token/biaya bawaan.

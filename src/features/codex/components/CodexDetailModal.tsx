@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight } from 'lucide-react';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight, ListChecks } from 'lucide-react';
 import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
 import { buildLoreGraph } from '@/src/lib/loreGraph';
+import { effectiveStatus, parseTodos } from '@/src/lib/worldCompleteness';
+import { WorldStatusBadge } from '@/src/features/codex/components/WorldStatusBadge';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { QuickPromiseModal } from '@/src/features/consistency/components/QuickPromiseModal';
 import { NameForgeModal } from '@/src/features/codex/components/NameForgeModal';
@@ -48,6 +50,8 @@ export function CodexDetailModal({
   const accent = getCategoryAccent(entry.category, categories);
   const linkTargets = entries.filter(e => e.id !== entry.id);
   const fieldValues = resolveFieldValues(entry);
+  const status = effectiveStatus(entry);
+  const todos = parseTodos(entry.todo);
 
   // Backlink (#9): siapa yang menunjuk ke entri ini. Relasi sengaja DIKELUARKAN —
   // sudah tampil dua-arah di seksi "Hubungan"; sisakan sebutan-nama & payoff janji
@@ -104,6 +108,7 @@ export function CodexDetailModal({
                     <EyeOff size={11} /> Rahasia
                   </span>
                 )}
+                <WorldStatusBadge status={status.status} suggested={status.suggested} />
               </div>
               <span className="text-xs uppercase tracking-widest font-bold text-indigo-500 dark:text-indigo-400">
                 {getCategoryLabel(entry.category, categories)}
@@ -215,6 +220,23 @@ export function CodexDetailModal({
                 <span className="font-normal normal-case tracking-normal text-purple-400 dark:text-purple-500">· hanya penulis &amp; AI</span>
               </h4>
               <p className="font-serif text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{entry.secret.trim()}</p>
+            </div>
+          )}
+
+          {/* Catatan & TODO (#11) — pekerjaan worldbuilding yang tersisa untuk entri ini */}
+          {todos.length > 0 && (
+            <div className="mb-10 rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/15 p-5">
+              <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300 mb-3">
+                <ListChecks size={14} /> Catatan &amp; TODO
+              </h4>
+              <ul className="space-y-1.5">
+                {todos.map((t, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span className="whitespace-pre-wrap break-words">{t}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

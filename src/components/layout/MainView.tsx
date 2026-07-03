@@ -31,6 +31,7 @@ const PlotPromisePanel = lazy(() => import('@/src/features/consistency/component
 const GlossaryPanel = lazy(() => import('@/src/features/consistency/components/GlossaryPanel').then(m => ({ default: m.GlossaryPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
+const WorldCompletenessPanel = lazy(() => import('@/src/features/codex/components/WorldCompletenessPanel').then(m => ({ default: m.WorldCompletenessPanel })));
 const SemanticSearchPanel = lazy(() => import('@/src/features/search/components/SemanticSearchPanel').then(m => ({ default: m.SemanticSearchPanel })));
 const CodexWorkshopPanel = lazy(() => import('@/src/features/codex-workshop/components/CodexWorkshopPanel').then(m => ({ default: m.CodexWorkshopPanel })));
 
@@ -172,6 +173,14 @@ export function MainView() {
             <ViewContainer key="orphans" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <OrphanScanPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'completeness' && projectId && (
+            <ViewContainer key="completeness" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <WorldCompletenessPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

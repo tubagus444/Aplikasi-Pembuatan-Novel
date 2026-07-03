@@ -5,6 +5,8 @@ import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
 import { getCategoryLabel, getCategoryAccent, type CategoryDef } from '@/src/lib/codexCategories';
 import { resolveFieldValues } from '@/src/lib/codexFields';
+import { effectiveStatus } from '@/src/lib/worldCompleteness';
+import { WorldStatusBadge } from '@/src/features/codex/components/WorldStatusBadge';
 
 interface CodexCardProps {
   entry: CodexEntry;
@@ -35,6 +37,8 @@ function CodexCardImpl({
   const relCount = relationships.filter(r => r.sourceId === entry.id || r.targetId === entry.id).length;
   // Template field per kategori (#17): tampilkan ringkas maksimal 2 field kunci.
   const keyFields = resolveFieldValues(entry).slice(0, 2);
+  // Kelengkapan worldbuilding (#11): status kematangan (badge kecil).
+  const status = effectiveStatus(entry);
 
   return (
     <div
@@ -59,9 +63,12 @@ function CodexCardImpl({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
-                {getCategoryLabel(entry.category, categories)}
-              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
+                  {getCategoryLabel(entry.category, categories)}
+                </span>
+                <WorldStatusBadge status={status.status} suggested={status.suggested} size="sm" />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

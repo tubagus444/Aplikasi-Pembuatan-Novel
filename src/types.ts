@@ -64,7 +64,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -183,6 +183,11 @@ export interface NamePalette {
   morphemes?: Morpheme[];
 }
 
+// Kelengkapan worldbuilding (#11): status kematangan sebuah entri lore, dideklarasikan
+// penulis. 'stub' = rangka/placeholder, 'partial' = ada isi tapi belum lengkap,
+// 'solid' = matang. Logika turunan di `src/lib/worldCompleteness.ts`.
+export type WorldStatus = 'stub' | 'partial' | 'solid';
+
 export interface CodexEntry {
   id?: number;
   projectId: number;
@@ -206,6 +211,18 @@ export interface CodexEntry {
    * objek codex.
    */
   namePalette?: NamePalette;
+  /**
+   * Pelacak kelengkapan worldbuilding (#11) — lapis manajemen-proyek untuk lore.
+   * Keduanya inert (BUKAN FK, tak diindeks, TAK masuk KB AI/ekspor pembaca) — murni
+   * metadata alur kerja penulis. Ikut backup/impor otomatis sebagai bagian objek codex.
+   * - `worldStatus`: kematangan yang DIDEKLARASIKAN penulis (manual). undefined = belum
+   *   ditetapkan → panel/form menampilkan SARAN otomatis (heuristik `suggestStatus`)
+   *   tanpa menyimpannya (filosofi "penulis mendeklarasikan, alat membukukan").
+   * - `todo`: catatan/gap bebas multi-baris (tiap baris = satu item TODO).
+   * Logika di `src/lib/worldCompleteness.ts`.
+   */
+  worldStatus?: WorldStatus;
+  todo?: string;
   /**
    * Template field per kategori (#17): nilai field terstruktur khas kategori (mis.
    * Bestiari: Habitat/Kelemahan). Array TER-DENORMALISASI & inert (BUKAN FK, tak

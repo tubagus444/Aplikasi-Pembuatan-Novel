@@ -9,6 +9,8 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { BUILTIN_CATEGORIES, type CategoryDef } from '@/src/lib/codexCategories';
 import { parseCodexMarkdown } from '@/src/lib/codexImport';
 import { fieldValueMap, buildFieldValues } from '@/src/lib/codexFields';
+import { WORLD_STATUSES, STATUS_LABEL, suggestStatus } from '@/src/lib/worldCompleteness';
+import { WORLD_STATUS_META } from '@/src/features/codex/components/WorldStatusBadge';
 
 interface CodexFormProps {
   initialData?: Partial<CodexEntry>;
@@ -61,6 +63,16 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
   const activeCategory = categories.find(c => c.slug === formData.category);
   const fieldDefs = activeCategory?.fields ?? [];
   const setField = (key: string, v: string) => setFieldValues(prev => ({ ...prev, [key]: v }));
+
+  // Kelengkapan worldbuilding (#11): saran status "lembut" dari isi form saat ini.
+  // Ditampilkan saat penulis belum menetapkan status (mode "Otomatis").
+  const suggested = suggestStatus({
+    description: formData.description || '',
+    secret: formData.secret,
+    customFields: Object.values(fieldValues).some(v => v?.trim())
+      ? [{ key: '_', label: '_', value: 'x' }]
+      : [],
+  });
 
   const handleSave = () => {
     onSave({ ...formData, customFields: buildFieldValues(fieldDefs, fieldValues) });
@@ -375,6 +387,68 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
             </div>
           </div>
         )}
+
+        {/* Kelengkapan worldbuilding (#11) — status kematangan + catatan/TODO */}
+        <div className="mt-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/30 p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Status kelengkapan</label>
+            {!formData.worldStatus && (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                Disarankan: <span className="font-semibold">{STATUS_LABEL[suggested]}</span>
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, worldStatus: undefined })}
+              className={cn(
+                'text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all',
+                !formData.worldStatus
+                  ? 'bg-indigo-600 text-white border-transparent'
+                  : 'bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800',
+              )}
+              title="Biarkan alat menyarankan status dari kepadatan isi"
+            >
+              Otomatis
+            </button>
+            {WORLD_STATUSES.map(s => {
+              const meta = WORLD_STATUS_META[s];
+              const Icon = meta.icon;
+              const active = formData.worldStatus === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, worldStatus: s })}
+                  className={cn(
+                    'flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all',
+                    active
+                      ? cn(meta.chip, 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-900 ring-current')
+                      : 'bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800',
+                  )}
+                >
+                  <Icon size={12} /> {STATUS_LABEL[s]}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Catatan &amp; TODO <span className="font-normal text-slate-400">(opsional — satu baris per item)</span>
+            </label>
+            <textarea
+              className="w-full min-h-[70px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100 resize-y"
+              placeholder={"Mis.:\ntentukan sistem pemerintahan\nnama mata uang lokal"}
+              value={formData.todo ?? ''}
+              onChange={e => setFormData({ ...formData, todo: e.target.value })}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Muncul di panel <span className="font-semibold">Kelengkapan Dunia</span> sebagai daftar pekerjaan tersisa. Tak diberikan ke AI/ekspor.
+            </p>
+          </div>
+        </div>
 
         {/* Lapis "Kebenaran Tersembunyi" — kanon vs rahasia penulis */}
         <div className="mt-6 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-900/10 p-4">

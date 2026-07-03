@@ -22,7 +22,7 @@ interface CodexPanelProps {
 }
 
 export function CodexPanel({ projectId }: CodexPanelProps) {
-  const { openWorkshop } = useNavigation();
+  const { openWorkshop, pendingCodexEntryId, clearPendingCodexEntry } = useNavigation();
   const { toast } = useToast();
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const {
@@ -88,6 +88,15 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     URL.revokeObjectURL(url);
     toast.success(`${entries.length} entri diekspor ke Markdown.`);
   };
+
+  // Deep-link (#11): buka modal detail entri saat dipanggil dari panel lain (mis.
+  // Kelengkapan Dunia). Tunggu entries termuat, lalu konsumsi & bersihkan pending-nya.
+  useEffect(() => {
+    if (pendingCodexEntryId == null || !entries) return;
+    const target = entries.find(e => e.id === pendingCodexEntryId);
+    if (target) setSelectedEntry(target);
+    clearPendingCodexEntry();
+  }, [pendingCodexEntryId, entries, setSelectedEntry, clearPendingCodexEntry]);
 
   useEffect(() => {
     if (confirmDeleteId === null) return;
