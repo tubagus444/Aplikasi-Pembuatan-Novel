@@ -11,6 +11,7 @@ import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedD
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
 import { getRelationshipLabel, RELATIONSHIP_TYPES } from '@/src/features/codex/relationshipTypes';
 import { getCategoryLabel, getCategoryAccent, type CategoryDef } from '@/src/lib/codexCategories';
+import { resolveFieldValues } from '@/src/lib/codexFields';
 
 interface CodexDetailModalProps {
   entry: CodexEntry;
@@ -46,6 +47,7 @@ export function CodexDetailModal({
   );
   const accent = getCategoryAccent(entry.category, categories);
   const linkTargets = entries.filter(e => e.id !== entry.id);
+  const fieldValues = resolveFieldValues(entry);
 
   // Backlink (#9): siapa yang menunjuk ke entri ini. Relasi sengaja DIKELUARKAN —
   // sudah tampil dua-arah di seksi "Hubungan"; sisakan sebutan-nama & payoff janji
@@ -190,6 +192,20 @@ export function CodexDetailModal({
               <span className="italic opacity-60">Deskripsi belum diisi.</span>
             )}
           </div>
+
+          {/* Template field per kategori (#17) — detail terstruktur khas kategori */}
+          {fieldValues.length > 0 && (
+            <div className="mb-10 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 p-5">
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                {fieldValues.map(f => (
+                  <div key={f.key} className="min-w-0">
+                    <dt className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">{f.label}</dt>
+                    <dd className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
 
           {/* Kebenaran tersembunyi — hanya untuk penulis, tak pernah ke output pembaca */}
           {entry.secret?.trim() && (

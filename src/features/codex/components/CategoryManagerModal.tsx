@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Plus, Trash2, Check, Lock, AlertTriangle } from 'lucide-react';
+import { X, Plus, Trash2, Check, Lock, AlertTriangle, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { db } from '@/src/db';
 import { useToast } from '@/src/hooks/useToast';
 import { invalidateContextCache } from '@/src/services/contextEngine';
@@ -8,7 +8,15 @@ import {
   BUILTIN_CATEGORIES, ICON_KEYS, COLOR_KEYS,
   resolveIcon, resolveColor, slugify, isBuiltinSlug,
 } from '@/src/lib/codexCategories';
-import type { CustomCategory } from '@/src/types';
+import { slugifyFieldKey } from '@/src/lib/codexFields';
+import type { CustomCategory, CategoryFieldDef, CodexFieldType } from '@/src/types';
+
+const FIELD_TYPE_LABELS: Record<CodexFieldType, string> = {
+  text: 'Teks singkat',
+  textarea: 'Teks panjang',
+  number: 'Angka',
+  select: 'Pilihan',
+};
 
 interface CategoryManagerModalProps {
   projectId: number;
@@ -23,6 +31,44 @@ export function CategoryManagerModal({ projectId, custom, onClose }: CategoryMan
   const [color, setColor] = useState(COLOR_KEYS[0]);
   const [pendingDelete, setPendingDelete] = useState<CustomCategory | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Editor template field (#17) per kategori kustom.
+  const [editingFieldsFor, setEditingFieldsFor] = useState<number | null>(null);
+  const [fLabel, setFLabel] = useState('');
+  const [fType, setFType] = useState<CodexFieldType>('text');
+  const [fOptions, setFOptions] = useState('');
+
+  const toggleEditFields = (id: number) => {
+    setEditingFieldsFor(prev => (prev === id ? null : id));
+    setFLabel(''); setFOptions(''); setFType('text');
+  };
+
+  const addField = async (cat: CustomCategory) => {
+    const label = fLabel.trim();
+    if (!label) return;
+    const existing = cat.fields ?? [];
+    const key = slugifyFieldKey(label, existing.map(f => f.key));
+    const def: CategoryFieldDef = { key, label, type: fType };
+    if (fType === 'select') {
+      const opts = fOptions.split(',').map(s => s.trim()).filter(Boolean);
+      if (!opts.length) { toast.error('Isi minimal satu opsi (pisahkan dengan koma).'); return; }
+      def.options = opts;
+    }
+    try {
+      await db.codexCategories.update(cat.id!, { fields: [...existing, def] });
+      setFLabel(''); setFOptions(''); setFType('text');
+    } catch (e: any) {
+      toast.error('Gagal menambah field: ' + (e?.message || String(e)));
+    }
+  };
+
+  const removeField = async (cat: CustomCategory, key: string) => {
+    try {
+      await db.codexCategories.update(cat.id!, { fields: (cat.fields ?? []).filter(f => f.key !== key) });
+    } catch (e: any) {
+      toast.error('Gagal menghapus field: ' + (e?.message || String(e)));
+    }
+  };
 
   const handleAdd = async () => {
     const trimmed = label.trim();
@@ -160,21 +206,104 @@ export function CategoryManagerModal({ projectId, custom, onClose }: CategoryMan
           {custom.length > 0 && (
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Kategori kustom</p>
-              {custom.map(cat => (
-                <div key={cat.id} className="flex items-center gap-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2">
-                  <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    {React.createElement(resolveIcon(cat.icon), { size: 18, className: resolveColor(cat.color) })}
+              {custom.map(cat => {
+                const isEditing = editingFieldsFor === cat.id;
+                const fields = cat.fields ?? [];
+                return (
+                <div key={cat.id} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      {React.createElement(resolveIcon(cat.icon), { size: 18, className: resolveColor(cat.color) })}
+                    </div>
+                    <span className="flex-1 text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                      {cat.label}
+                      {fields.length > 0 && (
+                        <span className="ml-2 text-[10px] font-semibold text-indigo-500 dark:text-indigo-400">{fields.length} field</span>
+                      )}
+                    </span>
+                    <button
+                      onClick={() => toggleEditFields(cat.id!)}
+                      className={`flex items-center gap-1 p-1.5 rounded-lg transition-colors ${isEditing ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}`}
+                      title="Kelola field terstruktur (mis. Habitat, Kelemahan)"
+                    >
+                      <SlidersHorizontal size={15} />
+                      <ChevronDown size={13} className={`transition-transform ${isEditing ? 'rotate-180' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => setPendingDelete(cat)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      title="Hapus kategori"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                  <span className="flex-1 text-sm font-medium text-slate-800 dark:text-slate-100">{cat.label}</span>
-                  <button
-                    onClick={() => setPendingDelete(cat)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                    title="Hapus kategori"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+
+                  {isEditing && (
+                    <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 px-3 py-3 space-y-3">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Field terstruktur yang bisa diisi tiap entri kategori ini. Nilainya ikut ke AI &amp; ekspor.
+                      </p>
+
+                      {fields.length > 0 && (
+                        <div className="space-y-1.5">
+                          {fields.map(f => (
+                            <div key={f.key} className="flex items-center gap-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5">
+                              <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{f.label}</span>
+                              <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-400 dark:text-slate-500 shrink-0">
+                                {FIELD_TYPE_LABELS[f.type]}{f.type === 'select' && f.options ? ` · ${f.options.length}` : ''}
+                              </span>
+                              <button
+                                onClick={() => removeField(cat, f.key)}
+                                className="shrink-0 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                                title="Hapus field"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Tambah field */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          value={fLabel}
+                          onChange={e => setFLabel(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addField(cat); }}
+                          placeholder="Nama field, mis. Habitat"
+                          className="flex-1 min-w-[140px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                        />
+                        <select
+                          value={fType}
+                          onChange={e => setFType(e.target.value as CodexFieldType)}
+                          title="Tipe field"
+                          className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                        >
+                          {(Object.keys(FIELD_TYPE_LABELS) as CodexFieldType[]).map(t => (
+                            <option key={t} value={t}>{FIELD_TYPE_LABELS[t]}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => addField(cat)}
+                          disabled={!fLabel.trim()}
+                          className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={14} /> Field
+                        </button>
+                      </div>
+                      {fType === 'select' && (
+                        <input
+                          value={fOptions}
+                          onChange={e => setFOptions(e.target.value)}
+                          placeholder="Opsi pilihan, pisahkan koma (mis. Rendah, Sedang, Tinggi)"
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

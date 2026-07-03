@@ -17,7 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
-  ClipboardPaste, EyeOff, Waypoints,
+  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -220,6 +220,23 @@ export const FEATURES: Feature[] = [
       'Enrichment AI bawaan hanya memakai 6 kategori inti; kategori kustom bersifat manual (Anda yang mengisi).',
     ],
     tip: 'Selesaikan editing Codex/Bible dulu sebelum sesi menulis — mengedit lore membatalkan cache prompt sehingga panggilan AI berikutnya jadi lebih mahal.',
+  },
+  {
+    id: 'codex-fields', group: 'world', Icon: SlidersHorizontal, color: 'indigo', view: 'codex', openLabel: 'Buka Kamus Data',
+    title: 'Template field per kategori (bestiari, herbologi, dll)',
+    where: 'Kamus Data → pengelola "Kategori" → ikon sliders pada kategori kustom',
+    what: 'Beri kategori kustom field terstruktur khas (mis. Bestiari: Habitat, Kelemahan Fatal, Level Ancaman) — satu mekanisme menggantikan banyak "modul" terpisah.',
+    steps: [
+      'Buka "Kategori" → buat/pilih kategori kustom (mis. "Bestiari") → klik ikon sliders untuk mengelola field.',
+      'Tambahkan field: beri nama, pilih tipe (teks singkat / teks panjang / angka / pilihan). Untuk "pilihan", isi opsinya (pisahkan koma).',
+      'Buat/ubah entri berkategori itu → seksi "Detail {kategori}" muncul otomatis dengan field tadi untuk diisi.',
+    ],
+    detail: [
+      'Nilai field tampil ringkas di kartu (≤2 field kunci) dan lengkap di detail entri.',
+      'Nilai IKUT ke AI (Cek Konsistensi bisa menangkap kontradiksi anatomi/kelemahan) dan ke ekspor Markdown Codex.',
+      'Hanya kategori kustom yang bisa punya field; 6 kategori bawaan tetap polos. Menghapus field tak menghapus nilai lama di entri (tersembunyi hingga entri disimpan ulang).',
+    ],
+    tip: 'Deterministik & nol token: satu fitur ini menggantikan modul bestiari/herbologi/artefak/quest terpisah — cukup buat kategori + field-nya.',
   },
   {
     id: 'codex-secret', group: 'world', Icon: EyeOff, color: 'purple', view: 'codex', openLabel: 'Buka Kamus Data',

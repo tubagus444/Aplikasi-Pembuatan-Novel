@@ -116,7 +116,10 @@ export function useCodexPanel(projectId: number) {
       category: entry.category,
       description: entry.description,
       aliases: entry.aliases || [],
-      tags: entry.tags || []
+      tags: entry.tags || [],
+      hidden: entry.hidden,
+      secret: entry.secret,
+      customFields: entry.customFields || []
     });
     setEditingId(entry.id!);
     setIsAdding(true);
@@ -139,7 +142,9 @@ export function useCodexPanel(projectId: number) {
         aliases: data.aliases || [],
         tags: data.tags || [],
         hidden: !!data.hidden,
-        secret: data.secret?.trim() || ''
+        secret: data.secret?.trim() || '',
+        // Template field per kategori (#17). Denormalisasi label sudah dilakukan CodexForm.
+        customFields: data.customFields || []
       });
     } else {
       await db.codex.add({
@@ -150,7 +155,8 @@ export function useCodexPanel(projectId: number) {
         aliases: data.aliases || [],
         tags: data.tags || [],
         hidden: !!data.hidden,
-        secret: data.secret?.trim() || ''
+        secret: data.secret?.trim() || '',
+        customFields: data.customFields || []
       } as CodexEntry);
     }
     

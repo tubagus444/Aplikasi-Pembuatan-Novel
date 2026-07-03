@@ -206,6 +206,35 @@ export interface CodexEntry {
    * objek codex.
    */
   namePalette?: NamePalette;
+  /**
+   * Template field per kategori (#17): nilai field terstruktur khas kategori (mis.
+   * Bestiari: Habitat/Kelemahan). Array TER-DENORMALISASI & inert (BUKAN FK, tak
+   * diindeks) — `label` di-snapshot dari `CategoryFieldDef` saat simpan agar SEMUA
+   * jalur baca (KB AI, ekspor, detail) self-contained tanpa perlu resolusi kategori.
+   * Skema field-nya sendiri hidup di `CustomCategory.fields`. Ikut backup/impor
+   * otomatis sebagai bagian objek codex. Logika di `src/lib/codexFields.ts`.
+   */
+  customFields?: CustomFieldValue[];
+}
+
+// Template field per kategori (#17). Skema (definisi) hidup di CustomCategory.fields;
+// nilainya di CodexEntry.customFields. Semua inert (bukan FK, tak diindeks).
+export type CodexFieldType = 'text' | 'textarea' | 'number' | 'select';
+
+export interface CategoryFieldDef {
+  /** Slug STABIL (dari label saat dibuat) — jangan ubah; jadi kunci nilai di entri. */
+  key: string;
+  /** Label tampil; boleh disunting (entri lama menyimpan snapshot label sendiri). */
+  label: string;
+  type: CodexFieldType;
+  /** Opsi untuk type 'select'. */
+  options?: string[];
+}
+
+export interface CustomFieldValue {
+  key: string;    // = CategoryFieldDef.key
+  label: string;  // snapshot label saat simpan (self-contained untuk KB/ekspor)
+  value: string;  // selalu string (number pun string) demi determinisme
 }
 
 // Kategori Codex kustom per-proyek. `slug` dipakai sebagai nilai `CodexEntry.category`
@@ -219,6 +248,8 @@ export interface CustomCategory {
   icon: string;
   color: string;
   order: number;
+  /** Template field per kategori (#17) — skema field yang diisi entri kategori ini. */
+  fields?: CategoryFieldDef[];
 }
 
 export interface StoryBibleRule {

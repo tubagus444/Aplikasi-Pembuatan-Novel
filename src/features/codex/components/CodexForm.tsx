@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle, ClipboardPaste, EyeOff } from 'lucide-react';
+import { Edit2, Plus, X, Wand2, Check, Undo2, AlertTriangle, ClipboardPaste, EyeOff, SlidersHorizontal } from 'lucide-react';
 import { CodexEntry, CodexCategory } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { expandCodexEntry } from '@/src/services/ai';
@@ -8,6 +8,7 @@ import { useToast } from '@/src/hooks/useToast';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { BUILTIN_CATEGORIES, type CategoryDef } from '@/src/lib/codexCategories';
 import { parseCodexMarkdown } from '@/src/lib/codexImport';
+import { fieldValueMap, buildFieldValues } from '@/src/lib/codexFields';
 
 interface CodexFormProps {
   initialData?: Partial<CodexEntry>;
@@ -40,6 +41,8 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
   // Hanya untuk entri baru; deterministik & nol token (src/lib/codexImport).
   const [showPaste, setShowPaste] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  // Template field per kategori (#17): nilai per key field kategori terpilih.
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => fieldValueMap(initialData));
 
   useEffect(() => {
     setFormData({
@@ -50,8 +53,18 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
       tags: [],
       ...initialData
     });
+    setFieldValues(fieldValueMap(initialData));
     setPrevDescription(null);
   }, [initialData]);
+
+  // Definisi field untuk kategori aktif (hanya kategori kustom yang punya).
+  const activeCategory = categories.find(c => c.slug === formData.category);
+  const fieldDefs = activeCategory?.fields ?? [];
+  const setField = (key: string, v: string) => setFieldValues(prev => ({ ...prev, [key]: v }));
+
+  const handleSave = () => {
+    onSave({ ...formData, customFields: buildFieldValues(fieldDefs, fieldValues) });
+  };
 
   const trimmedName = formData.name?.trim().toLowerCase() ?? '';
   const isDuplicateName = trimmedName.length > 0 && existingEntries.some(
@@ -322,6 +335,47 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
           </div>
         </div>
 
+        {/* Template field per kategori (#17) — muncul bila kategori punya skema field */}
+        {fieldDefs.length > 0 && (
+          <div className="mt-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/30 p-4">
+            <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
+              <SlidersHorizontal size={13} className="text-indigo-500" /> Detail {activeCategory?.label}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fieldDefs.map(def => (
+                <div key={def.key} className={def.type === 'textarea' ? 'md:col-span-2' : ''}>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{def.label}</label>
+                  {def.type === 'textarea' ? (
+                    <textarea
+                      className="w-full min-h-[70px] bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100 resize-y"
+                      value={fieldValues[def.key] ?? ''}
+                      onChange={e => setField(def.key, e.target.value)}
+                    />
+                  ) : def.type === 'select' ? (
+                    <select
+                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                      value={fieldValues[def.key] ?? ''}
+                      onChange={e => setField(def.key, e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {(def.options ?? []).map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={def.type === 'number' ? 'number' : 'text'}
+                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                      value={fieldValues[def.key] ?? ''}
+                      onChange={e => setField(def.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Lapis "Kebenaran Tersembunyi" — kanon vs rahasia penulis */}
         <div className="mt-6 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-900/10 p-4">
           <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -366,8 +420,8 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
           >
             Batal
           </button>
-          <button 
-            onClick={() => onSave(formData)}
+          <button
+            onClick={handleSave}
             disabled={!formData.name?.trim() || !formData.description?.trim()}
             className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >

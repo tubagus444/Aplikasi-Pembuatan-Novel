@@ -338,6 +338,30 @@ export class AetherScribeDB extends Dexie {
       plotPromises: '++id, projectId, codexId',
       glossary: '++id, projectId'
     });
+
+    // v26: field baru `fields` di CustomCategory (template field, #17) & `customFields`
+    // di CodexEntry (nilainya). Keduanya inert (bukan FK, tak diindeks) → skema identik
+    // dengan v25, append-only, tanpa migrasi data. Menumpang objek yang sudah ada, jadi
+    // backup/impor/deleteProject tak berubah (pola `namePalette`/`hidden`/`secret`).
+    this.version(26).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId',
+      glossary: '++id, projectId'
+    });
   }
 }
 

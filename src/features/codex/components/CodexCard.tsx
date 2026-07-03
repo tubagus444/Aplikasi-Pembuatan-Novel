@@ -4,6 +4,7 @@ import { CodexEntry, Relationship } from '@/src/types';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
 import { getCategoryLabel, getCategoryAccent, type CategoryDef } from '@/src/lib/codexCategories';
+import { resolveFieldValues } from '@/src/lib/codexFields';
 
 interface CodexCardProps {
   entry: CodexEntry;
@@ -32,6 +33,8 @@ function CodexCardImpl({
 }: CodexCardProps) {
   const accent = getCategoryAccent(entry.category, categories);
   const relCount = relationships.filter(r => r.sourceId === entry.id || r.targetId === entry.id).length;
+  // Template field per kategori (#17): tampilkan ringkas maksimal 2 field kunci.
+  const keyFields = resolveFieldValues(entry).slice(0, 2);
 
   return (
     <div
@@ -87,6 +90,16 @@ function CodexCardImpl({
               <span className="italic opacity-60">Deskripsi belum diisi.</span>
             )}
           </div>
+          {keyFields.length > 0 && (
+            <div className="mt-3 flex flex-col gap-1">
+              {keyFields.map(f => (
+                <div key={f.key} className="flex items-baseline gap-1.5 text-[11px] min-w-0">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400 shrink-0">{f.label}:</span>
+                  <span className="text-slate-600 dark:text-slate-300 truncate">{f.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <AppearancesList entry={entry} projectId={projectId} />
         </div>
 

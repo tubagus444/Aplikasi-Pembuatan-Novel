@@ -11,7 +11,7 @@ import {
   Leaf, Flame, Globe, Heart, Star, Zap, Building2, Map,
   type LucideIcon,
 } from 'lucide-react';
-import type { CodexCategory, CustomCategory } from '@/src/types';
+import type { CodexCategory, CustomCategory, CategoryFieldDef } from '@/src/types';
 
 export interface CategoryDef {
   slug: string;
@@ -19,6 +19,8 @@ export interface CategoryDef {
   icon: string;  // kunci ICON_REGISTRY
   color: string; // kunci COLOR_REGISTRY
   builtin?: boolean;
+  /** Template field (#17) — hanya kategori kustom yang bisa punya; bawaan tak berisi. */
+  fields?: CategoryFieldDef[];
 }
 
 // Ikon yang tersedia untuk dipilih kategori kustom. Hanya ikon di sini yang di-bundle.
@@ -154,7 +156,7 @@ export function mergeCategories(custom: CustomCategory[] | undefined): CategoryD
   const customDefs = (custom ?? [])
     .slice()
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.label.localeCompare(b.label, 'id'))
-    .map<CategoryDef>(c => ({ slug: c.slug, label: c.label, icon: c.icon, color: c.color }));
+    .map<CategoryDef>(c => ({ slug: c.slug, label: c.label, icon: c.icon, color: c.color, fields: c.fields }));
   return [...BUILTIN_CATEGORIES, ...customDefs];
 }
 

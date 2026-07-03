@@ -6,6 +6,7 @@ import { ErrorService } from '@/src/services/errorService';
 import { AI_PROMPTS } from '@/src/lib/aiPrompts';
 import { cleanRewriteOutput } from '@/src/lib/cleanRewriteOutput';
 import { formatBibleBlock } from '@/src/lib/storyBible';
+import { formatFieldsForAI } from '@/src/lib/codexFields';
 import { getMaxCachedLoreChars, getRewriteTemperature } from '@/src/lib/aiTuning';
 
 export class AIError extends Error {
@@ -112,6 +113,10 @@ function buildCachedContextSegments(bibleRules: StoryBibleRule[], codexEntries: 
   // yang tak boleh bocor ke prosa sebelum di-reveal. Deterministik → cache prompt aman.
   const loreString = sortedCodex.map(e => {
     let line = `[${e.name}] (${e.category}): ${e.description}`;
+    // Template field per kategori (#17): nilai self-contained (label ter-denormalisasi
+    // di entri) → deterministik, cache prompt aman.
+    const fields = formatFieldsForAI(e);
+    if (fields) line += `\n${fields}`;
     if (e.secret?.trim()) line += `\n[RAHASIA PENULIS — jangan bocorkan ke prosa/pembaca] ${e.secret.trim()}`;
     return line;
   }).join('\n\n').substring(0, getMaxCachedLoreChars()) || 'No specific lore.';
@@ -194,6 +199,9 @@ function buildContextBlock(rules: StoryBibleRule[], codex: CodexEntry[], relatio
       }
 
       let formattedEntry = `[${e.name}]: ${desc}`;
+      // Template field per kategori (#17) — ringkas (satu baris) dalam anggaran karakter.
+      const fields = formatFieldsForAI(e);
+      if (fields) formattedEntry += ` {${fields.replace(/\n/g, '; ').substring(0, subLimit)}}`;
       // Kebenaran penulis (lihat buildCachedContextSegments) — ikut di jalur RAG legacy.
       if (e.secret?.trim()) formattedEntry += ` [RAHASIA PENULIS: ${e.secret.trim().substring(0, subLimit)}]`;
 

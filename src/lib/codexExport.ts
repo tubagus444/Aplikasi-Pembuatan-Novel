@@ -8,6 +8,7 @@
  * Output dikelompokkan per kategori & diurutkan nama (A–Z) agar diff antar-ekspor stabil.
  */
 import { BUILTIN_CATEGORIES, getCategoryLabel, type CategoryDef } from '@/src/lib/codexCategories';
+import { formatFieldsForMarkdown } from '@/src/lib/codexFields';
 import type { CodexEntry } from '@/src/types';
 
 export interface CodexExportOptions {
@@ -32,6 +33,12 @@ function entryBlock(e: CodexEntry): string {
   if (meta.length) lines.push(`_${meta.join(' · ')}_`);
   lines.push('');
   lines.push((e.description ?? '').trim() || '_(tanpa deskripsi)_');
+  // Template field per kategori (#17) — detail terstruktur sebagai definition-list.
+  const fields = formatFieldsForMarkdown(e);
+  if (fields) {
+    lines.push('');
+    lines.push(fields);
+  }
   lines.push('');
   return lines.join('\n');
 }
