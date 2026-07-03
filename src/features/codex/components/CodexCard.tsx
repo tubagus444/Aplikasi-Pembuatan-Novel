@@ -1,15 +1,12 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Tag, Link2, Edit2, Trash2, EyeOff } from 'lucide-react';
 import { CodexEntry, Relationship } from '@/src/types';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
-import { LinkifiedDescription } from '@/src/features/codex/components/LinkifiedDescription';
 import { AppearancesList } from '@/src/features/codex/components/AppearancesList';
 import { getCategoryLabel, getCategoryAccent, type CategoryDef } from '@/src/lib/codexCategories';
 
 interface CodexCardProps {
   entry: CodexEntry;
-  entries: CodexEntry[];
   relationships: Relationship[];
   projectId: number;
   categories?: CategoryDef[];
@@ -18,9 +15,14 @@ interface CodexCardProps {
   onSelect: (entry: CodexEntry) => void;
 }
 
-export function CodexCard({
+// Dimemo-kan: di VirtuosoGrid, kartu terus mount/unmount saat scroll — memo
+// mencegah render ulang kartu yang props-nya tak berubah (mis. saat mengetik di
+// kotak cari). Deskripsi sengaja dirender sebagai teks polos, BUKAN
+// LinkifiedDescription: linkifikasi membangun RegExp per nama+alias atas SELURUH
+// codex di tiap kartu → O(N²) yang membuat scroll tersendat pada codex besar.
+// Tooltip entitas tetap tersedia di CodexDetailModal (satu entri, biaya nol).
+function CodexCardImpl({
   entry,
-  entries,
   relationships,
   projectId,
   categories,
@@ -32,8 +34,7 @@ export function CodexCard({
   const relCount = relationships.filter(r => r.sourceId === entry.id || r.targetId === entry.id).length;
 
   return (
-    <motion.div
-      layout
+    <div
       onClick={() => onSelect(entry)}
       className="group h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 pl-7 hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-800 transition-all relative flex flex-col col-span-1 cursor-pointer overflow-hidden"
     >
@@ -79,9 +80,9 @@ export function CodexCard({
         </div>
 
         <div className="flex-1 border-t border-slate-100 dark:border-slate-800/60 pt-4">
-          <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed font-serif">
+          <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed font-serif whitespace-pre-wrap">
             {entry.description ? (
-              <LinkifiedDescription text={entry.description} allEntries={entries || []} />
+              entry.description
             ) : (
               <span className="italic opacity-60">Deskripsi belum diisi.</span>
             )}
@@ -121,6 +122,8 @@ export function CodexCard({
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
+
+export const CodexCard = React.memo(CodexCardImpl);

@@ -17,7 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
-  ClipboardPaste, EyeOff,
+  ClipboardPaste, EyeOff, Waypoints,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -334,6 +334,23 @@ export const FEATURES: Feature[] = [
     detail: [
       'Relasi ikut menjadi bahan Cek Konsistensi & Peta Kontinuitas (mis. mendeteksi relasi yang dua tokohnya tak pernah bertemu di naskah).',
     ],
+  },
+  {
+    id: 'lore-graph', group: 'world', Icon: Waypoints, color: 'amber', view: 'codex', openLabel: 'Buka Kamus Data',
+    title: 'Integritas Graf Lore (backlink & tautan menggantung)',
+    where: 'Kamus Data (Codex): detail entri + banner di atas daftar',
+    what: 'Menjaga tautan antar-entri Codex tetap utuh: menampilkan "siapa yang menyebut entri ini" (backlink) dan menandai relasi/janji plot yang menunjuk entri yang sudah dihapus.',
+    steps: [
+      'Buka sebuah entri — bagian "Disebut oleh" mendaftar entri lain yang menyebut namanya di deskripsi, plus janji plot yang dibayar entri ini. Klik untuk melompat ke entri sumber.',
+      'Bila ada referensi menggantung, banner amber muncul di atas daftar Codex — buka untuk meninjau.',
+      'Tekan "Hapus" (relasi yatim) atau "Lepas" (tautan janji yatim) untuk membersihkan referensi yang menunjuk entri yang sudah tiada.',
+    ],
+    detail: [
+      'Melengkapi sorotan MAJU di deskripsi (nama entri lain otomatis jadi tautan) dengan arah SEBALIKNYA — backlink yang selama ini tak terlihat dari sisi entri yang ditunjuk.',
+      'Menghapus entri otomatis membersihkan relasinya; banner menangkap sisa yatim dari data lama atau tautan janji plot (yang tak ikut terhapus saat entri dihapus).',
+      'Menyoal konsistensi lore ITU SENDIRI (bukan prosa) — itu sebabnya ia tinggal di Codex, bukan di Peta Kontinuitas.',
+    ],
+    tip: 'Deterministik & nol token — satu pemindaian nama+alias tanpa AI; aman dijalankan kapan saja.',
   },
   {
     id: 'bible', group: 'world', Icon: Book, color: 'sky', view: 'bible',

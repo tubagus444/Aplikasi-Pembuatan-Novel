@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices } from 'lucide-react';
-import { CodexEntry, Relationship } from '@/src/types';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight } from 'lucide-react';
+import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
+import { buildLoreGraph } from '@/src/lib/loreGraph';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { QuickPromiseModal } from '@/src/features/consistency/components/QuickPromiseModal';
 import { NameForgeModal } from '@/src/features/codex/components/NameForgeModal';
@@ -15,6 +16,7 @@ interface CodexDetailModalProps {
   entry: CodexEntry;
   entries: CodexEntry[];
   relationships: Relationship[];
+  promises?: PlotPromise[];
   projectId: number;
   categories?: CategoryDef[];
   onClose: () => void;
@@ -22,25 +24,37 @@ interface CodexDetailModalProps {
   onDelete: (id: number) => void;
   onAddBond: (sourceId: number, targetId: number, type: string) => void;
   onDeleteRelationship: (id: number) => void;
+  onOpenEntry?: (entry: CodexEntry) => void;
 }
 
 export function CodexDetailModal({
   entry,
   entries,
   relationships,
+  promises,
   projectId,
   categories,
   onClose,
   onEdit,
   onDelete,
   onAddBond,
-  onDeleteRelationship
+  onDeleteRelationship,
+  onOpenEntry
 }: CodexDetailModalProps) {
   const entryRelationships = relationships.filter(
     r => r.sourceId === entry.id || r.targetId === entry.id
   );
   const accent = getCategoryAccent(entry.category, categories);
   const linkTargets = entries.filter(e => e.id !== entry.id);
+
+  // Backlink (#9): siapa yang menunjuk ke entri ini. Relasi sengaja DIKELUARKAN —
+  // sudah tampil dua-arah di seksi "Hubungan"; sisakan sebutan-nama & payoff janji
+  // yang selama ini tak terlihat dari sisi entri yang ditunjuk.
+  const mentionBacklinks = useMemo(() => {
+    if (entry.id == null) return [];
+    const { backlinks } = buildLoreGraph(entries, relationships, promises || []);
+    return (backlinks.get(entry.id) || []).filter(l => l.via !== 'relationship');
+  }, [entry.id, entries, relationships, promises]);
 
   const { openWorkshop } = useNavigation();
   const [bondType, setBondType] = useState('Friend');
@@ -185,6 +199,45 @@ export function CodexDetailModal({
                 <span className="font-normal normal-case tracking-normal text-purple-400 dark:text-purple-500">· hanya penulis &amp; AI</span>
               </h4>
               <p className="font-serif text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{entry.secret.trim()}</p>
+            </div>
+          )}
+
+          {/* Backlink (#9) — "apa yang menyebut entri ini" (sebutan nama + payoff janji) */}
+          {mentionBacklinks.length > 0 && (
+            <div className="mb-10">
+              <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-2">
+                <Quote size={16} /> Disebut oleh
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {mentionBacklinks.map(link => {
+                  if (link.via === 'payoff') {
+                    return (
+                      <span
+                        key={`payoff-${link.sourceId}`}
+                        className="inline-flex items-center gap-1.5 text-sm bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 px-3 py-2 rounded-xl border border-rose-100 dark:border-rose-800/50"
+                        title="Janji plot yang dibayar/diungkap oleh entri ini"
+                      >
+                        <Crosshair size={13} className="shrink-0" />
+                        <span className="font-semibold truncate max-w-[220px]">{link.sourceName}</span>
+                        <span className="text-rose-400 dark:text-rose-500 text-xs">· janji</span>
+                      </span>
+                    );
+                  }
+                  const source = entries.find(e => e.id === link.sourceId);
+                  return (
+                    <button
+                      key={`mention-${link.sourceId}`}
+                      onClick={() => source && onOpenEntry?.(source)}
+                      disabled={!source || !onOpenEntry}
+                      className="group/back inline-flex items-center gap-1.5 text-sm bg-indigo-50/60 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-3 py-2 rounded-xl border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:hover:bg-indigo-50/60 dark:disabled:hover:bg-indigo-900/20 transition-all disabled:cursor-default"
+                      title={source ? `Buka ${link.sourceName}` : link.sourceName}
+                    >
+                      <CornerDownRight size={13} className="shrink-0 opacity-60" />
+                      <span className="font-semibold truncate max-w-[220px]">{link.sourceName}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

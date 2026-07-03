@@ -9,6 +9,8 @@ import { CodexForm } from '@/src/features/codex/components/CodexForm';
 import { CodexCard } from '@/src/features/codex/components/CodexCard';
 import { CodexDetailModal } from '@/src/features/codex/components/CodexDetailModal';
 import { CategoryManagerModal } from '@/src/features/codex/components/CategoryManagerModal';
+import { LoreIntegrityBanner } from '@/src/features/codex/components/LoreIntegrityBanner';
+import { DanglingRef } from '@/src/lib/loreGraph';
 import { useCodexPanel } from '@/src/features/codex/hooks/useCodexPanel';
 import { getCategoryLabel } from '@/src/lib/codexCategories';
 import { codexToMarkdown } from '@/src/lib/codexExport';
@@ -28,6 +30,7 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     filteredEntries,
     bibleRules,
     relationships,
+    plotPromises,
     allTags,
     stats,
     categories,
@@ -60,8 +63,14 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
     confirmDelete,
     cancelEdit,
     addBond,
-    deleteRelationship
+    deleteRelationship,
+    resolveDangling
   } = useCodexPanel(projectId);
+
+  const handleResolveDangling = async (ref: DanglingRef) => {
+    await resolveDangling(ref);
+    toast.success(ref.kind === 'relationship' ? 'Relasi menggantung dihapus.' : 'Tautan janji dilepas.');
+  };
 
   const handleExport = async () => {
     if (!entries?.length) return;
@@ -191,6 +200,15 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             </select>
           </div>
         )}
+
+        {!isAdding && (entries?.length ?? 0) > 0 && (
+          <LoreIntegrityBanner
+            entries={entries || []}
+            relationships={relationships || []}
+            promises={plotPromises || []}
+            onResolve={handleResolveDangling}
+          />
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden relative">
@@ -230,7 +248,6 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
                <CodexCard
                  key={entry.id}
                  entry={entry}
-                 entries={entries || []}
                  relationships={relationships || []}
                  projectId={projectId}
                  categories={categories}
@@ -350,9 +367,11 @@ export function CodexPanel({ projectId }: CodexPanelProps) {
             entry={selectedEntry}
             entries={entries || []}
             relationships={relationships || []}
+            promises={plotPromises || []}
             projectId={projectId}
             categories={categories}
             onClose={() => setSelectedEntry(null)}
+            onOpenEntry={setSelectedEntry}
             onEdit={(entry) => {
               setSelectedEntry(null);
               startEditing(entry);

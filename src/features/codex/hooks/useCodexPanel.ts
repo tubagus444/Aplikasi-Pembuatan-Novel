@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { db } from '@/src/db';
 import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { CodexEntry, CodexCategory } from '@/src/types';
+import { DanglingRef } from '@/src/lib/loreGraph';
 import { invalidateContextCache } from '@/src/services/contextEngine';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 
@@ -18,6 +19,11 @@ export function useCodexPanel(projectId: number) {
 
   const relationships = useOptimizedLiveQuery(() =>
     db.relationships.where('projectId').equals(projectId).toArray()
+  , [projectId]);
+
+  // Janji plot dipakai untuk backlink payoff (#9) di detail entri.
+  const plotPromises = useOptimizedLiveQuery(() =>
+    db.plotPromises.where('projectId').equals(projectId).toArray()
   , [projectId]);
 
   const { custom: customCategories, categories } = useCodexCategories(projectId);
@@ -211,11 +217,22 @@ export function useCodexPanel(projectId: number) {
     await db.relationships.delete(id);
   };
 
+  // Bersihkan satu tautan menggantung (#9): relasi yatim dihapus, FK janji dilepas.
+  const resolveDangling = async (ref: DanglingRef) => {
+    if (ref.kind === 'relationship' && ref.relationshipId != null) {
+      await db.relationships.delete(ref.relationshipId);
+    } else if (ref.promiseId != null) {
+      const field = ref.kind === 'promise-codex' ? 'codexId' : 'payoffCodexId';
+      await db.plotPromises.update(ref.promiseId, { [field]: undefined });
+    }
+  };
+
   return {
     entries,
     filteredEntries,
     bibleRules,
     relationships,
+    plotPromises,
     allTags,
     stats,
     categories,
@@ -248,6 +265,7 @@ export function useCodexPanel(projectId: number) {
     confirmDelete,
     cancelEdit,
     addBond,
-    deleteRelationship
+    deleteRelationship,
+    resolveDangling
   };
 }
