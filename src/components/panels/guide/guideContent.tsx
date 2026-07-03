@@ -17,7 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
-  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList,
+  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList, Flame,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -475,6 +475,22 @@ export const FEATURES: Feature[] = [
       'Hasil analisis disimpan lokal (localStorage) sehingga tak dihitung ulang tiap buka panel.',
       'Ada juga panel Prose Insights ringkas di sisi kanan editor untuk menyorot masalah gaya bab yang sedang dikerjakan.',
     ],
+  },
+  {
+    id: 'heatmap', group: 'analysis', Icon: Flame, color: 'orange', view: 'heatmap',
+    title: 'Heatmap Tensi/Pacing',
+    where: 'Menu: Heatmap Tensi',
+    what: 'Kurva naik-turun tensi seluruh manuskrip (nol token) untuk evaluasi makro pacing — deteksi bagian yang tegang terus (pembaca jenuh) atau melandai.',
+    steps: [
+      'Buka panel untuk melihat kurva tensi per bab; tinggi & warna bar = tingkat tensi (biru tenang → merah tegang).',
+      'Setiap bab awalnya bertensi "Otomatis" (bar bergaris) yang disarankan dari sinyal prosa. Timpa manual lewat kontrol Auto/1–5 di daftar bawah.',
+      'Perhatikan kartu "Pola makro": Plateau tegang (≥3 bab tegang beruntun) dan Lembah datar (≥3 bab tenang beruntun).',
+    ],
+    detail: [
+      'Saran otomatis diturunkan dari panjang kalimat, rasio dialog, dan densitas tanda seru/tanya/jeda — heuristik, bukan aturan mutlak.',
+      'Tensi manual (Chapter.tension) hanya metadata alur kerja: tidak masuk ke KB AI maupun ekspor naskah.',
+    ],
+    tip: 'Sepenuhnya lokal & gratis token. Sinergis dengan Wawasan Prosa (rasio dialog) untuk menakar ritme.',
   },
   {
     id: 'promises', group: 'analysis', Icon: Crosshair, color: 'rose', view: 'promises',

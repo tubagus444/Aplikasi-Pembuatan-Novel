@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity, Gauge, Telescope, Crosshair, BookMarked, ClipboardList, ChevronDown } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, UserSearch, Network, Activity, Gauge, Telescope, Crosshair, BookMarked, ClipboardList, Flame, ChevronDown } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -46,6 +46,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { mode: 'continuity', icon: <Network size={14} />, label: 'Peta Kontinuitas' },
       { mode: 'arc', icon: <Activity size={14} />, label: 'Lensa Karakter' },
       { mode: 'prose', icon: <Gauge size={14} />, label: 'Wawasan Prosa' },
+      { mode: 'heatmap', icon: <Flame size={14} />, label: 'Heatmap Tensi' },
       { mode: 'promises', icon: <Crosshair size={14} />, label: 'Janji Plot' },
       { mode: 'search', icon: <Telescope size={14} />, label: 'Cari Adegan' },
     ],

@@ -64,7 +64,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -130,6 +130,13 @@ export interface ChatSession {
   workshopKey?: string;
 }
 
+/**
+ * Tingkat tensi/pacing per-bab yang DIDEKLARASIKAN penulis (Heatmap tensi, #16).
+ * 1 = paling tenang, 5 = paling tegang. `Chapter.tension` undefined = "Otomatis"
+ * (alat menurunkan saran dari sinyal prosa, tak disimpan).
+ */
+export type TensionLevel = 1 | 2 | 3 | 4 | 5;
+
 export interface Chapter {
   id?: number;
   projectId: number;
@@ -142,6 +149,12 @@ export interface Chapter {
   status?: ChapterStatus;
   pov?: string;
   wordGoal?: number;
+  /**
+   * Tensi manual per-bab (#16), field INERT: bukan FK, tak diindeks, tak masuk KB
+   * AI/ekspor. undefined = Otomatis (dipakai saran turunan `estimateTension`).
+   * Menumpang objek chapter → backup/impor/deleteProject tak berubah.
+   */
+  tension?: TensionLevel;
 }
 
 export interface Project {

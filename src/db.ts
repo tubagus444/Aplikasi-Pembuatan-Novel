@@ -386,6 +386,30 @@ export class AetherScribeDB extends Dexie {
       plotPromises: '++id, projectId, codexId',
       glossary: '++id, projectId'
     });
+
+    // v28: field baru `tension` di Chapter (Heatmap tensi/pacing, #16). Inert
+    // (bukan FK, tak diindeks) → skema identik dengan v27, append-only, tanpa
+    // migrasi data. Menumpang objek chapter, jadi backup/impor/deleteProject
+    // tak berubah (pola `worldStatus`/`namePalette`/`hidden`/`secret`).
+    this.version(28).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId',
+      glossary: '++id, projectId'
+    });
   }
 }
 

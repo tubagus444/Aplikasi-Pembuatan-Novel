@@ -27,6 +27,7 @@ const ConsistencyPanel = lazy(() => import('@/src/features/consistency/component
 const ContinuityDashboard = lazy(() => import('@/src/features/consistency/components/ContinuityDashboard').then(m => ({ default: m.ContinuityDashboard })));
 const CharacterArcPanel = lazy(() => import('@/src/features/consistency/components/CharacterArcPanel').then(m => ({ default: m.CharacterArcPanel })));
 const ProseReportPanel = lazy(() => import('@/src/features/consistency/components/ProseReportPanel').then(m => ({ default: m.ProseReportPanel })));
+const PacingHeatmapPanel = lazy(() => import('@/src/features/consistency/components/PacingHeatmapPanel').then(m => ({ default: m.PacingHeatmapPanel })));
 const PlotPromisePanel = lazy(() => import('@/src/features/consistency/components/PlotPromisePanel').then(m => ({ default: m.PlotPromisePanel })));
 const GlossaryPanel = lazy(() => import('@/src/features/consistency/components/GlossaryPanel').then(m => ({ default: m.GlossaryPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
@@ -221,6 +222,14 @@ export function MainView() {
             <ViewContainer key="prose" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <ProseReportPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'heatmap' && projectId && (
+            <ViewContainer key="heatmap" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <PacingHeatmapPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}
