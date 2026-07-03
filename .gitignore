@@ -7,9 +7,9 @@ coverage/
 .env*
 !.env.example
 
-# Materi worldbuilding pribadi & rencana turunannya (referensi desain, bukan bagian aplikasi)
-# NB: anchor ke root ("/lore/") — TANPA anchor, pola "lore/" juga cocok dengan
-# src/features/lore (kode aplikasi) sehingga Tailwind v4 (yang menghormati
-# .gitignore) melewatkannya → utilitas komponen lazy di sana tak ter-generate.
-/lore/
+# Materi worldbuilding pribadi & rencana turunannya (referensi desain, bukan bagian aplikasi).
+# Anchor ke root (/bahan-dunia/) & beri nama unik: pola tak ter-anchor yang menabrak
+# nama folder kode bikin Tailwind v4 (yang menghormati .gitignore) melewatkan kode itu.
+# Dulu folder ini "lore/" (tak ter-anchor) & bentrok dengan src/features/lore.
+/bahan-dunia/
 RENCANA-FITUR-WORLDBUILDING.md
