@@ -8,5 +8,8 @@ coverage/
 !.env.example
 
 # Materi worldbuilding pribadi & rencana turunannya (referensi desain, bukan bagian aplikasi)
-lore/
+# NB: anchor ke root ("/lore/") — TANPA anchor, pola "lore/" juga cocok dengan
+# src/features/lore (kode aplikasi) sehingga Tailwind v4 (yang menghormati
+# .gitignore) melewatkannya → utilitas komponen lazy di sana tak ter-generate.
+/lore/
 RENCANA-FITUR-WORLDBUILDING.md

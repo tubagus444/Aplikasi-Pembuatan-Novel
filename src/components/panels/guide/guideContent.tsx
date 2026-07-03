@@ -325,13 +325,15 @@ export const FEATURES: Feature[] = [
     id: 'relationships', group: 'world', Icon: Share2, color: 'rose', view: 'relationships',
     title: 'Relasi Karakter (Peta Hubungan)',
     where: 'Menu: Relasi Karakter',
-    what: 'Peta visual interaktif ikatan & konflik antar entitas Codex. Dibaca AI secara pasif saat menulis dialog.',
+    what: 'Panel untuk mencatat & mengelola ikatan dan konflik antar entitas Codex. Relasi dibaca AI secara pasif saat menulis dialog agar sentimen antar tokoh terjaga.',
     steps: [
-      'Tarik node (lingkaran = entitas) untuk merapikan tata letak.',
-      'Tautkan dua entitas dan beri label hubungan (mis. "Musuh bebuyutan", "Kakak-adik").',
+      'Pilih karakter di daftar kiri (terurut otomatis per jumlah koneksi; centang "Hanya yang terhubung" untuk menyaring) — hubungannya tampil di panel kanan.',
+      'Tekan "Koneksi Baru" untuk menautkan ke entitas lain, pilih jenis hubungan (Teman, Musuh, Keluarga, Kekasih, Sekutu, Tinggal di, Memiliki, Lainnya), lalu isi deskripsi opsional.',
       'Saat AI menulis percakapan antar keduanya, ia otomatis tahu sentimen mereka tanpa Anda ingatkan.',
     ],
     detail: [
+      'Label hubungan sadar-arah: mis. "Memiliki" dari sisi sumber tampil "Dimiliki oleh" dari sisi target.',
+      'Diagram ikatan muncul saat sebuah karakter punya ≥2 koneksi; untuk satu koneksi cukup kartunya.',
       'Relasi ikut menjadi bahan Cek Konsistensi & Peta Kontinuitas (mis. mendeteksi relasi yang dua tokohnya tak pernah bertemu di naskah).',
     ],
   },

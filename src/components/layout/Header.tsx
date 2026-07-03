@@ -14,6 +14,18 @@ import { cn } from '@/src/lib/utils';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/src/db';
 
+// Label breadcrumb per-viewMode (Indonesia), selaras dengan Sidebar. Fallback ke
+// nilai mentah agar mode baru tak pernah kehilangan label.
+const VIEW_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard', write: 'Editor', outline: 'Papan Rencana',
+  codex: 'Kamus Data', glossary: 'Glosarium', bible: 'Buku Cerita',
+  relationships: 'Relasi Karakter', timeline: 'Timeline Cerita', orphans: 'Saran Entitas',
+  consistency: 'Cek Konsistensi', continuity: 'Peta Kontinuitas', arc: 'Lensa Karakter',
+  prose: 'Wawasan Prosa', promises: 'Janji Plot', search: 'Cari Adegan',
+  brainstorm: 'Studio Asisten', actions: 'Snippet AI', workshop: 'Lokakarya Codex',
+  settings: 'Pengaturan', guide: 'Panduan', errors: 'Log Error',
+};
+
 export function Header() {
   const { projectId, project } = useProject();
   const { viewMode, activeChapterId } = useNavigation();
@@ -83,7 +95,7 @@ export function Header() {
         <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 flex-shrink-0 mx-1 hidden sm:block" />
         
         <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate max-w-[80px] md:max-w-[120px] flex-shrink ml-1 min-w-0">
-          {viewMode === 'write' && activeChapter ? `${activeChapter.title}` : viewMode.toUpperCase()}
+          {viewMode === 'write' && activeChapter ? `${activeChapter.title}` : (VIEW_LABELS[viewMode] || viewMode)}
         </span>
       </div>
       

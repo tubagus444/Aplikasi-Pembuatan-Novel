@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
-import { Trash2, Edit2, Link as LinkIcon, Users, Heart, Sword, ShieldAlert, ArrowRight, Search, UserCircle2, UserPlus, Activity, AlignLeft, Info } from 'lucide-react';
+import React from 'react';
+import { Trash2, Edit2, Link as LinkIcon, Users, Heart, Sword, Shield, Home, Package, Handshake, Search, UserCircle2, UserPlus, Activity, AlignLeft } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRelationshipMapper } from '@/src/features/lore/hooks/useRelationshipMapper';
+import { RELATIONSHIP_TYPES, getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
 
 interface RelationshipMapperProps {
   projectId: number;
@@ -17,17 +19,36 @@ const getColorForName = (name: string) => {
   return `hsl(${h}, 70%, 50%)`;
 };
 
-const RELATION_TYPES = [
-  { label: 'Friend', icon: Users, color: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400', activeClass: 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-500/20', border: 'border-blue-200 dark:border-blue-900/50', hex: '#3b82f6' },
-  { label: 'Lover', icon: Heart, color: 'text-pink-600 bg-pink-50 dark:bg-pink-500/10 dark:text-pink-400', activeClass: 'border-pink-500 ring-1 ring-pink-500 bg-pink-50/50 dark:bg-pink-500/20', border: 'border-pink-200 dark:border-pink-900/50', hex: '#ec4899' },
-  { label: 'Enemy', icon: Sword, color: 'text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400', activeClass: 'border-red-500 ring-1 ring-red-500 bg-red-50/50 dark:bg-red-500/20', border: 'border-red-200 dark:border-red-900/50', hex: '#ef4444' },
-  { label: 'Ally', icon: ShieldAlert, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400', activeClass: 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/20', border: 'border-emerald-200 dark:border-emerald-900/50', hex: '#10b981' },
-  { label: 'Other', icon: LinkIcon, color: 'text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-400', activeClass: 'border-slate-500 ring-1 ring-slate-500 bg-slate-100 dark:bg-slate-800', border: 'border-slate-200 dark:border-slate-800', hex: '#94a3b8' },
-];
+// Metadata visual per tipe relasi, di-key oleh `value` dari sumber tunggal
+// `relationshipTypes.ts`. Label & urutan tetap berasal dari RELATIONSHIP_TYPES —
+// di sini hanya ikon/warna. Semua 8 tipe punya gaya sendiri agar tak ada yang
+// jatuh diam-diam ke "Other".
+interface TypeStyle {
+  icon: LucideIcon;
+  color: string;
+  activeClass: string;
+  border: string;
+  hex: string;
+  dashed?: boolean;
+}
+
+const TYPE_STYLE: Record<string, TypeStyle> = {
+  Friend: { icon: Handshake, color: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400', activeClass: 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-500/20', border: 'border-blue-200 dark:border-blue-900/50', hex: '#3b82f6' },
+  Enemy: { icon: Sword, color: 'text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400', activeClass: 'border-red-500 ring-1 ring-red-500 bg-red-50/50 dark:bg-red-500/20', border: 'border-red-200 dark:border-red-900/50', hex: '#ef4444' },
+  Family: { icon: Users, color: 'text-violet-600 bg-violet-50 dark:bg-violet-500/10 dark:text-violet-400', activeClass: 'border-violet-500 ring-1 ring-violet-500 bg-violet-50/50 dark:bg-violet-500/20', border: 'border-violet-200 dark:border-violet-900/50', hex: '#8b5cf6' },
+  Lover: { icon: Heart, color: 'text-pink-600 bg-pink-50 dark:bg-pink-500/10 dark:text-pink-400', activeClass: 'border-pink-500 ring-1 ring-pink-500 bg-pink-50/50 dark:bg-pink-500/20', border: 'border-pink-200 dark:border-pink-900/50', hex: '#ec4899' },
+  Ally: { icon: Shield, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400', activeClass: 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/20', border: 'border-emerald-200 dark:border-emerald-900/50', hex: '#10b981' },
+  'Resides In': { icon: Home, color: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400', activeClass: 'border-amber-500 ring-1 ring-amber-500 bg-amber-50/50 dark:bg-amber-500/20', border: 'border-amber-200 dark:border-amber-900/50', hex: '#f59e0b' },
+  Owns: { icon: Package, color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-500/10 dark:text-cyan-400', activeClass: 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50/50 dark:bg-cyan-500/20', border: 'border-cyan-200 dark:border-cyan-900/50', hex: '#06b6d4' },
+  Other: { icon: LinkIcon, color: 'text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-400', activeClass: 'border-slate-500 ring-1 ring-slate-500 bg-slate-100 dark:bg-slate-800', border: 'border-slate-200 dark:border-slate-800', hex: '#94a3b8', dashed: true },
+};
+
+const styleOf = (type: string): TypeStyle => TYPE_STYLE[type] || TYPE_STYLE.Other;
 
 export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
   const {
     characters,
+    allEntries,
     relationships,
     selectedCharacterId,
     setSelectedCharacterId,
@@ -42,6 +63,9 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
     setDescription,
     searchQuery,
     setSearchQuery,
+    onlyConnected,
+    setOnlyConnected,
+    connectionCount,
     selectedCharacter,
     filteredCharacters,
     groupedRelationships,
@@ -53,16 +77,16 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
     getCharacterName
   } = useRelationshipMapper(projectId);
 
-  const getCharacterConnectionCount = (charId: number) => {
-    return relationships?.filter(r => r.sourceId === charId || r.targetId === charId).length || 0;
-  };
+  const getCharacterConnectionCount = (charId: number) => connectionCount.get(charId) || 0;
 
   const renderConnectionWeb = () => {
     if (!selectedCharacter || !relationships || relationships.length === 0) return null;
 
     // Get all relations for the selected character
     const charRels = relationships.filter(r => r.sourceId === selectedCharacter.id || r.targetId === selectedCharacter.id);
-    if (charRels.length === 0) return null;
+    // Diagram baru bermakna saat ada ≥2 koneksi untuk dipetakan; untuk 1 koneksi
+    // cukup kartunya di bawah (hindari kanvas besar berisi satu garis).
+    if (charRels.length < 2) return null;
 
     const count = charRels.length;
 
@@ -88,7 +112,7 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
     const vbW = cx * 2;
     const vbH = cy * 2;
 
-    const typeOf = (rel: typeof charRels[number]) => RELATION_TYPES.find(t => t.label === rel.type) || RELATION_TYPES[4];
+    const typeOf = (rel: typeof charRels[number]) => styleOf(rel.type);
 
     // Posisi node + label radial untuk indeks ke-i pada lingkaran.
     const posAt = (i: number) => {
@@ -114,19 +138,19 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
     };
 
     // #1 Legenda warna tipe (menggantikan label tipe di tiap node yang redundan dengan warna garis).
-    const usedLabels = new Set(charRels.map(r => typeOf(r).label));
-    const legend = RELATION_TYPES.filter(t => usedLabels.has(t.label));
+    const usedTypes = new Set(charRels.map(r => r.type));
+    const legend = RELATIONSHIP_TYPES.filter(t => usedTypes.has(t.value));
 
     return (
-      <div className="w-full flex justify-center items-center py-6 mb-8 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden relative">
+      <div className="w-full max-w-xl mx-auto flex justify-center items-center py-4 mb-6 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden relative">
         {/* Subtle background decoration */}
         <div className="absolute inset-0 max-w-full max-h-full opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
 
         {/* #1 Legenda tipe relasi */}
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm rounded-lg px-2.5 py-2 border border-slate-200/70 dark:border-slate-800/70 shadow-sm">
           {legend.map(t => (
-            <div key={t.label} className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.hex }} />
+            <div key={t.value} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: styleOf(t.value).hex }} />
               <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{t.label}</span>
             </div>
           ))}
@@ -151,7 +175,7 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                   stroke={typeObj.hex}
                   strokeWidth="2.5"
                   strokeOpacity="0.4"
-                  strokeDasharray={rel.type === 'Other' ? "4 4" : "none"}
+                  strokeDasharray={typeObj.dashed ? "4 4" : "none"}
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
                   transition={{ duration: 0.8, ease: "easeOut", delay: i * 0.1 }}
@@ -293,36 +317,39 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
     );
   };
 
-  const renderRelationshipCards = (typeObj: typeof RELATION_TYPES[0], rels: typeof relationships) => {
+  const renderRelationshipCards = (def: typeof RELATIONSHIP_TYPES[number], rels: typeof relationships) => {
     if (!rels || rels.length === 0) return null;
-    const TypeIcon = typeObj.icon;
-    
+    const style = styleOf(def.value);
+    const TypeIcon = style.icon;
+
     return (
-      <div key={typeObj.label} className="mb-8">
+      <div key={def.value} className="mb-8">
         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-4">
-          <div className={`p-1.5 rounded-md ${typeObj.color}`}>
+          <div className={`p-1.5 rounded-md ${style.color}`}>
             <TypeIcon size={16} />
           </div>
-          {typeObj.label}
+          {def.label}
           <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 py-0.5 px-2 rounded-full text-[10px] font-bold ml-2">
             {rels.length}
           </span>
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {rels.map(rel => {
             const isSource = rel.sourceId === selectedCharacterId;
             const otherCharId = isSource ? rel.targetId : rel.sourceId;
             const otherCharName = getCharacterName(otherCharId);
-            
+            // Label sadar-arah: "Memiliki" vs "Dimiliki oleh".
+            const dirLabel = getRelationshipLabel(rel.type, isSource);
+
             return (
-              <div 
-                key={rel.id} 
-                className={`group flex flex-col justify-between p-4 bg-white dark:bg-slate-900 border ${typeObj.border} rounded-2xl hover:shadow-md transition-all`}
+              <div
+                key={rel.id}
+                className={`group flex flex-col justify-between p-4 bg-white dark:bg-slate-900 border ${style.border} rounded-2xl hover:shadow-md transition-all`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div 
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
                       className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-950 flex items-center justify-center shadow-sm shrink-0"
                       style={{ backgroundColor: getColorForName(otherCharName), color: 'white' }}
                     >
@@ -330,25 +357,23 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                         {otherCharName.substring(0, 2).toUpperCase()}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm line-clamp-1">
                         {otherCharName}
                       </p>
-                      <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1 mt-0.5">
-                        {!isSource && <ArrowRight size={10} className="rotate-180" />}
-                        {typeObj.label}
-                        {isSource && <ArrowRight size={10} />}
+                      <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mt-0.5 truncate">
+                        {dirLabel}
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => startEditing(rel)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded transition-all"><Edit2 size={14} /></button>
+
+                  <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <button onClick={() => startEditing(rel)} title="Ubah hubungan" className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded transition-all"><Edit2 size={14} /></button>
                     <button onClick={() => {
-                      if (window.confirm('Delete this relationship?')) {
+                      if (window.confirm(`Hapus hubungan dengan ${otherCharName}?`)) {
                         deleteRelationship(rel.id!);
                       }
-                    }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded transition-all"><Trash2 size={14} /></button>
+                    }} title="Hapus hubungan" className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded transition-all"><Trash2 size={14} /></button>
                   </div>
                 </div>
                 {rel.description && (
@@ -389,17 +414,27 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
         
         {/* Left Column: Character List */}
         <div className="lg:col-span-1 flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search characters..."
+                placeholder="Cari karakter..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
             </div>
+            {/* Filter: sembunyikan karakter tanpa hubungan (diurut jumlah koneksi terbanyak dulu). */}
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={onlyConnected}
+                onChange={e => setOnlyConnected(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
+              />
+              Hanya yang terhubung
+            </label>
           </div>
           
           <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -441,7 +476,7 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
             
             {filteredCharacters?.length === 0 && (
               <div className="p-4 text-center text-slate-500 dark:text-slate-400 text-sm">
-                No characters found.
+                Tak ada karakter yang cocok.
               </div>
             )}
           </div>
@@ -459,29 +494,28 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                 transition={{ duration: 0.2 }}
                 className="flex flex-col h-full overflow-y-auto custom-scrollbar"
               >
-                {/* Header */}
-                <div className="relative p-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                  <div className="absolute top-0 left-0 w-full h-32 bg-slate-50 dark:bg-slate-800/30" />
-                  <div className="relative z-10 flex items-end gap-6 pt-12">
-                    <div 
-                      className="w-24 h-24 rounded-2xl border-4 border-white dark:border-slate-900 shadow-xl flex items-center justify-center shrink-0 text-white"
+                {/* Header — dipadatkan: tanpa banner, avatar & judul lebih kecil */}
+                <div className="p-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-14 h-14 rounded-xl shadow-md flex items-center justify-center shrink-0 text-white"
                       style={{ backgroundColor: getColorForName(selectedCharacter.name) }}
                     >
-                       <span className="text-4xl font-bold">{selectedCharacter.name.substring(0, 2).toUpperCase()}</span>
+                       <span className="text-xl font-bold">{selectedCharacter.name.substring(0, 2).toUpperCase()}</span>
                     </div>
-                    <div className="flex-1 pb-2">
-                       <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                       <h2 className="text-2xl font-serif font-bold text-slate-900 dark:text-slate-100 truncate">
                          {selectedCharacter.name}
                        </h2>
-                       <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 font-medium">
-                         <LinkIcon size={14} className="text-indigo-500" />
-                         {relationships?.filter(r => r.sourceId === selectedCharacter.id || r.targetId === selectedCharacter.id).length || 0} Koneksi
+                       <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 font-medium">
+                         <LinkIcon size={13} className="text-indigo-500 shrink-0" />
+                         {relationships?.filter(r => r.sourceId === selectedCharacter.id || r.targetId === selectedCharacter.id).length || 0} Hubungan
                        </p>
                     </div>
-                    <div className="pb-2">
-                      <button 
+                    <div className="shrink-0">
+                      <button
                         onClick={() => setIsAdding(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-95"
                       >
                         <UserPlus size={16} />
                         Koneksi Baru
@@ -503,20 +537,20 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                       >
                         <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-6 shadow-md space-y-6">
                           <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg border-b border-border pb-3">
-                            {editingId ? 'Edit Connection' : `Create connection for ${selectedCharacter.name}`}
+                            {editingId ? 'Ubah hubungan' : `Hubungan baru untuk ${selectedCharacter.name}`}
                           </h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            
+
                             {/* Target Character Dropdown */}
                             <div className="space-y-2">
-                              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Connect With</label>
-                              <select 
+                              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Hubungkan dengan</label>
+                              <select
                                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-slate-200 outline-none transition-shadow"
                                 value={targetId || ''}
                                 onChange={e => setTargetId(Number(e.target.value))}
                               >
-                                <option value="">Select Character...</option>
-                                {characters?.filter(c => c.id !== selectedCharacter?.id).map(c => (
+                                <option value="">Pilih entri…</option>
+                                {allEntries?.filter(c => c.id !== selectedCharacter?.id).map(c => (
                                   <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                               </select>
@@ -524,32 +558,36 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
 
                             {/* Relationship Type Map */}
                             <div className="space-y-2">
-                              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Bond Type</label>
-                              <div className="grid grid-cols-5 gap-2">
-                                {RELATION_TYPES.map(r => (
-                                  <button
-                                    key={r.label}
-                                    onClick={() => setType(r.label)}
-                                    className={`flex flex-col flex-1 items-center justify-center p-3 rounded-xl transition-all border ${
-                                      type === r.label 
-                                        ? r.activeClass
-                                        : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                                    }`}
-                                    title={r.label}
-                                  >
-                                    <r.icon size={18} className="mb-1" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider truncate w-full text-center">{r.label}</span>
-                                  </button>
-                                ))}
+                              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Jenis hubungan</label>
+                              <div className="grid grid-cols-4 gap-2">
+                                {RELATIONSHIP_TYPES.map(r => {
+                                  const st = styleOf(r.value);
+                                  const Icon = st.icon;
+                                  return (
+                                    <button
+                                      key={r.value}
+                                      onClick={() => setType(r.value)}
+                                      className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all border ${
+                                        type === r.value
+                                          ? st.activeClass
+                                          : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                      }`}
+                                      title={r.label}
+                                    >
+                                      <Icon size={18} className="mb-1" />
+                                      <span className="text-[10px] font-bold tracking-wide truncate w-full text-center">{r.label}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
-                            
+
                             {/* Description Input */}
                             <div className="space-y-2 md:col-span-2">
-                              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1"><AlignLeft size={12}/> Description (Optional)</label>
-                              <textarea 
+                              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1"><AlignLeft size={12}/> Deskripsi (opsional)</label>
+                              <textarea
                                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 dark:text-slate-200 outline-none transition-shadow min-h-[80px] resize-none"
-                                placeholder="Describe their dynamic..."
+                                placeholder="Gambarkan dinamika hubungan mereka…"
                                 value={description}
                                 onChange={e => setDescription(e.target.value)}
                               />
@@ -557,18 +595,18 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                           </div>
 
                           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-                            <button 
+                            <button
                               onClick={cancelAdding}
                               className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                             >
-                              Cancel
+                              Batal
                             </button>
-                            <button 
+                            <button
                               onClick={saveRelationship}
                               disabled={!targetId}
                               className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                             >
-                              {editingId ? 'Save Changes' : 'Create Bond'}
+                              {editingId ? 'Simpan perubahan' : 'Buat hubungan'}
                             </button>
                           </div>
                         </div>
@@ -580,22 +618,22 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                   {hasAnyRelationships ? (
                     <div>
                       {renderConnectionWeb()}
-                      {RELATION_TYPES.map(rt => renderRelationshipCards(rt, groupedRelationships[rt.label]))}
+                      {RELATIONSHIP_TYPES.map(def => renderRelationshipCards(def, groupedRelationships[def.value]))}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                       <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6 text-slate-300 dark:text-slate-600 border-4 border-white dark:border-slate-900 border-dashed">
                         <Users size={40} />
                       </div>
-                      <h4 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">No connections documented</h4>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6">Create the first bond for {selectedCharacter.name} to map out their place in the story.</p>
+                      <h4 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Belum ada hubungan</h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6">Buat hubungan pertama untuk {selectedCharacter.name} agar posisinya dalam cerita terpetakan.</p>
                       {!isAdding && (
-                         <button 
+                         <button
                            onClick={() => setIsAdding(true)}
                            className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm"
                          >
                            <UserPlus size={16} />
-                           Add a Bond
+                           Tambah hubungan
                          </button>
                       )}
                     </div>
@@ -609,8 +647,8 @@ export function RelationshipMapper({ projectId }: RelationshipMapperProps) {
                <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-300 dark:text-slate-600">
                  <Users size={48} />
                </div>
-               <h4 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">Character Hub</h4>
-               <p className="text-slate-500 dark:text-slate-400 max-w-sm">Select a character from the list to view and manage their relationships.</p>
+               <h4 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">Pusat Karakter</h4>
+               <p className="text-slate-500 dark:text-slate-400 max-w-sm">Pilih karakter dari daftar untuk melihat dan mengelola hubungannya.</p>
             </div>
           )}
         </div>
