@@ -121,6 +121,7 @@ export function useCodexPanel(projectId: number) {
       secret: entry.secret,
       worldStatus: entry.worldStatus,
       todo: entry.todo,
+      factionTag: entry.factionTag,
       customFields: entry.customFields || []
     });
     setEditingId(entry.id!);
@@ -149,6 +150,8 @@ export function useCodexPanel(projectId: number) {
         // ditetapkan penulis (agar saran otomatis tetap berlaku), bukan dipaksa nilai.
         worldStatus: data.worldStatus,
         todo: data.todo?.trim() || '',
+        // Panel Faksi (#15): tag keanggotaan; undefined = bukan faksi.
+        factionTag: data.factionTag?.trim() || undefined,
         // Template field per kategori (#17). Denormalisasi label sudah dilakukan CodexForm.
         customFields: data.customFields || []
       });
@@ -164,6 +167,7 @@ export function useCodexPanel(projectId: number) {
         secret: data.secret?.trim() || '',
         worldStatus: data.worldStatus,
         todo: data.todo?.trim() || '',
+        factionTag: data.factionTag?.trim() || undefined,
         customFields: data.customFields || []
       } as CodexEntry);
     }

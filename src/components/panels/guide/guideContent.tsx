@@ -17,7 +17,7 @@ import {
   Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
-  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList, Flame,
+  ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList, Flame, Users,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -369,6 +369,22 @@ export const FEATURES: Feature[] = [
       'Label hubungan sadar-arah: mis. "Memiliki" dari sisi sumber tampil "Dimiliki oleh" dari sisi target.',
       'Diagram ikatan muncul saat sebuah karakter punya ≥2 koneksi; untuk satu koneksi cukup kartunya.',
       'Relasi ikut menjadi bahan Cek Konsistensi & Peta Kontinuitas (mis. mendeteksi relasi yang dua tokohnya tak pernah bertemu di naskah).',
+    ],
+  },
+  {
+    id: 'factions', group: 'world', Icon: Users, color: 'indigo', view: 'factions',
+    title: 'Faksi & Kelompok',
+    where: 'Menu: Faksi & Kelompok',
+    what: 'Mengelompokkan entitas jadi faksi (kerajaan/ordo/kubu) lalu menampilkan politik antar-kelompok. Nol token, deterministik — menumpang tag & relasi yang sudah ada.',
+    steps: [
+      'Buka sebuah entri Codex (mis. "Kerajaan Merah"), aktifkan "Jadikan Faksi / Kelompok", lalu tentukan tag keanggotaan (default = nama entri).',
+      'Beri tag keanggotaan yang sama pada entri anggotanya (karakter/tempat), atau pakai "Tambah anggota" di panel ini.',
+      'Panel menampilkan anggota tiap faksi + hubungan antar-faksi: status yang KAMU deklarasikan berdampingan dengan potret relasi antar-anggota.',
+    ],
+    detail: [
+      'Dua sinyal disajikan netral tanpa penghakiman: "Deklarasi" (kebenaran penulis, mis. Sekutu) + "Antar-anggota" (potret relasi anggota, mis. 3× Musuh). Sekutu yang anggotanya bermusuhan itu SAH — bukan error.',
+      'Catatan "kenapa bersekutu/bermusuhan" ditulis di kolom catatan tiap deklarasi (tersimpan sebagai deskripsi relasi antar entri faksi).',
+      'Faksi = entri Codex ber-tag keanggotaan; menandai/mengedit di sini juga memperbarui data Relasi & Codex yang sama.',
     ],
   },
   {

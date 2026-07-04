@@ -34,6 +34,7 @@ const TimelinePanel = lazy(() => import('@/src/features/timeline/components/Time
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
 const WorldCompletenessPanel = lazy(() => import('@/src/features/codex/components/WorldCompletenessPanel').then(m => ({ default: m.WorldCompletenessPanel })));
 const LoreGraphPanel = lazy(() => import('@/src/features/codex/components/LoreGraphPanel').then(m => ({ default: m.LoreGraphPanel })));
+const FactionsPanel = lazy(() => import('@/src/features/lore/components/FactionsPanel').then(m => ({ default: m.FactionsPanel })));
 const SemanticSearchPanel = lazy(() => import('@/src/features/search/components/SemanticSearchPanel').then(m => ({ default: m.SemanticSearchPanel })));
 const CodexWorkshopPanel = lazy(() => import('@/src/features/codex-workshop/components/CodexWorkshopPanel').then(m => ({ default: m.CodexWorkshopPanel })));
 
@@ -191,6 +192,14 @@ export function MainView() {
             <ViewContainer key="graph" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <LoreGraphPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'factions' && projectId && (
+            <ViewContainer key="factions" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <FactionsPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

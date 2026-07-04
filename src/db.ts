@@ -410,6 +410,30 @@ export class AetherScribeDB extends Dexie {
       plotPromises: '++id, projectId, codexId',
       glossary: '++id, projectId'
     });
+
+    // v29: field baru `factionTag` di CodexEntry (Panel Faksi & Kelompok, #15). Inert
+    // (bukan FK, tak diindeks) → skema identik dengan v28, append-only, tanpa migrasi
+    // data. Menumpang objek codex, jadi backup/impor/deleteProject tak berubah (pola
+    // `tension`/`worldStatus`/`namePalette`/`hidden`/`secret`).
+    this.version(29).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId',
+      glossary: '++id, projectId'
+    });
   }
 }
 

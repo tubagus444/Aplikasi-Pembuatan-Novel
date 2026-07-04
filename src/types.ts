@@ -64,7 +64,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph' | 'factions';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -245,6 +245,15 @@ export interface CodexEntry {
    * otomatis sebagai bagian objek codex. Logika di `src/lib/codexFields.ts`.
    */
   customFields?: CustomFieldValue[];
+  /**
+   * Panel Faksi & Kelompok (#15): menandai entri ini sebagai FAKSI/kelompok. Nilai =
+   * tag keanggotaan; anggota faksi = entri Codex yang `tags`-nya memuat string ini.
+   * Non-kosong ⇒ entri ini faksi. Inert (BUKAN FK, tak diindeks, TAK masuk KB AI/ekspor
+   * di v1 — metadata alur kerja). Decoupled dari `name` agar rename entri tak memutus
+   * keanggotaan. Ikut backup/impor otomatis sebagai bagian objek codex (pola `hidden`/
+   * `worldStatus`/`tension`). Logika turunan di `src/lib/factions.ts`.
+   */
+  factionTag?: string;
 }
 
 // Template field per kategori (#17). Skema (definisi) hidup di CustomCategory.fields;
