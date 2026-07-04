@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLoreGraph, findDanglingRefs } from '@/src/lib/loreGraph';
+import { buildLoreGraph, buildLoreGraphView, findDanglingRefs } from '@/src/lib/loreGraph';
 import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
 
 const entry = (
@@ -139,5 +139,67 @@ describe('buildLoreGraph — tautan menggantung', () => {
     const rels = [rel(10, 1, 2), rel(11, 1, 99)]; // rel 11 menggantung
     const proms = [promise(5, 'Ramalan', { codexId: 88, payoffCodexId: 2 })];
     expect(findDanglingRefs(entries, rels, proms)).toEqual(buildLoreGraph(entries, rels, proms).dangling);
+  });
+});
+
+describe('buildLoreGraphView — node & edge untuk visualisasi', () => {
+  it('membuat satu node per entri dengan metadata', () => {
+    const entries = [entry(1, 'Kaelen'), entry(2, 'Vharos', '', { category: 'location', hidden: true })];
+    const { nodes } = buildLoreGraphView(entries, [], []);
+    expect(nodes).toHaveLength(2);
+    expect(nodes[0]).toMatchObject({ id: 1, name: 'Kaelen', category: 'character', hidden: false });
+    expect(nodes[1]).toMatchObject({ id: 2, name: 'Vharos', category: 'location', hidden: true });
+  });
+
+  it('membuat edge relasi dan menghitung degree kedua ujung', () => {
+    const entries = [entry(1, 'Kaelen'), entry(2, 'Roderik')];
+    const { nodes, links } = buildLoreGraphView(entries, [rel(10, 1, 2, 'Saudara')], []);
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ source: 1, target: 2, via: 'relationship', label: 'Saudara' });
+    expect(nodes.find(n => n.id === 1)!.degree).toBe(1);
+    expect(nodes.find(n => n.id === 2)!.degree).toBe(1);
+  });
+
+  it('men-dedup edge relasi dua-ujung jadi satu (tak-berarah), tapi memisah tipe berbeda', () => {
+    const entries = [entry(1, 'A'), entry(2, 'B')];
+    // relasi 1→2 dan 2→1 tipe sama = satu edge; tipe beda = edge terpisah.
+    const rels = [rel(10, 1, 2, 'Musuh'), rel(11, 2, 1, 'Musuh'), rel(12, 1, 2, 'Sekutu')];
+    const { links } = buildLoreGraphView(entries, rels, []);
+    expect(links).toHaveLength(2);
+    expect(links.map(l => l.label).sort()).toEqual(['Musuh', 'Sekutu']);
+  });
+
+  it('membuat edge sebutan (undirected) dari deskripsi & men-dedup arah balik', () => {
+    const entries = [
+      entry(1, 'Kaelen', 'Kaelen tinggal di Vharos.'),
+      entry(2, 'Vharos', 'Vharos adalah rumah Kaelen.'),
+    ];
+    const { links } = buildLoreGraphView(entries, [], []);
+    // A menyebut B dan B menyebut A → tetap satu edge.
+    const mentions = links.filter(l => l.via === 'mention');
+    expect(mentions).toHaveLength(1);
+    expect(mentions[0]).toMatchObject({ source: 1, target: 2 });
+  });
+
+  it('membuat edge payoff dari janji dengan codexId & payoffCodexId', () => {
+    const entries = [entry(1, 'Ramalan Kuno'), entry(2, 'Jati Diri', '', { hidden: true })];
+    const proms = [promise(5, 'Siapa sang terpilih?', { codexId: 1, payoffCodexId: 2 })];
+    const { links } = buildLoreGraphView(entries, [], proms);
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ source: 1, target: 2, via: 'payoff', label: 'Siapa sang terpilih?' });
+  });
+
+  it('mengabaikan edge yang salah satu ujungnya entri terhapus', () => {
+    const entries = [entry(1, 'Kaelen', 'Menyebut hantu.')];
+    const rels = [rel(10, 1, 99)]; // 99 tak ada
+    const proms = [promise(5, 'X', { codexId: 1, payoffCodexId: 98 })]; // 98 tak ada
+    const { links } = buildLoreGraphView(entries, rels, proms);
+    expect(links).toHaveLength(0);
+  });
+
+  it('menandai entri terisolasi lewat degree 0', () => {
+    const entries = [entry(1, 'Kaelen'), entry(2, 'Roderik'), entry(3, 'Yatim')];
+    const { nodes } = buildLoreGraphView(entries, [rel(10, 1, 2)], []);
+    expect(nodes.find(n => n.id === 3)!.degree).toBe(0);
   });
 });

@@ -61,6 +61,35 @@ export interface LoreGraph {
 }
 
 /**
+ * Simpul graf = satu entri Codex. `degree` = jumlah edge yang menyentuhnya (untuk
+ * ukuran node & mendeteksi entri "sebatang kara" = degree 0).
+ */
+export interface LoreGraphNode {
+  id: number;
+  name: string;
+  category: string;
+  hidden: boolean;
+  degree: number;
+}
+
+/**
+ * Edge graf — TAK berarah (dipakai layout force-directed). `source`/`target` selalu
+ * berupa id codex yang ADA (edge menggantung disaring; itu ranah `dangling`).
+ */
+export interface LoreGraphViewLink {
+  source: number;
+  target: number;
+  via: LoreLinkVia;
+  /** Tipe relasi (`relationship`) / judul janji (`payoff`). */
+  label?: string;
+}
+
+export interface LoreGraphView {
+  nodes: LoreGraphNode[];
+  links: LoreGraphViewLink[];
+}
+
+/**
  * Bangun graf lore dari entri Codex + relasi + janji plot.
  *
  * @param entries       seluruh entri Codex proyek.
@@ -155,6 +184,104 @@ export function buildLoreGraph(
   const dangling = findDanglingRefs(entries, relationships, promises);
 
   return { backlinks, dangling };
+}
+
+/**
+ * Turunkan graf node-edge untuk VISUALISASI (#14) — nol tabel/field baru, deterministik.
+ *
+ * Berbeda dari `buildLoreGraph` yang menurunkan backlink PER-target (arah masuk), fungsi
+ * ini menghasilkan daftar node + edge TAK berarah siap-render (force-directed): satu node
+ * per entri Codex, satu edge per pasangan yang tertaut lewat relasi / sebutan / payoff.
+ * Edge di-dedup sebagai pasangan tak-berurut agar A↔B tak muncul dua kali.
+ *
+ *   - `relationship` — relasi bertipe utuh (kedua ujung ada). Beda tipe antar-pasangan
+ *     yang sama = edge terpisah (mis. "Saudara" & "Musuh"). Ujung menggantung diabaikan.
+ *   - `mention`      — satu scan Aho-Corasick atas nama+alias di `description`+`secret`.
+ *   - `payoff`       — janji yang punya `codexId` DAN `payoffCodexId` (keduanya ada) →
+ *     edge setup→payoff. Janji tanpa entri subjek tak punya node untuk ditaut.
+ *
+ * `degree` tiap node dihitung dari edge final → node degree 0 = entri terisolasi.
+ */
+export function buildLoreGraphView(
+  entries: CodexEntry[],
+  relationships: Relationship[] = [],
+  promises: PlotPromise[] = [],
+): LoreGraphView {
+  const byId = new Map<number, CodexEntry>();
+  for (const e of entries) {
+    if (e.id != null) byId.set(e.id, e);
+  }
+
+  const links: LoreGraphViewLink[] = [];
+  // Dedup pasangan tak-berurut. Relasi menyertakan label di kunci (tipe berbeda = edge
+  // berbeda); sebutan & payoff cukup satu edge per pasangan+via.
+  const seen = new Set<string>();
+  const addLink = (a: number, b: number, via: LoreLinkVia, label?: string) => {
+    if (a === b || !byId.has(a) || !byId.has(b)) return;
+    const [lo, hi] = a < b ? [a, b] : [b, a];
+    const key = via === 'relationship' ? `relationship:${lo}-${hi}:${label ?? ''}` : `${via}:${lo}-${hi}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push({ source: lo, target: hi, via, label });
+  };
+
+  // --- Relasi bertipe --------------------------------------------------------
+  for (const rel of relationships) {
+    addLink(rel.sourceId, rel.targetId, 'relationship', rel.type);
+  }
+
+  // --- Sebutan nama (satu scan Aho-Corasick atas nama+alias) -----------------
+  const keywords: { word: string; data: number }[] = [];
+  for (const e of entries) {
+    if (e.id == null) continue;
+    for (const term of [e.name, ...(e.aliases || [])]) {
+      const w = (term || '').trim();
+      if (w.length >= 2) keywords.push({ word: w, data: e.id });
+    }
+  }
+  const ac = keywords.length ? new AhoCorasick(keywords) : null;
+  if (ac) {
+    for (const e of entries) {
+      if (e.id == null) continue;
+      const text = `${e.description || ''}\n${e.secret || ''}`;
+      if (!text.trim()) continue;
+      for (const m of ac.search(text)) {
+        addLink(e.id, m.data as number, 'mention');
+      }
+    }
+  }
+
+  // --- Payoff Janji Plot (setup entri → entri pembayar) ----------------------
+  for (const p of promises) {
+    if (p.codexId != null && p.payoffCodexId != null) {
+      addLink(p.codexId, p.payoffCodexId, 'payoff', p.title);
+    }
+  }
+
+  // --- Node + degree ---------------------------------------------------------
+  const degree = new Map<number, number>();
+  for (const l of links) {
+    degree.set(l.source, (degree.get(l.source) ?? 0) + 1);
+    degree.set(l.target, (degree.get(l.target) ?? 0) + 1);
+  }
+
+  const nodes: LoreGraphNode[] = [];
+  for (const e of entries) {
+    if (e.id == null) continue;
+    nodes.push({
+      id: e.id,
+      name: e.name,
+      category: e.category,
+      hidden: !!e.hidden,
+      degree: degree.get(e.id) ?? 0,
+    });
+  }
+
+  // Urutan deterministik (memudahkan tes; layout force menata ulang posisi sendiri).
+  nodes.sort((a, b) => a.id - b.id);
+  links.sort((a, b) => a.source - b.source || a.target - b.target || a.via.localeCompare(b.via) || (a.label ?? '').localeCompare(b.label ?? ''));
+
+  return { nodes, links };
 }
 
 /**
