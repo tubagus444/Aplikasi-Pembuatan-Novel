@@ -29,7 +29,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
 | ✅ Lore terpotong senyap (caching) | **SELESAI** — `buildCodexLoreString` memotong pada BATAS ENTRI (blok `[RAHASIA…]` tak pernah separuh, entri huruf-akhir di-drop utuh) + `console.warn` "N/M entri termuat" saat cap tercapai (arahkan naikkan cap di Pengaturan) | risiko | T | S–M | `loreFormat.ts`, `index.ts` |
-| Presence scan di main thread | `buildPresenceIndex` scan seluruh isi semua bab sinkron di main thread → jank multi-detik pada 100+ bab. Langgar aturan "berat = worker" | risiko | T | M | `continuity.ts:88` |
+| ✅ Presence scan di main thread | **SELESAI** — scan dipindah ke worker (`buildPresenceIndexAsync` → pesan `BUILD_PRESENCE_INDEX`, fungsi murni yang SAMA). 4 panel diperbarui: Kontinuitas & Lensa `await` di handler scan; Janji Plot & Atlas via hook `usePresenceIndex`. Derivasi terima `options.index` (fallback sinkron utk tes) | risiko | T | M | `contextWorker.ts`, `contextEngine.ts`, `usePresenceIndex.ts`, `continuity.ts`, `plotPromises.ts` |
 | Timeout worker 30 dtk flat | Query sah bisa gagal timeout saat antre di belakang embedding indexing perdana | risiko | S | S | `contextEngine.ts:54` |
 | Cache konsistensi membengkak localStorage | Mirror per-bab × 100+ bab → risiko `QuotaExceededError` yang bisa matikan persist settings lain | risiko | S | S | `src/lib/inlineConsistency.ts` |
 | postMessage payload penuh berulang | Seluruh array codex di-clone + `JSON.stringify` hash tiap pesan → O(n) per ketikan | risiko | R | M | `contextEngine.ts:98` |
@@ -129,7 +129,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 1. ✅ **Flush autosave saat `pagehide` + sebelum reload `versionchange`** (B2 #2) — **SELESAI** (listener lifecycle di `useGlobalEvents` + flush di handler `versionchange`, keduanya via `flushActiveEditor()`).
 2. ✅ **Perbaiki pemotongan lore senyap + satukan formatter KB** (B1 1b#1 + 1a#2) — **SELESAI** (sumber tunggal `src/lib/loreFormat.ts`, potong batas-entri + warn, meter hitung fields/secret/graf).
 3. ✅ **Jinakkan ErrorBoundary global + cabut re-dispatch tokenWorker + listener `aetherscribe-db-issue`** (B2 #4 + #2) — **SELESAI** (root boundary hanya error render + `PanelErrorBoundary`; tokenWorker tak re-dispatch; `useDbIssueListener` → toast persisten).
-4. **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — fondasi 4 fitur analitik.
+4. ✅ **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — **SELESAI** (scan di worker via `buildPresenceIndexAsync`/`usePresenceIndex`; derivasi terima `options.index`).
 5. **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — UI beku & korektness naskah serah pada novel besar, effort S–M.
 6. **Guard filter projectId + race init Orama** (B3 C) — cegah polusi/drift indeks RAG saat impor/restore.
 7. **Uji jantung AI** (B1 1a#1) — kode paling kritis & paling sering disentuh, paling tak terlindungi.

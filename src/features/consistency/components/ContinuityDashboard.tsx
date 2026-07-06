@@ -17,6 +17,7 @@ import { stripHtml } from '@/src/lib/editorUtils';
 import {
   analyzeContinuity, ContinuityReport, ContinuityFinding, ContinuityCheck, ContinuitySeverity,
 } from '@/src/lib/continuity';
+import { buildPresenceIndexAsync } from '@/src/services/contextEngine';
 import { cn } from '@/src/lib/utils';
 
 interface ContinuityDashboardProps {
@@ -64,7 +65,9 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
     const plain = chapters
       .filter(c => c.id != null)
       .map(c => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
-    const result = analyzeContinuity(plain, codexEntries, relationships, timeline || [], { gapThreshold });
+    // Scan Aho-Corasick berat di worker (bukan main thread) agar UI tak beku.
+    const index = await buildPresenceIndexAsync(plain, codexEntries);
+    const result = analyzeContinuity(plain, codexEntries, relationships, timeline || [], { gapThreshold, index });
     setReport(result);
     setScanning(false);
   }, [chapters, codexEntries, relationships, timeline, gapThreshold]);

@@ -13,7 +13,8 @@ import { Activity, ScanSearch, Loader2, Sparkles, Eye, Users, MapPin, Clock } fr
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { stripHtml } from '@/src/lib/editorUtils';
-import { buildPresenceIndex, PresenceIndex } from '@/src/lib/continuity';
+import { PresenceIndex } from '@/src/lib/continuity';
+import { buildPresenceIndexAsync } from '@/src/services/contextEngine';
 import { computeCharacterArc, CharacterArc, ArcChapter } from '@/src/lib/characterArc';
 import { cn } from '@/src/lib/utils';
 
@@ -60,7 +61,8 @@ export function CharacterArcPanel({ projectId }: CharacterArcPanelProps) {
       .filter(c => c.id != null)
       .map(c => ({ id: c.id!, title: c.title, content: stripHtml(c.content || ''), pov: c.pov }));
     arcChaptersRef.current = arcChapters;
-    indexRef.current = buildPresenceIndex(arcChapters, codexEntries);
+    // Scan Aho-Corasick berat di worker agar main thread tak jank pada naskah besar.
+    indexRef.current = await buildPresenceIndexAsync(arcChapters, codexEntries);
     setArc(computeCharacterArc(targetId, arcChapters, codexEntries, { index: indexRef.current }));
     setScanning(false);
   }, [chapters, characters, codexEntries, selectedId]);

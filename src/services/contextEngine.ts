@@ -8,6 +8,7 @@ import { CodexEntry, StoryBibleRule, Relationship } from '@/src/types';
 import ContextWorker from '@/src/services/contextWorker?worker';
 import { oramaSync } from '@/src/services/rag/oramaSync';
 import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
+import type { ContinuityChapter, PresenceIndex } from '@/src/lib/continuity';
 
 // Worker instance and communication state
 let worker: Worker | null = null;
@@ -207,6 +208,22 @@ export async function countIndexedScenes(projectId: number): Promise<number> {
 export async function countTokens(text: string, model?: string): Promise<number> {
   if (!text) return 0;
   return sendToWorker('COUNT_TOKENS', { text, model });
+}
+
+/**
+ * Bangun PresenceIndex (scan Aho-Corasick nama+alias Codex lintas-bab) DI WORKER agar
+ * tak memblokir main thread pada naskah besar. Fondasi bersama Peta Kontinuitas, Lensa
+ * Karakter, Janji Plot, Atlas — semua meneruskan hasil ini ke fungsi derivasi murni.
+ * Shortcut lokal saat tak ada yang dipindai (hindari spin-up worker sia-sia).
+ */
+export async function buildPresenceIndexAsync(
+  chapters: ContinuityChapter[],
+  codexEntries: CodexEntry[]
+): Promise<PresenceIndex> {
+  if (!chapters.length || !codexEntries.length) {
+    return { perChapterCounts: chapters.map(() => new Map<number, number>()), byEntity: new Map() };
+  }
+  return sendToWorker('BUILD_PRESENCE_INDEX', { chapters, codexEntries });
 }
 
 export async function estimateContextTokens(text: string, codexText: string, rulesText: string, model?: string): Promise<{textTokens: number, codexTokens: number, rulesTokens: number}> {

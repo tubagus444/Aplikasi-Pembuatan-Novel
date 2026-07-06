@@ -70,6 +70,11 @@ export interface ContinuityReport {
 export interface ContinuityOptions {
   /** Jumlah bab berturut-turut tanpa kemunculan agar dianggap "menghilang". Default 4. */
   gapThreshold?: number;
+  /**
+   * PresenceIndex yang sudah dihitung (mis. di worker via `buildPresenceIndexAsync`)
+   * agar scan berat tak berjalan di main thread. Bila kosong, dibangun sinkron di sini.
+   */
+  index?: PresenceIndex;
 }
 
 /** Indeks kemunculan entitas Codex di seluruh bab — dasar bersama analitik lokal. */
@@ -134,7 +139,7 @@ export function analyzeContinuity(
     if (e.id != null) byId.set(e.id, e);
   }
 
-  const { perChapterCounts, byEntity: presenceMap } = buildPresenceIndex(chapters, codexEntries);
+  const { perChapterCounts, byEntity: presenceMap } = options?.index ?? buildPresenceIndex(chapters, codexEntries);
 
   const presence: EntityPresence[] = [];
   for (const [id, info] of presenceMap) {

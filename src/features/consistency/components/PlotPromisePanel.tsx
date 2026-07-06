@@ -20,6 +20,7 @@ import { useProjectData } from '@/src/hooks/useProjectData';
 import { stripHtml } from '@/src/lib/editorUtils';
 import { PlotPromise, PlotPromiseImportance, PlotPromiseStatus } from '@/src/types';
 import { analyzePromises, analyzePayoffs, PromiseState, PayoffState } from '@/src/lib/plotPromises';
+import { usePresenceIndex } from '@/src/hooks/usePresenceIndex';
 import { cn } from '@/src/lib/utils';
 
 interface PlotPromisePanelProps {
@@ -55,14 +56,22 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
   const [editing, setEditing] = useState<PlotPromise | 'new' | null>(null);
   const [onlyAttention, setOnlyAttention] = useState(false);
 
-  // Analisis turunan — murni & cepat; dihitung ulang saat data/ambang berubah.
-  const report = useMemo(() => {
-    if (!chapters || !promises) return null;
-    const plain = chapters
+  // Teks bab polos di-memo (ref stabil selama data tak berubah) untuk feed worker.
+  const plain = useMemo(() => {
+    if (!chapters) return null;
+    return chapters
       .filter(c => c.id != null)
       .map(c => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
-    return analyzePromises(promises, plain, codexEntries, { dormancyThreshold });
-  }, [chapters, promises, codexEntries, dormancyThreshold]);
+  }, [chapters]);
+
+  // Scan kehadiran (nama+alias) di WORKER agar main thread tak jank pada naskah besar.
+  const presenceIndex = usePresenceIndex(plain, codexEntries);
+
+  // Derivasi murni & cepat; menunggu index worker siap.
+  const report = useMemo(() => {
+    if (!plain || !promises || !presenceIndex) return null;
+    return analyzePromises(promises, plain, codexEntries, { dormancyThreshold, index: presenceIndex });
+  }, [plain, promises, codexEntries, dormancyThreshold, presenceIndex]);
 
   const openChapter = (id: number) => {
     setActiveChapterId(id);

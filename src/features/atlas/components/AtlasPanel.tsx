@@ -21,7 +21,7 @@ import { useProjectData } from '@/src/hooks/useProjectData';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 import { getCategoryLabel } from '@/src/lib/codexCategories';
 import { stripHtml } from '@/src/lib/editorUtils';
-import { buildPresenceIndex } from '@/src/lib/continuity';
+import { usePresenceIndex } from '@/src/hooks/usePresenceIndex';
 import { resolveMarkerColor } from '@/src/lib/atlasColors';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry, MapMarker, MapPoint } from '@/src/types';
@@ -128,14 +128,20 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
     });
   }, [markers, offKinds, offCategories, offFactions, entryById]);
 
-  // Indeks kehadiran (sekali per perubahan bab/codex) → kehadiran bab per entri.
-  const presenceIndex = useMemo(() => {
+  // Teks bab polos di-memo (ref stabil) untuk feed worker.
+  const presenceChaptersPlain = useMemo(() => {
     if (!chapters) return null;
-    const cc = chapters
+    return chapters
       .filter((c) => c.id != null)
       .map((c) => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
-    return { index: buildPresenceIndex(cc, codexEntries), chapters: cc };
-  }, [chapters, codexEntries]);
+  }, [chapters]);
+
+  // Scan kehadiran (nama+alias) di WORKER agar main thread tak jank pada naskah besar.
+  const idx = usePresenceIndex(presenceChaptersPlain, codexEntries);
+  const presenceIndex = useMemo(
+    () => (presenceChaptersPlain && idx ? { index: idx, chapters: presenceChaptersPlain } : null),
+    [presenceChaptersPlain, idx]
+  );
 
   const selectedMarker = markers.find((m) => m.id === selectedMarkerId);
   const selectedEntry = selectedMarker?.codexId != null ? entryById.get(selectedMarker.codexId) : undefined;

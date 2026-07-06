@@ -9,6 +9,7 @@ import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
 import { formatBibleBlock } from '@/src/lib/storyBible';
 import { buildCodexLoreString, buildRelationshipGraph } from '@/src/lib/loreFormat';
+import { buildPresenceIndex } from '@/src/lib/continuity';
 import { chunkChapter, hashChunk } from '@/src/lib/manuscriptChunker';
 import { SceneEmbedding } from '@/src/types';
 import { pipeline, env } from '@xenova/transformers';
@@ -655,6 +656,12 @@ self.onmessage = async (e: MessageEvent) => {
         break;
       case 'COUNT_TOKENS':
         result = countTokens(payload.text, payload.model);
+        break;
+      case 'BUILD_PRESENCE_INDEX':
+        // Scan Aho-Corasick nama+alias Codex atas SEMUA bab — berat (multi-detik pada
+        // 100+ bab), dijalankan di worker agar main thread tak jank. Fungsi yang SAMA
+        // dipakai jalur sync (continuity.ts) → tak ada divergensi pencocokan.
+        result = buildPresenceIndex(payload.chapters, payload.codexEntries);
         break;
       case 'ESTIMATE_CONTEXT_TOKENS':
         result = {

@@ -19,7 +19,7 @@
 
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
 import { CodexEntry, PlotPromise } from '@/src/types';
-import { buildPresenceIndex, ContinuityChapter } from '@/src/lib/continuity';
+import { buildPresenceIndex, ContinuityChapter, PresenceIndex } from '@/src/lib/continuity';
 
 /**
  * Status TURUNAN (dihitung, tak disimpan):
@@ -54,6 +54,12 @@ export interface PromiseReport {
 export interface PromiseOptions {
   /** Ambang bab tertidur (kemunculan terakhir → akhir manuskrip) agar open → dormant. Default 4. */
   dormancyThreshold?: number;
+  /**
+   * PresenceIndex pre-komputasi (mis. dari worker) untuk bagian janji ber-`codexId`,
+   * agar scan nama+alias tak jalan di main thread. Bila kosong, dibangun sinkron.
+   * (Scan keyword janji non-entitas tetap di sini — biasanya kecil.)
+   */
+  index?: PresenceIndex;
 }
 
 /** Bangun laporan status janji dari bab (terurut) + data Codex. */
@@ -67,7 +73,7 @@ export function analyzePromises(
   const chapterCount = chapters.length;
 
   // Janji ber-codexId: pakai peta kemunculan bersama (nama + alias).
-  const presence = buildPresenceIndex(chapters, codexEntries);
+  const presence = options?.index ?? buildPresenceIndex(chapters, codexEntries);
 
   // Janji ber-keywords: satu Aho-Corasick atas semua frasa, ditandai indeks janji.
   const kwKeywords: { word: string; data: number }[] = [];
