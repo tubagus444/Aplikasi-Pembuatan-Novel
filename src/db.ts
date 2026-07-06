@@ -5,6 +5,7 @@
 
 import Dexie, { Table } from 'dexie';
 import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise, GlossaryEntry, AtlasMap, MapMarker } from '@/src/types';
+import { flushActiveEditor } from '@/src/features/editor/editorBridge';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -536,11 +537,17 @@ function notifyDbIssue(level: 'warning' | 'error', message: string) {
 // Tab/koneksi lain ingin upgrade ke skema lebih baru → tutup koneksi ini agar
 // upgrade-nya bisa lanjut. Di main thread, muat ulang agar memakai skema/kode terbaru.
 db.on('versionchange', () => {
-  db.close();
-  if (typeof window !== 'undefined') {
-    notifyDbIssue('warning', 'Database diperbarui di tab lain. Memuat ulang halaman…');
-    window.location.reload();
-  }
+  // Simpan dulu edit editor yang belum ter-persist (autosave di-debounce) selagi
+  // koneksi ini MASIH terbuka — jika langsung close+reload, edit ter-debounce ikut
+  // terbuang. flushActiveEditor() no-op bila editor tak sedang ter-mount.
+  const closeAndReload = () => {
+    db.close();
+    if (typeof window !== 'undefined') {
+      notifyDbIssue('warning', 'Database diperbarui di tab lain. Memuat ulang halaman…');
+      window.location.reload();
+    }
+  };
+  flushActiveEditor().catch(() => {}).finally(closeAndReload);
 });
 
 // Upgrade di koneksi ini terblokir oleh koneksi lama yang belum menutup (tab lain).

@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { ErrorService } from '@/src/services/errorService';
+import { flushActiveEditor } from '@/src/features/editor/editorBridge';
 
 interface GlobalEventsProps {
   setIsSearchOpen?: (open: boolean) => void;
@@ -53,4 +54,24 @@ export function useGlobalEvents({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [setIsSearchOpen]);
+
+  useEffect(() => {
+    // Flush edit editor yang belum ter-persist saat tab disembunyikan/ditutup.
+    // Autosave editor di-debounce 1,5 dtk, jadi mengetik lalu langsung menutup/
+    // mengganti tab bisa membuang edit terakhir. flushActiveEditor() menyimpannya
+    // lebih dulu lewat bridge (no-op bila editor tak sedang ter-mount).
+    // `visibilitychange`→hidden lebih andal (halaman belum dibongkar sehingga tulis
+    // IndexedDB sempat selesai, dan konsisten di mobile); `pagehide` menangkap
+    // penutupan/navigasi sebenarnya di desktop.
+    const flushOnHide = () => { void flushActiveEditor(); };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') flushOnHide();
+    };
+    window.addEventListener('pagehide', flushOnHide);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flushOnHide);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
 }
