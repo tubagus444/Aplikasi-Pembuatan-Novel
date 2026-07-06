@@ -76,3 +76,25 @@ export function selectBackupsToDelete<T>(
 
   return sorted.filter((it) => !keep.has(it));
 }
+
+/**
+ * Pilih SATU cadangan untuk DIBUANG saat penyimpanan penuh (degradasi kuota, BK#1).
+ * Berbeda dari retensi berjenjang di atas (rotasi normal): ini dipakai HANYA saat
+ * `db.backups.add` gagal karena kuota, untuk membebaskan ruang lalu retry.
+ *
+ * Kembalikan cadangan 'auto' TERTUA yang aman dibuang, atau `null` bila tak ada.
+ * SELALU pertahankan: semua 'pre-restore' (jaring undo) + satu 'auto' terbaru — agar
+ * lonjakan kuota tak menghapus seluruh riwayat demi satu cadangan yang bahkan mungkin
+ * tetap tak muat.
+ */
+export function selectBackupToEvict<T>(
+  items: T[],
+  getTimestamp: (item: T) => number,
+  isPreRestore: (item: T) => boolean
+): T | null {
+  const autos = items
+    .filter((it) => !isPreRestore(it))
+    .sort((a, b) => getTimestamp(a) - getTimestamp(b)); // tertua dulu
+  if (autos.length <= 1) return null; // sisakan minimal satu cadangan baik
+  return autos[0];
+}

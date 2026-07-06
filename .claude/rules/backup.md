@@ -16,6 +16,7 @@ Jebakan & konvensi:
 2. `restoreData` = clear+refill **semua tabel dalam satu transaksi atomik**; `embeddings`/`sceneEmbeddings` di-clear (bukan dipulihkan) untuk regenerasi; sebelum menimpa, snapshot **pra-pemulihan** otomatis ditulis ke `backups` (`kind:'pre-restore'`, tak ikut di-clear = jaring undo).
 3. Integritas via **checksum SHA-256** (`computeChecksum`, `BackupData.version` 5) diverifikasi SEBELUM sentuh DB.
 4. Retensi **berjenjang** (grandfather-father-son) di `src/lib/backupRetention.ts` (murni, teruji), dipakai ketiga lapisan.
+5. **Degradasi kuota (BK#1):** `saveToInternalDB` menambah via `addBackupResilient` — bila `db.backups.add` melempar error kuota (`isQuotaError`), buang cadangan 'auto' TERTUA (`selectBackupToEvict`, murni+teruji) lalu retry, berulang. **Jangan kembalikan ke `add` lugas sebelum rotasi** (gagal justru saat penyimpanan penuh). Selalu pertahankan semua `pre-restore` (undo) + 1 `auto` terbaru; menyerah dengan pesan jelas bila tak ada lagi yang aman dibuang. Rotasi berjenjang normal tetap jalan SETELAH add berhasil.
 
 **Ekspor/impor per-novel (#4):** `collectProjectData(projectId)` menyaring satu proyek & menandai file `scope:'project'`; **impor = proyek BARU, non-destruktif** (`importProjectData` HANYA `add`/`bulkAdd`, tak pernah clear/update/delete) karena PK numerik `++id` tak unik lintas-ekspor → **seluruh foreign-key di-remap** oleh `src/lib/importRemap.ts` (murni, teruji: `remapProjectDependents` + peta FK eksplisit + `importedProjectName`).
 

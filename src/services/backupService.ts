@@ -5,7 +5,7 @@
 
 import { db } from '@/src/db';
 import { BackupRecord } from '@/src/types';
-import { selectBackupsToDelete } from '@/src/lib/backupRetention';
+import { selectBackupsToDelete, selectBackupToEvict } from '@/src/lib/backupRetention';
 import { blobToDataUrl, dataUrlToBlob } from '@/src/lib/blobCodec';
 import {
   remapProjectDependents,
@@ -50,6 +50,24 @@ export interface BackupData {
     maps?: any[];
     mapMarkers?: any[];
   };
+}
+
+/**
+ * Deteksi kegagalan kuota penyimpanan (IndexedDB penuh). Nama/kode berbeda antar
+ * browser (Chrome: `QuotaExceededError`/code 22; Firefox: `NS_ERROR_DOM_QUOTA_REACHED`/
+ * code 1014) → cek beberapa varian + pesan.
+ */
+function isQuotaError(err: any): boolean {
+  if (!err) return false;
+  const name = err.name || err.inner?.name; // Dexie membungkus DOMException di `inner`
+  const code = err.code ?? err.inner?.code;
+  return (
+    name === 'QuotaExceededError' ||
+    name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    code === 22 ||
+    code === 1014 ||
+    /quota/i.test(String(err?.message || ''))
+  );
 }
 
 export const backupService = {
@@ -190,7 +208,7 @@ export const backupService = {
       size = new Blob([jsonString]).size;
     }
 
-    await db.backups.add({
+    await this.addBackupResilient({
       timestamp: data.timestamp,
       data: stored,
       size,
@@ -205,6 +223,55 @@ export const backupService = {
     if (toDelete.length) {
       await db.backups.bulkDelete(toDelete.map(b => b.id!));
     }
+  },
+
+  /**
+   * Tambah satu cadangan dengan DEGRADASI saat kuota penuh. Dulu `db.backups.add`
+   * dipanggil SEBELUM rotasi → `add` gagal justru saat penyimpanan hampir penuh (tak
+   * ada ruang dibebaskan lebih dulu) & tanpa pemulihan. Kini: bila `add` melempar error
+   * kuota, buang cadangan 'auto' TERTUA (JANGAN sentuh 'pre-restore' = jaring undo) lalu
+   * coba lagi, berulang sampai berhasil atau tak ada lagi yang bisa dibuang.
+   */
+  async addBackupResilient(record: Omit<BackupRecord, 'id'>): Promise<void> {
+    try {
+      await db.backups.add(record as BackupRecord);
+      return;
+    } catch (err) {
+      if (!isQuotaError(err)) throw err;
+      console.warn('[Backup] Penyimpanan penuh saat menyimpan cadangan; membuang cadangan lama lalu mencoba lagi…');
+    }
+
+    // Evakuasi bertahap + retry.
+    for (;;) {
+      const evicted = await this.evictOldestAutoBackup();
+      if (!evicted) {
+        // Hanya tersisa 'pre-restore' (tak boleh dibuang) → menyerah dengan aman.
+        throw new Error(
+          'Penyimpanan penuh: cadangan otomatis tak dapat disimpan. Hapus data lama atau ekspor manuskrip ke file.'
+        );
+      }
+      try {
+        await db.backups.add(record as BackupRecord);
+        return;
+      } catch (err) {
+        if (!isQuotaError(err)) throw err;
+        // Masih penuh → lanjut membuang cadangan berikutnya.
+      }
+    }
+  },
+
+  /**
+   * Hapus cadangan 'auto' TERTUA untuk membebaskan ruang. Mengembalikan `false` bila
+   * tak ada lagi yang aman dibuang. Dipertahankan: SEMUA 'pre-restore' (jaring undo) &
+   * SATU cadangan 'auto' terbaru — agar lonjakan kuota tak menghapus seluruh riwayat
+   * hanya demi memuat satu cadangan baru (yang bahkan mungkin tetap tak muat).
+   */
+  async evictOldestAutoBackup(): Promise<boolean> {
+    const all = await db.backups.orderBy('timestamp').toArray();
+    const victim = selectBackupToEvict(all, b => b.timestamp, b => b.kind === 'pre-restore');
+    if (!victim?.id) return false;
+    await db.backups.delete(victim.id);
+    return true;
   },
 
   /**

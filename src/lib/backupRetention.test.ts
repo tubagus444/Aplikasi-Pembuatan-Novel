@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { selectBackupsToDelete, DEFAULT_RETENTION, RetentionPolicy } from './backupRetention';
+import { selectBackupsToDelete, selectBackupToEvict, DEFAULT_RETENTION, RetentionPolicy } from './backupRetention';
 
 const DAY_MS = 86_400_000;
 // Timestamp untuk "hari ke-n" pada tengah hari agar urutan intra-hari deterministik.
@@ -61,5 +61,35 @@ describe('selectBackupsToDelete', () => {
     const toDelete = selectBackupsToDelete(items, (b) => b.ts, { recent: 2, daily: 0, weekly: 0 });
     // Simpan 2 terbaru (id 7,6) → hapus 6 sisanya.
     expect(toDelete.map((b) => b.id).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+});
+
+describe('selectBackupToEvict', () => {
+  interface B { id: number; ts: number; kind: 'auto' | 'pre-restore'; }
+  const auto = (id: number, day: number): B => ({ id, ts: dayTs(day), kind: 'auto' });
+  const pre = (id: number, day: number): B => ({ id, ts: dayTs(day), kind: 'pre-restore' });
+  const pick = (items: B[]) => selectBackupToEvict(items, (b) => b.ts, (b) => b.kind === 'pre-restore');
+
+  it('mengembalikan null untuk daftar kosong', () => {
+    expect(pick([])).toBeNull();
+  });
+
+  it('mengembalikan cadangan auto TERTUA', () => {
+    const victim = pick([auto(1, 5), auto(2, 1), auto(3, 3)]);
+    expect(victim?.id).toBe(2); // hari 1 = tertua
+  });
+
+  it('menyisakan minimal satu cadangan auto (tak membuang yang terakhir)', () => {
+    expect(pick([auto(1, 5)])).toBeNull();
+  });
+
+  it('tak pernah membuang pre-restore (jaring undo)', () => {
+    // Hanya ada satu auto + beberapa pre-restore → tak ada yang aman dibuang.
+    expect(pick([auto(1, 5), pre(2, 1), pre(3, 2)])).toBeNull();
+  });
+
+  it('membuang auto tertua walau ada pre-restore lebih tua', () => {
+    const victim = pick([pre(1, 0), auto(2, 4), auto(3, 2)]);
+    expect(victim?.id).toBe(3); // auto hari 2, bukan pre-restore hari 0
   });
 });
