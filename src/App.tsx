@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { cn } from '@/src/lib/utils';
-import { ToastContainer } from '@/src/components/common/Toast';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -13,6 +12,7 @@ import { useGlobalEvents } from '@/src/hooks/useGlobalEvents';
 import { useAutoBackup } from '@/src/hooks/useAutoBackup';
 import { useAutoSummarizer } from '@/src/hooks/useAutoSummarizer';
 import { useStorageQuota } from '@/src/hooks/useStorageQuota';
+import { useDbIssueListener } from '@/src/hooks/useDbIssueListener';
 import { motion } from 'motion/react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -57,6 +57,9 @@ export default function App() {
   useAutoBackup();
   // Initialize Auto-Summarizer daemon
   useAutoSummarizer();
+
+  // Surface kegagalan DB (terblokir/gagal buka/diperbarui di tab lain) sebagai toast.
+  useDbIssueListener();
 
   // Check storage quota on init
   const { checkStorageQuota } = useStorageQuota();
@@ -114,7 +117,6 @@ export default function App() {
         </div>
       </div>
 
-      <ToastContainer />
       <IndexingIndicator />
       <ProjectManagerModal />
       

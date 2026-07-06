@@ -20,11 +20,13 @@ const bgColors = {
 
 export function Toast({ toast, onDismiss }: { toast: ToastMessage, onDismiss: () => void }) {
   useEffect(() => {
+    // duration === null → persisten (mis. kegagalan DB fatal): jangan auto-dismiss.
+    if (toast.duration === null) return;
     const timer = setTimeout(() => {
       onDismiss();
-    }, 4000);
+    }, toast.duration ?? 4000);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, [onDismiss, toast.duration]);
 
   return (
     <motion.div

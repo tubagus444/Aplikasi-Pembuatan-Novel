@@ -526,10 +526,31 @@ export const db = new AetherScribeDB();
 // senyap (VersionError) dan baru muncul sebagai error di query pertama.
 // Catatan: JANGAN memakai ErrorService di sini — ia menulis ke db.errors, sehingga
 // saat DB justru bermasalah, logging bisa ikut menggantung. Pakai console + event.
+export interface DbIssue { level: 'warning' | 'error'; message: string; }
+
+// Buffer isu yang di-dispatch SEBELUM ada listener. `db.open().catch()` berjalan saat
+// modul dimuat — lebih awal dari mount React → listener toast belum ada. Konsumen
+// (useDbIssueListener) menguras buffer ini saat mount agar kegagalan buka DB awal tetap
+// tersurface, bukan hilang. Saat listener aktif, isu langsung lewat event (tak di-buffer)
+// agar tak menumpuk / tampil-ganda.
+const pendingDbIssues: DbIssue[] = [];
+let dbIssueListenerAttached = false;
+
+/** Ambil & kosongkan isu DB yang ter-buffer sebelum listener terpasang. */
+export function drainPendingDbIssues(): DbIssue[] {
+  return pendingDbIssues.splice(0, pendingDbIssues.length);
+}
+
+/** Ditandai oleh useDbIssueListener: saat aktif, isu tak perlu di-buffer. */
+export function setDbIssueListenerAttached(attached: boolean) {
+  dbIssueListenerAttached = attached;
+}
+
 function notifyDbIssue(level: 'warning' | 'error', message: string) {
   if (level === 'error') console.error(`[DB] ${message}`);
   else console.warn(`[DB] ${message}`);
   if (typeof window !== 'undefined') {
+    if (!dbIssueListenerAttached) pendingDbIssues.push({ level, message });
     window.dispatchEvent(new CustomEvent('aetherscribe-db-issue', { detail: { level, message } }));
   }
 }

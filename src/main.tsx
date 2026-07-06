@@ -7,6 +7,7 @@ import { NavigationProvider } from '@/src/contexts/NavigationContext';
 import { UIProvider } from '@/src/contexts/UIContext';
 import { BackupProvider } from '@/src/hooks/useAutoBackup';
 import { ToastProvider } from '@/src/hooks/useToast';
+import { ToastContainer } from '@/src/components/common/Toast';
 import { ErrorBoundary } from '@/src/components/common/ErrorBoundary';
 import { ErrorService } from '@/src/services/errorService';
 import { oramaSync } from '@/src/services/rag/oramaSync';
@@ -39,6 +40,9 @@ createRoot(document.getElementById('root')!).render(
       <NavigationProvider>
         <UIProvider>
           <ToastProvider>
+            {/* Di luar ErrorBoundary agar toast (mis. peringatan DB) tetap tampil
+                walau App crash render / masih di layar loading. */}
+            <ToastContainer />
             <BackupProvider>
               <ErrorBoundary>
                 <App />

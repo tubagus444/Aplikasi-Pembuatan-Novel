@@ -7,6 +7,8 @@ export interface ToastMessage {
   id: string;
   type: ToastType;
   message: string;
+  /** ms sebelum auto-dismiss; `null` = persisten (hanya bisa ditutup manual). */
+  duration?: number | null;
   action?: {
     label: string;
     onClick: () => void;
@@ -14,6 +16,8 @@ export interface ToastMessage {
 }
 
 interface ToastOptions {
+  /** ms sebelum auto-dismiss; `null` = persisten. Default 4000 (lihat Toast.tsx). */
+  duration?: number | null;
   action?: {
     label: string;
     onClick: () => void;
@@ -38,7 +42,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback((type: ToastType, message: string, options?: ToastOptions) => {
     const id = Date.now().toString() + Math.random().toString();
-    setToasts(prev => [...prev, { id, type, message, action: options?.action }]);
+    setToasts(prev => [...prev, { id, type, message, duration: options?.duration, action: options?.action }]);
 
     // Log non-success messages to the Error DB
     if (type !== 'success') {

@@ -11,7 +11,12 @@ export function useTokenCounter(text: string, model: string = 'gpt-4o', debounce
     workerRef.current = new Worker(new URL('../workers/tokenWorker.ts', import.meta.url), { type: 'module' });
 
     workerRef.current.onerror = (error) => {
-      window.dispatchEvent(new ErrorEvent('error', { error: error, message: error.message }));
+      // C11: JANGAN re-dispatch ErrorEvent('error') ke window — itu memicu handler error
+      // global (main.tsx) & ErrorBoundary → layar crash penuh hanya karena worker
+      // penghitung token gagal, plus tulis-ganda ke db.errors. Cukup log lokal + reset
+      // status; penghitung token bukan fitur kritis (meter saja).
+      console.error('Token worker error:', error.message || error);
+      setIsCalculating(false);
     };
 
     workerRef.current.onmessage = (e: MessageEvent) => {

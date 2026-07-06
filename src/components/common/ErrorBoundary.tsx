@@ -21,24 +21,12 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidMount() {
-    window.addEventListener('error', this.handleGlobalError);
-    window.addEventListener('unhandledrejection', this.handleGlobalRejection);
-  }
-
-  public componentWillUnmount() {
-    window.removeEventListener('error', this.handleGlobalError);
-    window.removeEventListener('unhandledrejection', this.handleGlobalRejection);
-  }
-
-  private handleGlobalError = (event: ErrorEvent) => {
-    this.setState({ hasError: true, error: event.error || new Error(event.message) });
-  };
-
-  private handleGlobalRejection = (event: PromiseRejectionEvent) => {
-    const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
-    this.setState({ hasError: true, error });
-  };
+  // CATATAN: boundary ini SENGAJA hanya menangkap error RENDER React (lewat
+  // getDerivedStateFromError/componentDidCatch). Dulu ia juga subscribe `window`
+  // 'error'/'unhandledrejection' → SETIAP rejection (fetch AI gagal, worker, ekstensi
+  // browser) berubah jadi layar crash seluruh app. Itu dicabut: rejection global cukup
+  // dicatat (main.tsx → ErrorService) & disurfacekan via toast (useDbIssueListener),
+  // tanpa membongkar UI. Crash penuh hanya untuk kegagalan render sejati.
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     ErrorService.log({

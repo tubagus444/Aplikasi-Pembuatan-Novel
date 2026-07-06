@@ -10,6 +10,7 @@ import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
 import { NovelEditor } from '@/src/features/editor/components/NovelEditor';
+import { PanelErrorBoundary } from '@/src/components/common/PanelErrorBoundary';
 import { cn } from '@/src/lib/utils';
 
 // Lazy load heavy components
@@ -72,6 +73,7 @@ export function MainView() {
         )}
       </AnimatePresence>
 
+      <PanelErrorBoundary resetKey={viewMode}>
       <div className="flex-1 overflow-hidden relative bg-background">
         {/* Persistent Editor: Conditionally mounted to save RAM as requested */}
         {viewMode === 'write' && (
@@ -301,6 +303,7 @@ export function MainView() {
           )}
         </AnimatePresence>
       </div>
+      </PanelErrorBoundary>
     </main>
   );
 }

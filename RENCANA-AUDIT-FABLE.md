@@ -74,15 +74,15 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 |---|---|---|---|---|---|
 | ✅ Tak ada flush saat tab ditutup | **SELESAI** — listener `pagehide` + `visibilitychange`→hidden di `useGlobalEvents` (level App, selalu mount) memanggil `flushActiveEditor()` via bridge; no-op bila editor tak ter-mount | risiko | T | S | `useGlobalEvents.ts`, `editorBridge.ts` |
 | ✅ Reload paksa `versionchange` | **SELESAI** — `db.on('versionchange')` kini `flushActiveEditor()` (koneksi masih terbuka) → `.finally(closeAndReload)` sebelum `close()`+`reload()` | risiko | T | S | `db.ts:539-551` |
-| tokenWorker langgar aturan C11 | `useTokenCounter` `onerror` re-dispatch `ErrorEvent('error')` ke window (anti-pola dilarang C11) → ErrorBoundary tampilkan crash penuh hanya karena worker token gagal + tulis ganda `db.errors`. Worker baru per mount tanpa singleton | risiko | S | S | `useTokenCounter.ts:11-15`, `contextEngine.ts:43-49` |
+| 🔶 tokenWorker langgar aturan C11 | **re-dispatch DICABUT** — `onerror` kini `console.error` + reset status (tak lagi `ErrorEvent('error')` ke window → tak crash / tulis-ganda). Sisa: worker per-mount tanpa singleton (perdalam, dibiarkan) | risiko | S | S | `useTokenCounter.ts` |
 | Timer auto-backup reset tiap siklus | `runBackup` dependency `isBackingUp` (state) → efek `[runBackup]` bongkar-pasang `setInterval` tiap siklus; guard baca closure basi. Ganti ke ref | debt | S | S | `useAutoBackup.tsx:78-79,240-270` |
 | Celah siklus hidup worker | Sudah benar (reject pending→terminate→lazy-recreate), tapi tanpa `onmessageerror` (pending menggantung sampai timeout) & tanpa backoff saat crash-init | perdalam | S | S | `contextEngine.ts:17-52`, `rag/oramaSync.ts:25-40` |
 
 ### #4 — Kualitas UX/UI & error-handling
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| ErrorBoundary global terlalu agresif | Boundary root subscribe `window error`/`unhandledrejection` → SETIAP rejection (fetch AI gagal, worker, ekstensi browser) jadi layar crash seluruh app. Saran: boundary per-panel di `MainView` lazy routes; rejection global cukup toast + `ErrorService` | risiko | T | M | `ErrorBoundary.tsx:24-41`, `main.tsx:36-52` |
-| Peringatan DB tak sampai ke pengguna | `db.ts` dispatch `aetherscribe-db-issue` (DB terblokir/gagal buka) tapi NOL listener → kegagalan paling fatal hanya di console. Perlu listener → toast/banner persisten | risiko | T | S | `db.ts:528-554` |
+| ✅ ErrorBoundary global terlalu agresif | **SELESAI** — listener `window error`/`unhandledrejection` dicabut dari root boundary (kini hanya tangkap error RENDER React). Tambah `PanelErrorBoundary` (fallback ringkas, pulih saat `viewMode` ganti) membungkus konten `MainView` → crash satu panel tak lagi membongkar Sidebar/Header | risiko | T | M | `ErrorBoundary.tsx`, `PanelErrorBoundary.tsx`, `MainView.tsx` |
+| ✅ Peringatan DB tak sampai ke pengguna | **SELESAI** — `useDbIssueListener` (di App) dengarkan `aetherscribe-db-issue` → toast (`error`=persisten + "Muat Ulang", `warning`=biasa). Isu pra-mount di-buffer di `db.ts` (`drainPendingDbIssues`) & dikuras saat mount; `ToastContainer` dipindah ke `main.tsx` agar tampil walau di layar loading | risiko | T | S | `useDbIssueListener.ts`, `db.ts`, `main.tsx` |
 | ErrorService di jalur error global | Handler global tulis `db.errors` via ErrorService — saat penyebab error IndexedDB sendiri, logging ikut gagal/menggantung. `main.tsx` belum terapkan guard yang `db.ts` sudah sadari | perdalam | S | S | `main.tsx:17-34`, `errorService.ts` |
 | Bahasa Inggris bocor di kesan pertama | "Initialising AetherScribe…", "Untitled Novel", "Start your masterpiece here", "Chapter 1", "Once upon a time…" — langgar aturan string UI Indonesia | debt | R | S | `App.tsx:71-74`, `db.ts:557-582` |
 | Cache konsistensi tanpa pagar kuota global | `ai_inline_consistency_cache_<id>` cap 300/bab tapi tanpa cap jumlah kunci lintas-bab & tanpa strategi saat `setItem` lempar `QuotaExceededError`. Verifikasi try/catch + eviction LRU per-proyek | perdalam | S | S | `useEditorAIConsistency.ts:45-67,193-195` |
@@ -128,7 +128,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 
 1. ✅ **Flush autosave saat `pagehide` + sebelum reload `versionchange`** (B2 #2) — **SELESAI** (listener lifecycle di `useGlobalEvents` + flush di handler `versionchange`, keduanya via `flushActiveEditor()`).
 2. ✅ **Perbaiki pemotongan lore senyap + satukan formatter KB** (B1 1b#1 + 1a#2) — **SELESAI** (sumber tunggal `src/lib/loreFormat.ts`, potong batas-entri + warn, meter hitung fields/secret/graf).
-3. **Jinakkan ErrorBoundary global + cabut re-dispatch tokenWorker + listener `aetherscribe-db-issue`** (B2 #4 + #2) — non-fatal menjatuhkan UI sementara fatal senyap; tiga perbaikan kecil saling menguatkan.
+3. ✅ **Jinakkan ErrorBoundary global + cabut re-dispatch tokenWorker + listener `aetherscribe-db-issue`** (B2 #4 + #2) — **SELESAI** (root boundary hanya error render + `PanelErrorBoundary`; tokenWorker tak re-dispatch; `useDbIssueListener` → toast persisten).
 4. **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — fondasi 4 fitur analitik.
 5. **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — UI beku & korektness naskah serah pada novel besar, effort S–M.
 6. **Guard filter projectId + race init Orama** (B3 C) — cegah polusi/drift indeks RAG saat impor/restore.
