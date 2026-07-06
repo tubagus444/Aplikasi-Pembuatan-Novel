@@ -36,6 +36,7 @@ const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/Orpha
 const WorldCompletenessPanel = lazy(() => import('@/src/features/codex/components/WorldCompletenessPanel').then(m => ({ default: m.WorldCompletenessPanel })));
 const LoreGraphPanel = lazy(() => import('@/src/features/codex/components/LoreGraphPanel').then(m => ({ default: m.LoreGraphPanel })));
 const FactionsPanel = lazy(() => import('@/src/features/lore/components/FactionsPanel').then(m => ({ default: m.FactionsPanel })));
+const AtlasPanel = lazy(() => import('@/src/features/atlas/components/AtlasPanel').then(m => ({ default: m.AtlasPanel })));
 const SemanticSearchPanel = lazy(() => import('@/src/features/search/components/SemanticSearchPanel').then(m => ({ default: m.SemanticSearchPanel })));
 const CodexWorkshopPanel = lazy(() => import('@/src/features/codex-workshop/components/CodexWorkshopPanel').then(m => ({ default: m.CodexWorkshopPanel })));
 
@@ -209,6 +210,14 @@ export function MainView() {
             <ViewContainer key="factions" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <FactionsPanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'atlas' && projectId && (
+            <ViewContainer key="atlas" className="z-20 !p-0 !overflow-hidden">
+              <Suspense fallback={<LoadingFallback />}>
+                <AtlasPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

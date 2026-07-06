@@ -24,6 +24,7 @@ const VIEW_LABELS: Record<string, string> = {
   prose: 'Wawasan Prosa', promises: 'Janji Plot', search: 'Cari Adegan',
   brainstorm: 'Studio Asisten', actions: 'Snippet AI', workshop: 'Lokakarya Codex',
   settings: 'Pengaturan', guide: 'Panduan', errors: 'Log Error',
+  atlas: 'Atlas Dunia',
 };
 
 export function Header() {

@@ -103,7 +103,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph' | 'factions' | 'worldcalendar';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph' | 'factions' | 'worldcalendar' | 'atlas';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -483,4 +483,50 @@ export interface GlossaryEntry {
   category?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+// --- Atlas Dunia (peta interaktif) ---------------------------------------
+// Dua tabel project-scoped BARU (bukan field inert menumpang). Karena itu WAJIB
+// sinkron di 3 tempat: importRemap.ts (remap FK), ProjectContext.deleteProject
+// (hapus), backupService (collect/restore). Lihat RENCANA-ATLAS-DUNIA.md §3.
+
+/**
+ * Satu gambar peta yang di-upload penulis (dunia/benua/kota/…). Boleh banyak per
+ * proyek. `imageBlob` = Blob gambar di IndexedDB (bukan base64 di field) — konversi
+ * base64 hanya terjadi di jalur EKSPOR manual (backupService), bukan auto-backup.
+ */
+export interface AtlasMap {
+  id?: number;
+  projectId: number;
+  name: string;
+  imageBlob: Blob;
+  /** Dimensi asli (piksel) — untuk sistem koordinat CRS.Simple & aspek rasio. */
+  width: number;
+  height: number;
+  createdAt: number;
+}
+
+/** Geometri penanda — koordinat RELATIF 0–1 (bukan piksel) agar tahan ganti
+ *  resolusi/render engine. Lihat `src/lib/mapGeometry.ts` untuk konversi. */
+export interface MapPoint { x: number; y: number }
+
+/**
+ * Penanda di atas sebuah peta: pin (titik), area (poligon), atau route (polyline).
+ * `codexId` = sumber deskripsi utama; klik penanda → `openCodexEntry(codexId)`.
+ * Faksi = TURUNAN dari `codexId` yang menunjuk entri ber-`factionTag` (bukan field
+ * terpisah). `title`/`note` hanya fallback bila penanda tak tertaut Codex.
+ */
+export interface MapMarker {
+  id?: number;
+  projectId: number;
+  mapId: number;
+  kind: 'pin' | 'area' | 'route';
+  /** pin: satu titik; area/route: daftar titik (poligon/polyline). Semua 0–1. */
+  geometry: MapPoint | MapPoint[];
+  codexId?: number;
+  title?: string;
+  note?: string;
+  /** Warna override (mis. "#e11d48"). Bila kosong, warna diturunkan dari faksi/kategori Codex. */
+  color?: string;
+  createdAt: number;
 }

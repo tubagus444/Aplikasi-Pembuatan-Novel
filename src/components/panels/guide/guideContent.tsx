@@ -18,6 +18,7 @@ import {
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
   ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList, Flame, Users,
+  Map as MapIcon,
 } from 'lucide-react';
 import { ViewMode } from '@/src/types';
 
@@ -404,6 +405,25 @@ export const FEATURES: Feature[] = [
       'Menyoal konsistensi lore ITU SENDIRI (bukan prosa) — itu sebabnya ia tinggal di Codex, bukan di Peta Kontinuitas.',
     ],
     tip: 'Deterministik & nol token — satu pemindaian nama+alias tanpa AI; aman dijalankan kapan saja.',
+  },
+  {
+    id: 'atlas', group: 'world', Icon: MapIcon, color: 'cyan', view: 'atlas',
+    title: 'Atlas Dunia (peta interaktif)',
+    where: 'Menu: Atlas Dunia',
+    what: 'Unggah gambar peta dunia Anda sendiri, lalu tandai lokasi, wilayah, dan rute yang bisa diklik — tertaut ke Codex & manuskrip. Sepenuhnya lokal, tanpa AI.',
+    steps: [
+      'Unggah gambar peta (PNG/JPG/WEBP/GIF, maks 5 MB — otomatis diperkecil bila terlalu besar).',
+      'Pilih alat di bilah: "Pin" (klik sekali di peta), "Area" atau "Rute" (klik-klik menambah titik, dobel-klik atau Enter untuk selesai, Esc batal).',
+      'Klik sebuah penanda → panel samping: tautkan ke entri Codex, lihat deskripsinya, dan daftar "muncul di bab" (dari kehadiran nama entri di naskah).',
+      'Untuk mengubah penanda: pilih → "Ubah posisi/bentuk" → seret titik; pada area/rute klik titik-tengah untuk menambah titik, klik-kanan untuk menghapus.',
+    ],
+    detail: [
+      'Boleh banyak peta per novel (dunia, benua, kota) — ganti lewat pemilih di bilah alat.',
+      'Warna penanda diturunkan otomatis: dari faksi entri tertaut (entri Codex ber-tag faksi), lalu warna kategorinya; bisa ditimpa manual per penanda.',
+      'Filter (tombol "Filter"): sembunyikan per jenis (pin/area/rute), per kategori Codex, atau per faksi — datanya tetap utuh, hanya tampilannya disaring.',
+      'Peta digambar di atas gambar Anda tanpa koneksi internet (tak ada peta jalan/tile server) — murni kanvas offline.',
+    ],
+    tip: 'Gambar peta ikut dalam Ekspor Novel & cadangan file/Drive, tapi TIDAK dalam cadangan otomatis internal (agar ramping). Bila memulihkan dari cadangan otomatis, penanda tetap utuh — cukup unggah ulang gambarnya.',
   },
   {
     id: 'bible', group: 'world', Icon: Book, color: 'sky', view: 'bible',

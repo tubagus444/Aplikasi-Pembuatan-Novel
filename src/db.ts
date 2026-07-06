@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise, GlossaryEntry } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise, GlossaryEntry, AtlasMap, MapMarker } from '@/src/types';
 
 export class AetherScribeDB extends Dexie {
   projects!: Table<Project>;
@@ -24,6 +24,8 @@ export class AetherScribeDB extends Dexie {
   sceneEmbeddings!: Table<SceneEmbedding>;
   plotPromises!: Table<PlotPromise>;
   glossary!: Table<GlossaryEntry>;
+  maps!: Table<AtlasMap>;
+  mapMarkers!: Table<MapMarker>;
 
   constructor() {
     super('AetherScribeDB');
@@ -483,6 +485,34 @@ export class AetherScribeDB extends Dexie {
       sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
       plotPromises: '++id, projectId, codexId',
       glossary: '++id, projectId'
+    });
+
+    // v32: Atlas Dunia (peta interaktif). Dua tabel project-scoped BARU (bukan
+    // field inert) — jadi WAJIB sinkron di importRemap.ts / deleteProject /
+    // backupService (lihat RENCANA-ATLAS-DUNIA.md §3). `maps` menyimpan Blob gambar;
+    // `mapMarkers` menyimpan geometri 0–1 + `codexId` opsional (faksi = turunan
+    // codexId ber-factionTag, tanpa FK faksi terpisah). Append-only, tanpa migrasi
+    // data (tabel baru kosong).
+    this.version(32).stores({
+      projects: '++id, name, lastOpened',
+      chapters: '++id, projectId, order',
+      codex: '++id, projectId, name, category, *aliases',
+      bible: '++id, projectId, key, &[projectId+key]',
+      aiActions: '++id, projectId, label',
+      snapshots: '++id, chapterId, timestamp',
+      timeline: '++id, chapterId, projectId, type',
+      relationships: '++id, projectId, sourceId, targetId',
+      errors: '++id, timestamp, type',
+      backups: '++id, timestamp',
+      chatSessions: '++id, projectId, chapterId, activeChapterId, lastMessageAt',
+      embeddings: 'id, projectId, codexId',
+      aiUsageLogs: '++id, timestamp, provider, actionType',
+      codexCategories: '++id, projectId, slug, &[projectId+slug]',
+      sceneEmbeddings: 'id, projectId, chapterId, [projectId+chapterId]',
+      plotPromises: '++id, projectId, codexId',
+      glossary: '++id, projectId',
+      maps: '++id, projectId',
+      mapMarkers: '++id, projectId, mapId, codexId'
     });
   }
 }

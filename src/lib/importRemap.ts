@@ -6,6 +6,7 @@
 import type {
   Project, Chapter, CodexEntry, StoryBibleRule, AIAction,
   Snapshot, TimelineEvent, Relationship, ChatSession, CustomCategory, PlotPromise, GlossaryEntry,
+  MapMarker,
 } from '@/src/types';
 
 /**
@@ -21,6 +22,9 @@ import type {
  *  - relationships.sourceId/targetId, timeline.characterIds[] → codexIdMap
  *  - plotPromises.codexId? & payoffCodexId? → codexIdMap, plotPromises.plantedChapterId? → chapterIdMap
  *  - glossary: hanya projectId (tak menautkan tabel lain)
+ *  - maps: hanya projectId (di-insert lebih dulu oleh service utk membangun mapIdMap;
+ *    gambar didekode dari data URL di service, bukan di sini)
+ *  - mapMarkers.mapId → mapIdMap (buang penanda bila peta hilang), codexId? → codexIdMap
  *  - TIDAK di-remap: Chapter.pov (nama), CodexEntry.category & key/slug (string).
  */
 
@@ -38,6 +42,9 @@ export interface ProjectBackupData {
   codexCategories?: CustomCategory[];
   plotPromises?: PlotPromise[];
   glossary?: GlossaryEntry[];
+  /** Peta Atlas — gambar tersimpan sebagai data URL (`imageDataUrl`), didekode di service. */
+  maps?: any[];
+  mapMarkers?: MapMarker[];
 }
 
 export interface RemapMaps {
@@ -47,6 +54,8 @@ export interface RemapMaps {
   chapterIdMap: Map<number, number>;
   /** id codex lama → id codex baru. */
   codexIdMap: Map<number, number>;
+  /** id peta Atlas lama → id baru (peta di-insert lebih dulu oleh service). */
+  mapIdMap: Map<number, number>;
 }
 
 /** Tabel dependen hasil remap (id dilepas; siap bulkAdd). */
@@ -60,6 +69,7 @@ export interface RemappedDependents {
   chatSessions: ChatSession[];
   plotPromises: PlotPromise[];
   glossary: GlossaryEntry[];
+  mapMarkers: MapMarker[];
 }
 
 /** Salin baris tanpa `id` (agar Dexie menetapkan id baru). */
@@ -90,7 +100,7 @@ export function remapProjectDependents(
   data: ProjectBackupData,
   maps: RemapMaps,
 ): RemappedDependents {
-  const { projectId, chapterIdMap, codexIdMap } = maps;
+  const { projectId, chapterIdMap, codexIdMap, mapIdMap } = maps;
 
   // bible: set projectId; dedup by key (index unik [projectId+key]) secara defensif.
   const bible = dedupeBy(data.bible ?? [], (b) => b.key).map((b) => ({
@@ -186,7 +196,23 @@ export function remapProjectDependents(
   // glossary: hanya set projectId (tak ada FK ke tabel lain).
   const glossary = (data.glossary ?? []).map((g) => ({ ...stripId(g), projectId }));
 
-  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions, plotPromises, glossary };
+  // mapMarkers: remap mapId (WAJIB) → buang penanda bila petanya tak dikenal (yatim);
+  // codexId opsional (buang key bila tak dikenal — penanda jadi berbasis title/note saja).
+  const mapMarkers = (data.mapMarkers ?? [])
+    .map((mk) => {
+      const newMapId = mapIdMap.get(mk.mapId);
+      if (newMapId === undefined) return null;
+      const remapped: Record<string, any> = { ...stripId(mk), projectId, mapId: newMapId };
+      if (mk.codexId !== undefined) {
+        const nc = codexIdMap.get(mk.codexId);
+        if (nc !== undefined) remapped.codexId = nc;
+        else delete remapped.codexId;
+      }
+      return remapped as MapMarker;
+    })
+    .filter((mk): mk is MapMarker => mk !== null);
+
+  return { bible, aiActions, codexCategories, snapshots, timeline, relationships, chatSessions, plotPromises, glossary, mapMarkers };
 }
 
 /**

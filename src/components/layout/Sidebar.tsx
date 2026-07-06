@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, CalendarDays, UserSearch, Network, Activity, Gauge, Telescope, Crosshair, BookMarked, ClipboardList, Flame, Waypoints, Users, ChevronDown } from 'lucide-react';
+import { Book, FileText, Settings, Sparkles, Database, LayoutList, ScrollText, HelpCircle, Share2, AlertTriangle, BrainCircuit, BarChart2, ShieldCheck, CalendarClock, CalendarDays, UserSearch, Network, Activity, Gauge, Telescope, Crosshair, BookMarked, ClipboardList, Flame, Waypoints, Users, Map as MapIcon, ChevronDown } from 'lucide-react';
 import { useProject } from '@/src/contexts/ProjectContext';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
@@ -39,6 +39,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { mode: 'orphans', icon: <UserSearch size={14} />, label: 'Saran Entitas' },
       { mode: 'completeness', icon: <ClipboardList size={14} />, label: 'Kelengkapan Dunia' },
       { mode: 'graph', icon: <Waypoints size={14} />, label: 'Graf Lore' },
+      { mode: 'atlas', icon: <MapIcon size={14} />, label: 'Atlas Dunia' },
     ],
   },
   {

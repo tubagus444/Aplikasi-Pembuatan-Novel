@@ -6,6 +6,7 @@
 import { db } from '@/src/db';
 import { BackupRecord } from '@/src/types';
 import { selectBackupsToDelete } from '@/src/lib/backupRetention';
+import { blobToDataUrl, dataUrlToBlob } from '@/src/lib/blobCodec';
 import {
   remapProjectDependents,
   summarizeProjectBackup,
@@ -43,10 +44,31 @@ export interface BackupData {
     codexCategories?: any[];
     plotPromises?: any[];
     glossary?: any[];
+    // Atlas Dunia (v7). `maps[].imageBlob` diganti `imageDataUrl` (base64) karena Blob
+    // tak selamat lewat JSON. Sengaja DIKELUARKAN dari rolling auto-backup internal
+    // (saveToInternalDB) demi menekan bengkak 5× — lengkap hanya di file/Drive/ekspor.
+    maps?: any[];
+    mapMarkers?: any[];
   };
 }
 
 export const backupService = {
+  /** Ganti `imageBlob` (Blob) → `imageDataUrl` (base64) agar aman di JSON. */
+  async serializeMaps(maps: any[]): Promise<any[]> {
+    return Promise.all(maps.map(async (m) => {
+      const { imageBlob, ...rest } = m;
+      return { ...rest, imageDataUrl: imageBlob instanceof Blob ? await blobToDataUrl(imageBlob) : undefined };
+    }));
+  },
+
+  /** Kebalikan `serializeMaps`: `imageDataUrl` → `imageBlob` (Blob). Async → panggil
+   *  di LUAR transaksi Dexie (fetch data URL tak boleh menggantung transaksi). */
+  async deserializeMaps(maps: any[] | undefined): Promise<any[]> {
+    return Promise.all((maps ?? []).map(async (m) => {
+      const { imageDataUrl, ...rest } = m;
+      return { ...rest, imageBlob: imageDataUrl ? await dataUrlToBlob(imageDataUrl) : undefined };
+    }));
+  },
   /**
    * Collects all data from the database.
    * Note: projectId is optional; if provided, technically we could filter,
@@ -65,10 +87,12 @@ export const backupService = {
       chatSessions: await db.chatSessions.toArray(),
       codexCategories: await db.codexCategories.toArray(),
       plotPromises: await db.plotPromises.toArray(),
-      glossary: await db.glossary.toArray()
+      glossary: await db.glossary.toArray(),
+      maps: await this.serializeMaps(await db.maps.toArray()),
+      mapMarkers: await db.mapMarkers.toArray()
     };
     return {
-      version: 6, // v6: glossary (v5: plotPromises; v4: checksum SHA-256; v3: codexCategories)
+      version: 7, // v7: maps/mapMarkers (v6: glossary; v5: plotPromises; v4: checksum; v3: codexCategories)
       timestamp: Date.now(),
       checksum: await this.computeChecksum(JSON.stringify(data)),
       data
@@ -105,10 +129,13 @@ export const backupService = {
       chatSessions: await db.chatSessions.where('projectId').equals(projectId).toArray(),
       codexCategories: await db.codexCategories.where('projectId').equals(projectId).toArray(),
       plotPromises: await db.plotPromises.where('projectId').equals(projectId).toArray(),
-      glossary: await db.glossary.where('projectId').equals(projectId).toArray()
+      glossary: await db.glossary.where('projectId').equals(projectId).toArray(),
+      // Ekspor per-novel = jalur LENGKAP: gambar peta ikut (base64) agar restore utuh.
+      maps: await this.serializeMaps(await db.maps.where('projectId').equals(projectId).toArray()),
+      mapMarkers: await db.mapMarkers.where('projectId').equals(projectId).toArray()
     };
     return {
-      version: 6,
+      version: 7,
       timestamp: Date.now(),
       scope: 'project',
       projectName: project.name,
@@ -140,7 +167,17 @@ export const backupService = {
    * didukung/gagal, simpan JSON string mentah (tetap dapat dipulihkan).
    */
   async saveToInternalDB(data: BackupData, kind: 'auto' | 'pre-restore' = 'auto'): Promise<void> {
-    const jsonString = JSON.stringify(data);
+    // Rolling auto-backup menyimpan hingga ~5 salinan → BUANG gambar peta (base64)
+    // agar tak membengkak berlipat di IndexedDB. Penanda tetap ikut; gambar dipulihkan
+    // dari file/Drive/ekspor per-novel. Checksum DIHITUNG ULANG atas data ramping ini
+    // (kalau tidak, verifikasi restore akan gagal vs checksum data penuh).
+    let payload = data;
+    if (data.data?.maps?.length) {
+      const leanMaps = data.data.maps.map((m: any) => { const { imageDataUrl, ...rest } = m; return rest; });
+      const leanData = { ...data.data, maps: leanMaps };
+      payload = { ...data, data: leanData, checksum: await this.computeChecksum(JSON.stringify(leanData)) };
+    }
+    const jsonString = JSON.stringify(payload);
     const { blob, compressed } = await this.compressData(jsonString);
 
     let stored: string | Uint8Array;
@@ -297,8 +334,12 @@ export const backupService = {
       console.warn('Gagal membuat snapshot pra-pemulihan; melanjutkan restore tanpa jaring undo.', err);
     }
 
+    // Dekode gambar peta (data URL → Blob) di LUAR transaksi (fetch async tak boleh
+    // menggantung transaksi Dexie). Backup ramping (rolling internal) → imageBlob undefined.
+    const mapRows = await this.deserializeMaps(data.maps);
+
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories, db.plotPromises, db.glossary],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories, db.plotPromises, db.glossary, db.maps, db.mapMarkers],
       async () => {
         // Clear existing data
         await db.projects.clear();
@@ -313,6 +354,8 @@ export const backupService = {
         await db.codexCategories.clear();
         await db.plotPromises.clear();
         await db.glossary.clear();
+        await db.maps.clear();
+        await db.mapMarkers.clear();
         await db.embeddings.clear(); // di-regenerasi dari codex; jangan dipulihkan dari backup
         await db.sceneEmbeddings.clear(); // indeks Pencarian Semantik; di-regenerasi on-demand
 
@@ -341,6 +384,8 @@ export const backupService = {
         if (data.codexCategories?.length) await db.codexCategories.bulkAdd(data.codexCategories);
         if (data.plotPromises?.length) await db.plotPromises.bulkAdd(data.plotPromises);
         if (data.glossary?.length) await db.glossary.bulkAdd(data.glossary);
+        if (mapRows.length) await db.maps.bulkAdd(mapRows);
+        if (data.mapMarkers?.length) await db.mapMarkers.bulkAdd(data.mapMarkers);
     });
   },
 
@@ -383,6 +428,10 @@ export const backupService = {
     const data = backup.data as unknown as ProjectBackupData;
     const counts = summarizeProjectBackup(data);
 
+    // Dekode gambar peta di LUAR transaksi (fetch async); id lama dipertahankan untuk
+    // membangun mapIdMap saat insert.
+    const decodedMaps = await this.deserializeMaps(data.maps);
+
     // Salin baris tanpa id, set projectId. (id dilepas → Dexie menetapkan id baru.)
     const prep = (row: any, projectId: number) => {
       const copy = { ...row };
@@ -393,7 +442,7 @@ export const backupService = {
 
     let newProjectId = 0;
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.codexCategories, db.plotPromises, db.glossary],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.codexCategories, db.plotPromises, db.glossary, db.maps, db.mapMarkers],
       async () => {
         // 1) Proyek baru (lepas id; lastOpened=now agar langsung teratas; nama diberi
         //    suffix "(impor)" agar terbedakan dari aslinya bila keduanya berdampingan).
@@ -418,8 +467,17 @@ export const backupService = {
           data.codex.forEach((c, i) => { if (c.id != null) codexIdMap.set(c.id, keys[i] as number); });
         }
 
+        // 2b) Peta Atlas di-insert dulu (seperti bab/codex) untuk membangun mapIdMap
+        //     yang dipakai remap mapMarkers. Gambar sudah didekode jadi Blob.
+        const mapIdMap = new Map<number, number>();
+        if (decodedMaps.length) {
+          const rows = decodedMaps.map((m) => prep(m, newProjectId));
+          const keys = await db.maps.bulkAdd(rows, { allKeys: true });
+          decodedMaps.forEach((m, i) => { if (m.id != null) mapIdMap.set(m.id, keys[i] as number); });
+        }
+
         // 3) Remap FK tabel dependen (murni) lalu insert.
-        const dep = remapProjectDependents(data, { projectId: newProjectId, chapterIdMap, codexIdMap });
+        const dep = remapProjectDependents(data, { projectId: newProjectId, chapterIdMap, codexIdMap, mapIdMap });
         if (dep.bible.length) await db.bible.bulkAdd(dep.bible);
         if (dep.aiActions.length) await db.aiActions.bulkAdd(dep.aiActions);
         if (dep.codexCategories.length) await db.codexCategories.bulkAdd(dep.codexCategories);
@@ -429,6 +487,7 @@ export const backupService = {
         if (dep.chatSessions.length) await db.chatSessions.bulkAdd(dep.chatSessions);
         if (dep.plotPromises.length) await db.plotPromises.bulkAdd(dep.plotPromises);
         if (dep.glossary.length) await db.glossary.bulkAdd(dep.glossary);
+        if (dep.mapMarkers.length) await db.mapMarkers.bulkAdd(dep.mapMarkers);
       });
 
     return { projectId: newProjectId, counts };

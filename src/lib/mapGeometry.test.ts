@@ -1,0 +1,117 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { describe, it, expect } from 'vitest';
+import {
+  clamp01,
+  relToLatLng,
+  latLngToRel,
+  relPathToLatLngs,
+  relToPixel,
+  pixelToRel,
+  centroid,
+  pointInPolygon,
+  isPointGeometry,
+} from './mapGeometry';
+
+describe('clamp01', () => {
+  it('menjepit ke [0,1]', () => {
+    expect(clamp01(-0.5)).toBe(0);
+    expect(clamp01(1.5)).toBe(1);
+    expect(clamp01(0.3)).toBe(0.3);
+  });
+  it('NaN → 0', () => {
+    expect(clamp01(NaN)).toBe(0);
+  });
+});
+
+describe('relToLatLng / latLngToRel', () => {
+  const W = 800;
+  const H = 600;
+
+  it('kiri-atas gambar (0,0) → pojok atas Leaflet [H,0]', () => {
+    expect(relToLatLng({ x: 0, y: 0 }, W, H)).toEqual([600, 0]);
+  });
+
+  it('kanan-bawah (1,1) → [0,W]', () => {
+    expect(relToLatLng({ x: 1, y: 1 }, W, H)).toEqual([0, 800]);
+  });
+
+  it('tengah (0.5,0.5) → [H/2, W/2]', () => {
+    expect(relToLatLng({ x: 0.5, y: 0.5 }, W, H)).toEqual([300, 400]);
+  });
+
+  it('round-trip rel → latlng → rel identik', () => {
+    const p = { x: 0.37, y: 0.82 };
+    const rt = latLngToRel(relToLatLng(p, W, H), W, H);
+    expect(rt.x).toBeCloseTo(p.x, 10);
+    expect(rt.y).toBeCloseTo(p.y, 10);
+  });
+
+  it('menjepit input di luar 0–1', () => {
+    expect(relToLatLng({ x: 2, y: -1 }, W, H)).toEqual([600, 800]);
+  });
+});
+
+describe('relPathToLatLngs', () => {
+  it('memetakan tiap titik', () => {
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ];
+    expect(relPathToLatLngs(pts, 100, 100)).toEqual([
+      [100, 0],
+      [0, 100],
+    ]);
+  });
+});
+
+describe('relToPixel / pixelToRel', () => {
+  it('round-trip', () => {
+    const rt = pixelToRel(relToPixel({ x: 0.25, y: 0.75 }, 400, 200), 400, 200);
+    expect(rt).toEqual({ x: 0.25, y: 0.75 });
+  });
+  it('menghindari bagi nol', () => {
+    expect(pixelToRel({ x: 10, y: 10 }, 0, 0)).toEqual({ x: 1, y: 1 });
+  });
+});
+
+describe('centroid', () => {
+  it('rata-rata titik', () => {
+    expect(centroid([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0.5, y: 1 },
+    ])).toEqual({ x: 0.5, y: 1 / 3 });
+  });
+  it('kosong → null', () => {
+    expect(centroid([])).toBeNull();
+  });
+});
+
+describe('pointInPolygon', () => {
+  const square = [
+    { x: 0.2, y: 0.2 },
+    { x: 0.8, y: 0.2 },
+    { x: 0.8, y: 0.8 },
+    { x: 0.2, y: 0.8 },
+  ];
+  it('titik di dalam', () => {
+    expect(pointInPolygon({ x: 0.5, y: 0.5 }, square)).toBe(true);
+  });
+  it('titik di luar', () => {
+    expect(pointInPolygon({ x: 0.1, y: 0.1 }, square)).toBe(false);
+  });
+  it('poligon < 3 titik → false', () => {
+    expect(pointInPolygon({ x: 0.5, y: 0.5 }, [{ x: 0, y: 0 }, { x: 1, y: 1 }])).toBe(false);
+  });
+});
+
+describe('isPointGeometry', () => {
+  it('membedakan pin vs array', () => {
+    expect(isPointGeometry({ x: 0.5, y: 0.5 })).toBe(true);
+    expect(isPointGeometry([{ x: 0, y: 0 }])).toBe(false);
+  });
+});
