@@ -14,7 +14,7 @@
 import {
   type LucideIcon,
   Book, FileText, Database, LayoutList, Share2, Zap, Cpu, Target, Key,
-  Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, UserSearch,
+  Sparkles, Coins, Lightbulb, ReplaceAll, History, CalendarClock, CalendarDays, UserSearch,
   MessagesSquare, Gauge, Cloud, FileDown, Wand2, AtSign, Layers, Radar, Activity,
   BarChart3, ScanSearch, SpellCheck, Hammer, StickyNote, ShieldCheck, Library, Crosshair,
   ClipboardPaste, EyeOff, Waypoints, SlidersHorizontal, ClipboardList, Flame, Users,
@@ -451,6 +451,26 @@ export const FEATURES: Feature[] = [
       'Timeline adalah sumber untuk aturan deterministik "tokoh muncul sebelum diperkenalkan" (garis bawah amber di editor).',
       'Semakin lengkap Timeline, semakin tajam deteksi kontradiksi kronologi antar bab.',
     ],
+    tip: 'Untuk penanggalan dunia sendiri (bulan/musim/era) + grid visual, lihat Kalender Dunia.',
+  },
+  {
+    id: 'worldcalendar', group: 'analysis', Icon: CalendarDays, color: 'violet', view: 'worldcalendar',
+    title: 'Kalender Dunia (era & kalender kustom)',
+    where: 'Menu: Dunia & Lore → Kalender Dunia',
+    what: 'Rancang penanggalan in-world sendiri (bulan, minggu, musim, era) lalu tata peristiwa Timeline di grid kalender. Ini tampilan visual atas data Timeline yang sama — bukan data terpisah.',
+    steps: [
+      'Buka panel — bila belum ada kalender, pilih preset ("Seperti Masehi" / "Fantasi 8-bulan") atau "Susun sendiri".',
+      'Lewat Editor Kalender, tentukan bulan (nama + jumlah hari), nama hari (kolom grid), musim (rentang bulan + warna), dan era berurutan.',
+      'Klik sebuah tanggal di grid → "Tambah peristiwa di tanggal ini", atau tombol "Peristiwa baru" untuk mengisi era/tahun/bulan/hari langsung.',
+      'Aktifkan "Berlangsung beberapa hari" untuk rentang (mis. Perang Merah, hari 1–10) — sel di antaranya tersorot.',
+    ],
+    detail: [
+      'Era bersifat berurutan: urutan di editor (bukan angka tahun) yang menentukan kronologi — tiap era mulai ulang dari Tahun 1.',
+      'Kartu "Semua peristiwa" punya pencarian (judul/deskripsi/bab/entitas), filter era, dan bagian yang bisa diciutkan per era & tahun; klik nama peristiwa untuk meloncat ke tanggalnya.',
+      'Peristiwa tanpa tanggal terstruktur tetap muncul di panel Timeline Cerita, hanya belum tampil di grid sampai diberi tanggal.',
+      'Tautan ke bab & entitas Codex memakai data yang sama dengan Timeline (nol duplikasi).',
+    ],
+    tip: 'Sepenuhnya deterministik & nol token — merancang kalender dan menata tanggal tidak memakai AI.',
   },
   {
     id: 'continuity', group: 'analysis', Icon: Radar, color: 'indigo', view: 'continuity',
