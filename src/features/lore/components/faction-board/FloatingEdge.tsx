@@ -82,17 +82,22 @@ export function FloatingEdge({ id, source, target, data, markerEnd }: EdgeProps)
 
   return (
     <>
+      {/* Warna WAJIB lewat `style` inline, bukan atribut `stroke` — CSS bawaan React Flow
+          (`.react-flow__edge-path { stroke: … }`) menimpa presentation attribute SVG, jadi
+          semua garis akan seragam abu-abu bila warna ditaruh di atribut. */}
       <path
         id={id}
         d={path}
         fill="none"
-        stroke={d.color}
-        strokeWidth={width}
-        strokeLinecap="round"
-        strokeOpacity={opacity}
-        strokeDasharray={d.kind === 'derived' ? '5 5' : undefined}
         markerEnd={markerEnd}
         className="react-flow__edge-path"
+        style={{
+          stroke: d.color,
+          strokeWidth: width,
+          strokeOpacity: opacity,
+          strokeLinecap: 'round',
+          strokeDasharray: d.kind === 'derived' ? '5 5' : undefined,
+        }}
       />
       {!d.dimmed && (
         <EdgeLabelRenderer>

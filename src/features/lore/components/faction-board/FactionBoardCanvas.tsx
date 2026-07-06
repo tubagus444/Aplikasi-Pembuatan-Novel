@@ -12,17 +12,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
-  useNodesState, applyNodeChanges, ConnectionMode,
+  useNodesState, applyNodeChanges, useReactFlow, ConnectionMode,
   type Node, type Edge, type NodeChange, type NodeTypes, type EdgeTypes, type ColorMode, type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Layers, Eye, EyeOff } from 'lucide-react';
+import { Layers, Eye, EyeOff, Magnet, Grid3x3 } from 'lucide-react';
 import type { CategoryDef } from '@/src/lib/codexCategories';
 import { getCategoryDef } from '@/src/lib/codexCategories';
 import { styleOf } from '@/src/features/lore/relationshipStyles';
 import { RELATIONSHIP_TYPES, getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
 import type { CodexEntry } from '@/src/types';
-import { pairKey, type FactionBoardView, type FactionRelationData } from '@/src/lib/factions';
+import { pairKey, fallbackSlot, type FactionBoardView, type FactionRelationData } from '@/src/lib/factions';
 import { FactionCardNode, type FactionNodeData } from './FactionCardNode';
 import { FloatingEdge, type FactionEdgeData } from './FloatingEdge';
 import { FactionInspector, type InspectorData } from './FactionInspector';
@@ -67,8 +67,10 @@ function FactionBoardInner({ boardView, relData, entryById, categories, colorMod
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [focusId, setFocusId] = useState<number | null>(null);
   const [showDerived, setShowDerived] = useState(true);
+  const [snap, setSnap] = useState(false);
   const [pendingConnect, setPendingConnect] = useState<{ source: number; target: number } | null>(null);
   const draggingRef = useRef(false);
+  const rf = useReactFlow();
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsed(prev => {
@@ -219,6 +221,30 @@ function FactionBoardInner({ boardView, relData, entryById, categories, colorMod
     setCollapsed(prev => (prev.size === boardView.nodes.length ? new Set() : new Set(boardView.nodes.map(n => n.factionId))));
   }, [boardView.nodes]);
 
+  // "Susun rapi": tata ulang SEMUA kartu ke grid deterministik (fallbackSlot) lalu paskan
+  // kamera. Aksi eksplisit → menimpa posisi manual disengaja (persist balik ke DB).
+  const tidyLayout = useCallback(() => {
+    const total = boardView.nodes.length;
+    const posById = new Map<string, { x: number; y: number }>();
+    boardView.nodes.forEach((n, i) => {
+      const pos = fallbackSlot(i, total);
+      posById.set(String(n.factionId), pos);
+      onPersistPosition(n.factionId, pos);
+    });
+    setRfNodes(prev => prev.map(p => (posById.has(p.id) ? { ...p, position: posById.get(p.id)! } : p)));
+    requestAnimationFrame(() => rf.fitView({ padding: 0.25, maxZoom: 1.2, duration: 400 }));
+  }, [boardView.nodes, onPersistPosition, setRfNodes, rf]);
+
+  // Tipe relasi yang benar-benar dipakai (untuk legenda per-tipe), urut RELATIONSHIP_TYPES.
+  const presentTypes = useMemo(() => {
+    const used = new Set<string>();
+    for (const e of boardView.edges) {
+      if (e.kind === 'derived' && !showDerived) continue;
+      used.add(e.type);
+    }
+    return RELATIONSHIP_TYPES.filter(t => used.has(t.value));
+  }, [boardView.edges, showDerived]);
+
   const allCollapsed = collapsed.size === boardView.nodes.length && boardView.nodes.length > 0;
   const focusName = focusId != null ? boardView.nodes.find(n => n.factionId === focusId)?.name : undefined;
   const focusNeighbors = focusId != null ? (adjacency.get(focusId)?.size ?? 0) : 0;
@@ -238,6 +264,8 @@ function FactionBoardInner({ boardView, relData, entryById, categories, colorMod
         onPaneClick={() => setFocusId(null)}
         connectionMode={ConnectionMode.Loose}
         nodesConnectable
+        snapToGrid={snap}
+        snapGrid={[22, 22]}
         proOptions={{ hideAttribution: true }}
         fitView
         fitViewOptions={{ padding: 0.25, maxZoom: 1.2 }}
@@ -276,6 +304,25 @@ function FactionBoardInner({ boardView, relData, entryById, categories, colorMod
         >
           {showDerived ? <Eye size={13} /> : <EyeOff size={13} />} Potret turunan
         </button>
+        <button
+          onClick={() => setSnap(v => !v)}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium shadow-sm backdrop-blur',
+            snap
+              ? 'border-indigo-400 bg-indigo-600 text-white'
+              : 'border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300',
+          )}
+          title="Rekatkan posisi kartu ke grid saat menyeret"
+        >
+          <Magnet size={13} /> Snap
+        </button>
+        <button
+          onClick={tidyLayout}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-indigo-400 shadow-sm"
+          title="Tata ulang semua kartu ke grid rapi"
+        >
+          <Grid3x3 size={13} /> Susun rapi
+        </button>
 
         {focusId != null && (
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-indigo-400 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-xs text-slate-600 dark:text-slate-300 shadow-sm">
@@ -287,14 +334,34 @@ function FactionBoardInner({ boardView, relData, entryById, categories, colorMod
 
       {/* Legenda (kanan-atas) — disembunyikan saat inspector terbuka agar tak tertimpa */}
       {!inspector && (
-        <div className="absolute top-3 right-3 z-10 rounded-lg border border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-slate-900/85 backdrop-blur px-2.5 py-2 shadow-sm text-[11px]">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Garis relasi</div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-5 border-t-2 border-slate-500" /> <span className="text-slate-600 dark:text-slate-300">Dideklarasikan</span>
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 rounded-lg border border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-slate-900/85 backdrop-blur px-2.5 py-2 shadow-sm text-[11px] max-h-[70%] overflow-y-auto">
+          {presentTypes.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Tipe relasi</div>
+              {presentTypes.map(t => (
+                <div key={t.value} className="flex items-center gap-2">
+                  <span className="w-5 border-t-2" style={{ borderColor: styleOf(t.value).hex }} />
+                  <span className="text-slate-600 dark:text-slate-300">{t.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Gaya garis</div>
+            <div className="flex items-center gap-2">
+              <span className="w-5 border-t-2 border-slate-500 dark:border-slate-300" /> <span className="text-slate-600 dark:text-slate-300">Dideklarasikan</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-5 border-t-2 border-dashed border-slate-400" /> <span className="text-slate-600 dark:text-slate-300">Potret turunan</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-5 border-t-2 border-dashed border-slate-400" /> <span className="text-slate-600 dark:text-slate-300">Potret turunan</span>
-          </div>
+        </div>
+      )}
+
+      {/* Hint discoverability (bawah-tengah) — sembunyi saat drawer terbuka */}
+      {!inspector && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none text-[11px] text-slate-500 dark:text-slate-400 bg-white/75 dark:bg-slate-900/75 backdrop-blur px-3 py-1 rounded-full border border-slate-200/60 dark:border-slate-800/60 shadow-sm whitespace-nowrap max-w-[92%] overflow-hidden text-ellipsis">
+          Seret kartu untuk menata · tarik <b className="text-indigo-500">○</b> untuk menghubungkan · klik kartu untuk detail
         </div>
       )}
 

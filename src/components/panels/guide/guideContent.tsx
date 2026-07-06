@@ -385,6 +385,7 @@ export const FEATURES: Feature[] = [
       'Dua sinyal disajikan netral tanpa penghakiman: "Deklarasi" (kebenaran penulis, mis. Sekutu) + "Antar-anggota" (potret relasi anggota, mis. 3× Musuh). Sekutu yang anggotanya bermusuhan itu SAH — bukan error.',
       'Catatan "kenapa bersekutu/bermusuhan" ditulis di kolom catatan tiap deklarasi (tersimpan sebagai deskripsi relasi antar entri faksi).',
       'Faksi = entri Codex ber-tag keanggotaan; menandai/mengedit di sini juga memperbarui data Relasi & Codex yang sama.',
+      'Mode Kanvas (toggle Daftar/Kanvas di kanan atas): tata kartu faksi seperti papan politik — seret untuk memindah (posisi tersimpan), tarik titik ○ di tepi kartu untuk menghubungkan dua faksi, klik kartu untuk detail (drawer kanan). Garis diwarnai per tipe relasi (tegas = dideklarasikan, putus-putus = potret turunan). Tombol Snap merapikan ke grid; "Susun rapi" menata ulang otomatis.',
     ],
   },
   {
