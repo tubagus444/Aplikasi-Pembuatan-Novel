@@ -31,6 +31,7 @@ const PacingHeatmapPanel = lazy(() => import('@/src/features/consistency/compone
 const PlotPromisePanel = lazy(() => import('@/src/features/consistency/components/PlotPromisePanel').then(m => ({ default: m.PlotPromisePanel })));
 const GlossaryPanel = lazy(() => import('@/src/features/consistency/components/GlossaryPanel').then(m => ({ default: m.GlossaryPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
+const WorldCalendarPanel = lazy(() => import('@/src/features/timeline/components/WorldCalendarPanel').then(m => ({ default: m.WorldCalendarPanel })));
 const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
 const WorldCompletenessPanel = lazy(() => import('@/src/features/codex/components/WorldCompletenessPanel').then(m => ({ default: m.WorldCompletenessPanel })));
 const LoreGraphPanel = lazy(() => import('@/src/features/codex/components/LoreGraphPanel').then(m => ({ default: m.LoreGraphPanel })));
@@ -168,6 +169,14 @@ export function MainView() {
             <ViewContainer key="timeline" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <TimelinePanel projectId={projectId} />
+              </Suspense>
+            </ViewContainer>
+          )}
+
+          {viewMode === 'worldcalendar' && projectId && (
+            <ViewContainer key="worldcalendar" className="z-20">
+              <Suspense fallback={<LoadingFallback />}>
+                <WorldCalendarPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

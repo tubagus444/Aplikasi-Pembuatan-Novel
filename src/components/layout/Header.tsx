@@ -19,7 +19,7 @@ import { db } from '@/src/db';
 const VIEW_LABELS: Record<string, string> = {
   dashboard: 'Dashboard', write: 'Editor', outline: 'Papan Rencana',
   codex: 'Kamus Data', glossary: 'Glosarium', bible: 'Buku Cerita',
-  relationships: 'Relasi Karakter', timeline: 'Timeline Cerita', orphans: 'Saran Entitas',
+  relationships: 'Relasi Karakter', timeline: 'Timeline Cerita', worldcalendar: 'Kalender Dunia', orphans: 'Saran Entitas',
   consistency: 'Cek Konsistensi', continuity: 'Peta Kontinuitas', arc: 'Lensa Karakter',
   prose: 'Wawasan Prosa', promises: 'Janji Plot', search: 'Cari Adegan',
   brainstorm: 'Studio Asisten', actions: 'Snippet AI', workshop: 'Lokakarya Codex',

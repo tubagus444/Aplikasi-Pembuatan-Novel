@@ -18,6 +18,7 @@ menjaga konteks, dan mempercepat revisi** — tanpa membutuhkan database backend
   - Peta Kontinuitas, Lensa Karakter, Wawasan Prosa, Timeline Cerita, Saran Entitas, dan Janji Plot (Chekhov's Gun).
   - **Kelengkapan Dunia**: status kematangan per entri lore (Solid/Parsial/Rangka, manual + saran otomatis) plus daftar TODO — peta bagian worldbuilding yang masih perlu digarap.
   - **Heatmap Tensi/Pacing**: kurva naik-turun tensi per bab (manual 1–5 + saran otomatis dari sinyal prosa) untuk evaluasi makro — deteksi bagian yang tegang terus (pembaca jenuh) atau melandai.
+  - **Kalender Dunia**: penanggalan in-world kustom (bulan, minggu, musim, era berurutan) — tata peristiwa Timeline di grid kalender, tandai rentang panjang (mis. perang), tautkan ke bab & Codex. Tanggal terstruktur & deterministik (menyiapkan cek kelayakan tanggal ke depan).
 - **Asisten AI**: Magic Edit (tulis ulang per-seleksi), Studio Asisten & Scribble (chat), snippet/aksi kustom, plus pencarian adegan semantik.
 - **AI multi-provider** dengan fallback otomatis, circuit breaker, dan exponential backoff:
   Google Gemini, Anthropic Claude, Groq, OpenRouter, Hugging Face, dan Ollama (lokal). Prompt caching & penyetel token/biaya bawaan.

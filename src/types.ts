@@ -39,8 +39,47 @@ export interface TimelineEvent {
   type: TimelineEventType;
   /** ID entri Codex (karakter/entitas) yang terlibat di peristiwa ini. */
   characterIds?: number[];
+  /**
+   * Tanggal terstruktur di kalender dunia (#4). Opsional & inert: event tanpa
+   * `startDate` tetap muncul di daftar Timeline tapi tak diletakkan di grid kalender.
+   * `endDate` (opsional) menandai rentang (mis. "Perang Merah, hari 1–10"). Keduanya
+   * mengacu ke `Project.calendar`; `era` adalah indeks ke `calendar.eras`.
+   */
+  startDate?: WorldDate;
+  endDate?: WorldDate;
   /** Urutan manual pada timeline. */
   order: number;
+}
+
+/**
+ * Kalender Dunia (#4) — penanggalan in-world yang dirancang penulis, disimpan sebagai
+ * field JSON inert `Project.calendar` (tak diindeks, ikut backup via tabel `projects`).
+ * Grid/pita musim/pengelompokan diturunkan murni dari sini via `src/lib/worldCalendar.ts`.
+ */
+export interface WorldCalendar {
+  /**
+   * Era BERURUTAN: indeks array = urutan kronologis (kecil = lebih tua). Tiap era
+   * mulai ulang dari Tahun 1, jadi kronologi lintas-era ditentukan urutan array ini,
+   * bukan angka tahun.
+   */
+  eras: { name: string; abbr?: string }[];
+  /** Nama hari dalam seminggu → menentukan jumlah kolom grid. */
+  weekdays: string[];
+  /** Bulan berurutan: nama + jumlah hari (boleh beda-beda). */
+  months: { name: string; days: number }[];
+  /** Musim: rentang bulan (1-based, inklusif) + warna untuk pita musim. */
+  seasons: { name: string; fromMonth: number; toMonth: number; color: string }[];
+}
+
+/**
+ * Satu tanggal pada `WorldCalendar`. `era` = indeks ke `calendar.eras`; `month`/`day`
+ * bernilai 1-based. Kunci urut kronologis: era → year → month → day.
+ */
+export interface WorldDate {
+  era: number;
+  year: number;
+  month: number;
+  day: number;
 }
 
 export interface ProseMetrics {
@@ -64,7 +103,7 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
-export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph' | 'factions';
+export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph' | 'factions' | 'worldcalendar';
 
 /**
  * Sasaran sesi Lokakarya Codex (viewMode 'workshop'): diskusi terfokus dengan AI
@@ -170,6 +209,9 @@ export interface Project {
   dailyLog?: Record<string, number>; // 'YYYY-MM-DD' (lokal) → kata ditulis hari itu
   lastWordCount?: number;            // total kata terakhir teramati (untuk hitung delta)
   lastWordCountDate?: string;        // tanggal observasi terakhir 'YYYY-MM-DD' (lokal)
+  // Kalender Dunia (#4): penanggalan in-world kustom. Field JSON inert (tak diindeks),
+  // ikut backup via tabel `projects`. Kosong/undefined → panel mengajak buat kalender.
+  calendar?: WorldCalendar;
 }
 
 // Kategori bawaan Codex. Kategori KUSTOM (buatan pengguna, tabel `codexCategories`)
