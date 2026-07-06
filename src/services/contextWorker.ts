@@ -8,6 +8,7 @@ import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
 import { formatBibleBlock } from '@/src/lib/storyBible';
+import { buildCodexLoreString, buildRelationshipGraph } from '@/src/lib/loreFormat';
 import { chunkChapter, hashChunk } from '@/src/lib/manuscriptChunker';
 import { SceneEmbedding } from '@/src/types';
 import { pipeline, env } from '@xenova/transformers';
@@ -663,7 +664,7 @@ self.onmessage = async (e: MessageEvent) => {
         };
         break;
       case 'PREVIEW_CONTEXT_TOKENS': {
-        const { text, allCodex, allRules, model, fullContext, maxCachedLoreChars } = payload;
+        const { text, allCodex, allRules, allRelationships, model, fullContext, maxCachedLoreChars } = payload;
 
         let codexText: string;
         let rulesText: string;
@@ -671,14 +672,17 @@ self.onmessage = async (e: MessageEvent) => {
         // (reqId diteruskan ke getRelevantContext di cabang non-fullContext di bawah)
         if (fullContext) {
           // Mode caching: SELURUH Story Bible + Codex dikirim statis (lihat
-          // buildCachedContextBlock di services/ai/index.ts). Cerminkan itu di meter.
-          // Cap diteruskan dari main thread (getMaxCachedLoreChars) — worker tak punya
-          // localStorage. Fallback ke default bila tak terkirim (pemanggil lama).
+          // buildCachedContextSegments di services/ai/index.ts). Cerminkan itu di meter
+          // memakai SUMBER TUNGGAL yang sama (field #17 + secret + graf relasi) agar tak
+          // underestimate. Cap diteruskan dari main thread (getMaxCachedLoreChars) —
+          // worker tak punya localStorage. Fallback ke default bila tak terkirim.
           const MAX_CACHED_LORE_CHARS = maxCachedLoreChars ?? 50000;
           const sortedRules = [...allRules].sort((a: StoryBibleRule, b: StoryBibleRule) => a.key.localeCompare(b.key));
           const sortedCodex = [...allCodex].sort((a: CodexEntry, b: CodexEntry) => a.name.localeCompare(b.name));
           rulesText = formatBibleBlock(sortedRules);
-          codexText = sortedCodex.map(e => `[${e.name}] (${e.category}): ${e.description}`).join('\n\n').substring(0, MAX_CACHED_LORE_CHARS);
+          const loreString = buildCodexLoreString(sortedCodex, MAX_CACHED_LORE_CHARS).text;
+          const graphString = buildRelationshipGraph(allRelationships || [], allCodex);
+          codexText = `${loreString}${graphString}`;
         } else {
           // Mode RAG legacy: hanya lore/aturan relevan yang dikirim.
           const relevantCodex = await getRelevantContext(text, allCodex, id);

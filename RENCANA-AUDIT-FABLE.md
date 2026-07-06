@@ -20,7 +20,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
 | Jantung AI tanpa test | Circuit breaker, backoff, fallback, dedup, `parseJsonArray` inline di service 950-baris, nol test (34 test semua di `src/lib/`) | debt | T | M | `src/services/ai/index.ts` |
-| Duplikasi formatter KB → meter token bohong | `buildCachedContextSegments` sertakan fields/secret/graph; preview worker hanya `[name] (cat): desc`. Dua "sumber tunggal" drift → meter konteks underestimate di mode caching | debt | T | S | `index.ts:114`, `contextWorker.ts:678` |
+| ✅ Duplikasi formatter KB → meter token bohong | **SELESAI** — formatter dipusatkan ke `src/lib/loreFormat.ts` (`formatCodexLoreLine`/`buildCodexLoreString`/`buildRelationshipGraph`, +13 tes); `buildCachedContextSegments` & worker `PREVIEW_CONTEXT_TOKENS` sama-sama memanggilnya. Meter kini hitung fields+secret+graf (relasi dimuat di `previewContextTokens`) | debt | T | S | `loreFormat.ts`, `index.ts`, `contextWorker.ts`, `contextEngine.ts` |
 | Boilerplate facade 5× | `getSettings()` baca 14+ kunci localStorage tiap panggilan; pola useCaching→controller→register diulang ~30 baris × 5 | debt | S | M | `index.ts:417-930` |
 | Doc drift | Rule sebut fallback tanpa `'openai'` (kode sudah tambah); `PROVIDER_CONTEXT_WINDOW` hardcode nilai lama | debt | S | S | `.claude/rules/ai.md`, `index.ts:72` |
 | Dua jalur pencocokan entitas | `buildPresenceIndex` (main) & Aho-Corasick (worker) bangun automaton terpisah, filter beda → hitungan bisa beda antara Peta Kontinuitas vs highlight editor | debt | S | M | `continuity.ts:88`, `contextWorker.ts:72` |
@@ -28,7 +28,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### 1b. Kelemahan / Risiko
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| Lore terpotong senyap (caching) | `.substring(0, maxChars)` potong lore gabungan alfabetis → entri huruf akhir hilang total tanpa peringatan UI; bisa potong blok `[RAHASIA…]` di tengah. Cap 50k pasti tersentuh di codex besar | risiko | T | S–M | `index.ts:122` |
+| ✅ Lore terpotong senyap (caching) | **SELESAI** — `buildCodexLoreString` memotong pada BATAS ENTRI (blok `[RAHASIA…]` tak pernah separuh, entri huruf-akhir di-drop utuh) + `console.warn` "N/M entri termuat" saat cap tercapai (arahkan naikkan cap di Pengaturan) | risiko | T | S–M | `loreFormat.ts`, `index.ts` |
 | Presence scan di main thread | `buildPresenceIndex` scan seluruh isi semua bab sinkron di main thread → jank multi-detik pada 100+ bab. Langgar aturan "berat = worker" | risiko | T | M | `continuity.ts:88` |
 | Timeout worker 30 dtk flat | Query sah bisa gagal timeout saat antre di belakang embedding indexing perdana | risiko | S | S | `contextEngine.ts:54` |
 | Cache konsistensi membengkak localStorage | Mirror per-bab × 100+ bab → risiko `QuotaExceededError` yang bisa matikan persist settings lain | risiko | S | S | `src/lib/inlineConsistency.ts` |
@@ -72,8 +72,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### #2 — Editor & daemon latar belakang
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| Tak ada flush saat tab ditutup | NOL handler `beforeunload`/`pagehide`/`visibilitychange` di seluruh `src/`. Debounce 1,5 dtk → tutup tab ≤1,5 dtk setelah ketik = edit terakhir hilang. `htmlRef` sudah sinkron; tinggal 1 listener `pagehide` → `performSave` | risiko | T | S | `useEditorSave.ts:116-133` |
-| Reload paksa `versionchange` | `db.on('versionchange')` langsung `location.reload()` tanpa flush editor → buang edit ter-debounce. Gabung dgn flush di atas (via `editorBridge`) | risiko | T | S | `db.ts:538-544` |
+| ✅ Tak ada flush saat tab ditutup | **SELESAI** — listener `pagehide` + `visibilitychange`→hidden di `useGlobalEvents` (level App, selalu mount) memanggil `flushActiveEditor()` via bridge; no-op bila editor tak ter-mount | risiko | T | S | `useGlobalEvents.ts`, `editorBridge.ts` |
+| ✅ Reload paksa `versionchange` | **SELESAI** — `db.on('versionchange')` kini `flushActiveEditor()` (koneksi masih terbuka) → `.finally(closeAndReload)` sebelum `close()`+`reload()` | risiko | T | S | `db.ts:539-551` |
 | tokenWorker langgar aturan C11 | `useTokenCounter` `onerror` re-dispatch `ErrorEvent('error')` ke window (anti-pola dilarang C11) → ErrorBoundary tampilkan crash penuh hanya karena worker token gagal + tulis ganda `db.errors`. Worker baru per mount tanpa singleton | risiko | S | S | `useTokenCounter.ts:11-15`, `contextEngine.ts:43-49` |
 | Timer auto-backup reset tiap siklus | `runBackup` dependency `isBackingUp` (state) → efek `[runBackup]` bongkar-pasang `setInterval` tiap siklus; guard baca closure basi. Ganti ke ref | debt | S | S | `useAutoBackup.tsx:78-79,240-270` |
 | Celah siklus hidup worker | Sudah benar (reject pending→terminate→lazy-recreate), tapi tanpa `onmessageerror` (pending menggantung sampai timeout) & tanpa backoff saat crash-init | perdalam | S | S | `contextEngine.ts:17-52`, `rag/oramaSync.ts:25-40` |
@@ -126,8 +126,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 
 ## Prioritas Gabungan (rekomendasi urutan eksekusi)
 
-1. **Flush autosave saat `pagehide` + sebelum reload `versionchange`** (B2 #2) — data-loss naskah tersisa, effort S. Paling murah, dampak tertinggi.
-2. **Perbaiki pemotongan lore senyap + satukan formatter KB** (B1 1b#1 + 1a#2) — bug data-ke-AI + drift meter token, sekali kerja.
+1. ✅ **Flush autosave saat `pagehide` + sebelum reload `versionchange`** (B2 #2) — **SELESAI** (listener lifecycle di `useGlobalEvents` + flush di handler `versionchange`, keduanya via `flushActiveEditor()`).
+2. ✅ **Perbaiki pemotongan lore senyap + satukan formatter KB** (B1 1b#1 + 1a#2) — **SELESAI** (sumber tunggal `src/lib/loreFormat.ts`, potong batas-entri + warn, meter hitung fields/secret/graf).
 3. **Jinakkan ErrorBoundary global + cabut re-dispatch tokenWorker + listener `aetherscribe-db-issue`** (B2 #4 + #2) — non-fatal menjatuhkan UI sementara fatal senyap; tiga perbaikan kecil saling menguatkan.
 4. **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — fondasi 4 fitur analitik.
 5. **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — UI beku & korektness naskah serah pada novel besar, effort S–M.

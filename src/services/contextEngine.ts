@@ -4,7 +4,7 @@
  */
 
 import { db } from '@/src/db';
-import { CodexEntry, StoryBibleRule } from '@/src/types';
+import { CodexEntry, StoryBibleRule, Relationship } from '@/src/types';
 import ContextWorker from '@/src/services/contextWorker?worker';
 import { oramaSync } from '@/src/services/rag/oramaSync';
 import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
@@ -215,5 +215,15 @@ export async function estimateContextTokens(text: string, codexText: string, rul
 
 export async function previewContextTokens(text: string, allCodex: CodexEntry[], allRules: StoryBibleRule[], model?: string, fullContext?: boolean): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
   // Worker tak punya localStorage → baca cap tunable di main thread & teruskan.
-  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, model, fullContext, maxCachedLoreChars: getMaxCachedLoreChars() });
+  // Mode caching menyertakan graf relasi di KB (buildCachedContextSegments) → muat
+  // relasi proyek agar meter tak underestimate. Diturunkan dari projectId codex (semua
+  // entri se-proyek). Non-caching (RAG) tak butuh graf penuh, jadi dilewati.
+  let allRelationships: Relationship[] = [];
+  if (fullContext) {
+    const projectId = allCodex[0]?.projectId;
+    if (projectId != null) {
+      allRelationships = await db.relationships.where('projectId').equals(projectId).toArray();
+    }
+  }
+  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, allRelationships, model, fullContext, maxCachedLoreChars: getMaxCachedLoreChars() });
 }

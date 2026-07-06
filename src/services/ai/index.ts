@@ -7,6 +7,7 @@ import { AI_PROMPTS, BIBLE_ASSIST_FIELD_GUIDE } from '@/src/lib/aiPrompts';
 import { cleanRewriteOutput } from '@/src/lib/cleanRewriteOutput';
 import { formatBibleBlock } from '@/src/lib/storyBible';
 import { formatFieldsForAI } from '@/src/lib/codexFields';
+import { buildCodexLoreString, buildRelationshipGraph } from '@/src/lib/loreFormat';
 import { getMaxCachedLoreChars, getRewriteTemperature } from '@/src/lib/aiTuning';
 
 export class AIError extends Error {
@@ -83,18 +84,6 @@ export function getContextWindow(provider: string): number {
   return PROVIDER_CONTEXT_WINDOW[provider?.toLowerCase()] ?? 8_192;
 }
 
-/** Membangun blok "RELATIONSHIP GRAPH" (Graph-RAG) dari relasi yang diberikan. */
-function buildRelationshipGraph(relationships: Relationship[], codex: CodexEntry[]): string {
-  if (!relationships || relationships.length === 0) return '';
-  const idToName = Object.fromEntries(codex.map(c => [c.id, c.name]));
-  const parts = relationships.map(r => {
-    const srcName = idToName[r.sourceId] || `Entity#${r.sourceId}`;
-    const tgtName = idToName[r.targetId] || `Entity#${r.targetId}`;
-    return `${srcName} (${r.type}) -> ${tgtName}${r.description ? `: ${r.description}` : ''}`;
-  });
-  return `\n\nRELATIONSHIP GRAPH:\n${parts.join('\n')}`;
-}
-
 /**
  * Mode caching: Story Bible + Codex diurutkan deterministik menjadi SEGMEN ber-tier
  * (stabil→volatil) agar system prompt statis & cache-able. Segmen 0 = Story Bible
@@ -108,18 +97,19 @@ function buildCachedContextSegments(bibleRules: StoryBibleRule[], codexEntries: 
   const sortedCodex = [...codexEntries].sort((a, b) => a.name.localeCompare(b.name));
 
   const bibleString = formatBibleBlock(sortedRules) || 'No specific rules set.';
-  // Lapis "Kebenaran Tersembunyi": entri `hidden` TETAP diumpankan (agar AI bisa
-  // menangkap kontradiksi/kebocoran), dan `secret` ditempel sebagai kebenaran penulis
-  // yang tak boleh bocor ke prosa sebelum di-reveal. Deterministik → cache prompt aman.
-  const loreString = sortedCodex.map(e => {
-    let line = `[${e.name}] (${e.category}): ${e.description}`;
-    // Template field per kategori (#17): nilai self-contained (label ter-denormalisasi
-    // di entri) → deterministik, cache prompt aman.
-    const fields = formatFieldsForAI(e);
-    if (fields) line += `\n${fields}`;
-    if (e.secret?.trim()) line += `\n[RAHASIA PENULIS — jangan bocorkan ke prosa/pembaca] ${e.secret.trim()}`;
-    return line;
-  }).join('\n\n').substring(0, getMaxCachedLoreChars()) || 'No specific lore.';
+  // Format lore (entri `hidden` & `secret` TETAP diumpankan agar AI menangkap
+  // kontradiksi/kebocoran) lewat SUMBER TUNGGAL `buildCodexLoreString` — dibagi dengan
+  // meter token di contextWorker agar tak drift. Cap dipotong pada BATAS ENTRI.
+  const lore = buildCodexLoreString(sortedCodex, getMaxCachedLoreChars());
+  if (lore.truncated) {
+    // Dulu `.substring()` memangkas senyap di tengah entri → entri huruf-akhir & blok
+    // [RAHASIA…] hilang tanpa jejak. Kini potong di batas entri + peringatkan.
+    console.warn(
+      `[AI] KB lore terpotong: ${lore.includedCount}/${lore.totalCount} entri Codex termuat ` +
+      `(cap ${getMaxCachedLoreChars()} char). Naikkan "cap lore cache" di Pengaturan → Optimasi AI Lanjutan.`
+    );
+  }
+  const loreString = lore.text || 'No specific lore.';
   const graphString = buildRelationshipGraph(relationships, codexEntries);
 
   return [
