@@ -105,16 +105,21 @@ export function useFactions(projectId: number) {
     await db.codex.update(entryId, { tags: (e.tags ?? []).filter(t => t.trim() !== selected.tag) });
   };
 
-  // Relasi DIDEKLARASIKAN antar entri faksi = tabel relationships biasa.
-  const addDeclaredRelation = async (otherFactionId: number, type: string, description?: string) => {
-    if (!selected || otherFactionId === selected.id) return;
+  // Relasi DIDEKLARASIKAN antar dua entri faksi mana pun = tabel relationships biasa.
+  const addRelationBetween = async (sourceFactionId: number, targetFactionId: number, type: string, description?: string) => {
+    if (sourceFactionId === targetFactionId) return;
     await db.relationships.add({
       projectId,
-      sourceId: selected.id,
-      targetId: otherFactionId,
+      sourceId: sourceFactionId,
+      targetId: targetFactionId,
       type,
       description: description?.trim() || undefined,
     });
+  };
+  // Varian dari sudut pandang faksi terpilih (dipakai daftar/detail v1).
+  const addDeclaredRelation = async (otherFactionId: number, type: string, description?: string) => {
+    if (!selected) return;
+    await addRelationBetween(selected.id, otherFactionId, type, description);
   };
   const deleteRelation = async (id: number) => {
     await db.relationships.delete(id);
@@ -143,7 +148,9 @@ export function useFactions(projectId: number) {
     deleteRelation,
     // Papan Faksi (kanvas)
     boardView,
+    relData,
     entryById,
     setFactionBoard,
+    addRelationBetween,
   };
 }

@@ -61,7 +61,7 @@ function FactionCardNodeInner({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition-[box-shadow,border-color,opacity]',
+        'group rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition-[box-shadow,border-color,opacity]',
         d.collapsed ? 'min-w-[150px] max-w-[230px]' : 'w-[186px]',
         d.hidden
           ? 'border-dashed border-purple-400 dark:border-purple-500'
@@ -71,10 +71,18 @@ function FactionCardNodeInner({ data, selected }: NodeProps) {
         d.dimmed && 'opacity-30 saturate-50',
       )}
     >
-      {/* Handle tersembunyi — floating edge menghitung sendiri titik tempelnya, tapi React
-          Flow tetap butuh handle sumber & target agar edge ter-render. */}
-      <Handle type="target" position={Position.Top} className="!opacity-0 !w-1 !h-1 !border-0 !min-w-0 !min-h-0" isConnectable={false} />
-      <Handle type="source" position={Position.Bottom} className="!opacity-0 !w-1 !h-1 !border-0 !min-w-0 !min-h-0" isConnectable={false} />
+      {/* Handle: floating edge menghitung sendiri titik tempel garis, tapi React Flow tetap
+          butuh handle agar edge ter-render & sebagai titik tarik "drag-to-connect".
+          Tersembunyi, muncul saat kartu di-hover (ConnectionMode.Loose → tarik dari mana pun
+          ke kartu mana pun). */}
+      <Handle
+        type="target" position={Position.Top}
+        className="!w-3 !h-3 !bg-white dark:!bg-slate-900 !border-2 !border-indigo-500 !opacity-0 group-hover:!opacity-100 transition-opacity"
+      />
+      <Handle
+        type="source" position={Position.Bottom}
+        className="!w-3 !h-3 !bg-white dark:!bg-slate-900 !border-2 !border-indigo-500 !opacity-0 group-hover:!opacity-100 transition-opacity"
+      />
 
       {/* Header */}
       <div className="flex items-center gap-1.5 px-2.5 py-2 border-b border-slate-100 dark:border-slate-800">

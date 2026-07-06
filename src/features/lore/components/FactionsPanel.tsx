@@ -88,11 +88,14 @@ export function FactionsPanel({ projectId }: Props) {
           <Suspense fallback={<div className="h-full grid place-items-center text-sm text-slate-400">Memuat kanvas…</div>}>
             <FactionBoardCanvas
               boardView={f.boardView}
+              relData={f.relData}
               entryById={f.entryById}
               categories={f.categories}
               colorMode={theme === 'dark' ? 'dark' : 'light'}
               onOpenEntry={openCodexEntry}
               onPersistPosition={f.setFactionBoard}
+              onAddRelation={f.addRelationBetween}
+              onDeleteRelation={f.deleteRelation}
             />
           </Suspense>
         </div>
