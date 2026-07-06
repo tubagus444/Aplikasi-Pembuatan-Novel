@@ -254,6 +254,14 @@ export interface CodexEntry {
    * `worldStatus`/`tension`). Logika turunan di `src/lib/factions.ts`.
    */
   factionTag?: string;
+  /**
+   * Papan Faksi (#15 fase 2): posisi kartu faksi di kanvas React Flow. Hanya
+   * bermakna pada entri faksi (ber-`factionTag`). Inert (BUKAN FK, tak diindeks,
+   * TAK masuk KB AI/ekspor) — murni tata-letak. Diisi/diperbarui saat drag selesai
+   * (`onNodeDragStop`), memberi `position` awal node. Ikut backup/impor otomatis
+   * sebagai bagian objek codex (pola `factionTag`/`tension`/`namePalette`).
+   */
+  factionBoard?: { x: number; y: number };
 }
 
 // Template field per kategori (#17). Skema (definisi) hidup di CustomCategory.fields;

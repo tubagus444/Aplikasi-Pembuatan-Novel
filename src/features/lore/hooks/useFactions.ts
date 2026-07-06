@@ -4,8 +4,8 @@ import { db } from '@/src/db';
 import type { CodexEntry } from '@/src/types';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 import {
-  buildFactions, aggregateFactionRelations, factionPairSentiment, pairKey,
-  type Faction, type FactionPairStat, type FactionSentiment,
+  buildFactions, aggregateFactionRelations, factionPairSentiment, pairKey, buildFactionBoard,
+  type Faction, type FactionPairStat, type FactionSentiment, type FactionBoardView,
 } from '@/src/lib/factions';
 
 export interface FactionRelationRow {
@@ -31,6 +31,11 @@ export function useFactions(projectId: number) {
   const relData = useMemo(
     () => aggregateFactionRelations(factions, relationships ?? []),
     [factions, relationships],
+  );
+  // Tampilan kanvas Papan Faksi (node/edge murni; posisi seed dari `factionBoard`).
+  const boardView = useMemo<FactionBoardView>(
+    () => buildFactionBoard(factions, relData),
+    [factions, relData],
   );
 
   // Auto-pilih faksi pertama.
@@ -115,6 +120,11 @@ export function useFactions(projectId: number) {
     await db.relationships.delete(id);
   };
 
+  // Papan Faksi: simpan posisi kartu (drag selesai) di entri faksi. Inert → tak sentuh KB.
+  const setFactionBoard = async (factionId: number, pos: { x: number; y: number }) => {
+    await db.codex.update(factionId, { factionBoard: { x: Math.round(pos.x), y: Math.round(pos.y) } });
+  };
+
   return {
     loading: allEntries === undefined || relationships === undefined,
     categories,
@@ -131,5 +141,9 @@ export function useFactions(projectId: number) {
     removeMember,
     addDeclaredRelation,
     deleteRelation,
+    // Papan Faksi (kanvas)
+    boardView,
+    entryById,
+    setFactionBoard,
   };
 }

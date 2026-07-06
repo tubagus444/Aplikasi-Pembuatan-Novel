@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildFactions, aggregateFactionRelations, factionPairSentiment, pairKey,
+  buildFactionBoard, fallbackSlot,
 } from '@/src/lib/factions';
 import type { CodexEntry, Relationship } from '@/src/types';
 
@@ -140,5 +141,78 @@ describe('factionPairSentiment', () => {
 
   it('pasangan tak ada → none', () => {
     expect(factionPairSentiment(undefined)).toEqual({ source: 'none', memberRelations: 0 });
+  });
+});
+
+describe('buildFactions — factionBoard', () => {
+  it('membawa posisi board yang valid; mengabaikan koordinat non-finite', () => {
+    const factions = buildFactions([
+      entry(100, 'A', { factionTag: 'A', factionBoard: { x: 10, y: 20 } }),
+      entry(200, 'B', { factionTag: 'B', factionBoard: { x: NaN, y: 5 } as any }),
+      entry(300, 'C', { factionTag: 'C' }),
+    ]);
+    expect(factions.find(f => f.tag === 'A')!.board).toEqual({ x: 10, y: 20 });
+    expect(factions.find(f => f.tag === 'B')!.board).toBeUndefined();
+    expect(factions.find(f => f.tag === 'C')!.board).toBeUndefined();
+  });
+});
+
+describe('fallbackSlot', () => {
+  it('deterministik & grid mendekati persegi (kolom = ceil√n)', () => {
+    // 4 faksi → 2 kolom. Indeks 0..3 → (0,0)(1,0)(0,1)(1,1).
+    expect(fallbackSlot(0, 4)).toEqual(fallbackSlot(0, 4)); // deterministik
+    const s0 = fallbackSlot(0, 4), s1 = fallbackSlot(1, 4), s2 = fallbackSlot(2, 4);
+    expect(s1.y).toBe(s0.y);   // baris sama
+    expect(s1.x).toBeGreaterThan(s0.x);
+    expect(s2.y).toBeGreaterThan(s0.y); // pindah baris
+    expect(s2.x).toBe(s0.x);
+  });
+});
+
+describe('buildFactionBoard', () => {
+  it('node pakai board tersimpan (placed) atau slot fallback (tidak placed)', () => {
+    const factions = buildFactions([
+      entry(100, 'Alpha', { factionTag: 'Alpha', factionBoard: { x: 500, y: 300 } }),
+      entry(200, 'Beta', { factionTag: 'Beta' }),
+    ]);
+    const rel0 = aggregateFactionRelations(factions, []);
+    const { nodes } = buildFactionBoard(factions, rel0);
+    const alpha = nodes.find(n => n.name === 'Alpha')!;
+    const beta = nodes.find(n => n.name === 'Beta')!;
+    expect(alpha.placed).toBe(true);
+    expect(alpha.position).toEqual({ x: 500, y: 300 });
+    expect(beta.placed).toBe(false);
+    expect(beta.id).toBe('200');
+    expect(beta.factionId).toBe(200);
+  });
+
+  it('satu edge per pasangan: solid=declared, putus-putus=derived; none dilewati', () => {
+    const factions = buildFactions(scenario());
+    const relData = aggregateFactionRelations(factions, [
+      rel(20, 100, 200, 'Ally'),  // Merah—Biru declared
+      rel(10, 1, 4, 'Enemy'),     // anggota Merah↔Biru → derived (tapi declared menang)
+    ]);
+    const { edges } = buildFactionBoard(factions, relData);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ id: '100-200', source: '100', target: '200', type: 'Ally', kind: 'declared' });
+  });
+
+  it('pasangan tanpa deklarasi tapi ada relasi anggota → edge derived', () => {
+    const factions = buildFactions(scenario());
+    const relData = aggregateFactionRelations(factions, [
+      rel(10, 1, 4, 'Enemy'),
+      rel(11, 2, 5, 'Enemy'),
+    ]);
+    const { edges } = buildFactionBoard(factions, relData);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ kind: 'derived', type: 'Enemy', memberRelations: 2 });
+  });
+
+  it('menyertakan kohesi internal per node & tanpa relasi → nol edge', () => {
+    const factions = buildFactions(scenario());
+    const relData = aggregateFactionRelations(factions, [rel(10, 1, 2, 'Friend')]); // Arin↔Bael (Merah)
+    const { nodes, edges } = buildFactionBoard(factions, relData);
+    expect(edges).toHaveLength(0);
+    expect(nodes.find(n => n.factionId === 100)!.cohesion).toEqual({ Friend: 1 });
   });
 });

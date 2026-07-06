@@ -1,11 +1,15 @@
-import React from 'react';
-import { Users, Plus, X, Trash2, ExternalLink, ChevronRight, UserPlus } from 'lucide-react';
+import React, { lazy, Suspense, useState } from 'react';
+import { Users, Plus, X, Trash2, ExternalLink, ChevronRight, UserPlus, List, LayoutGrid } from 'lucide-react';
 import { useFactions, type FactionRelationRow } from '@/src/features/lore/hooks/useFactions';
 import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useUI } from '@/src/contexts/UIContext';
 import { styleOf } from '@/src/features/lore/relationshipStyles';
 import { RELATIONSHIP_TYPES, getRelationshipLabel } from '@/src/features/codex/relationshipTypes';
 import { CategoryIcon } from '@/src/features/codex/components/CategoryIcon';
 import { cn } from '@/src/lib/utils';
+
+// Kanvas React Flow di-lazy → bundle drag/pan/zoom + CSS hanya dimuat saat mode "Kanvas".
+const FactionBoardCanvas = lazy(() => import('@/src/features/lore/components/faction-board/FactionBoardCanvas'));
 
 interface Props {
   projectId: number;
@@ -37,25 +41,61 @@ function TallyChips({ tally, empty }: { tally: Record<string, number>; empty?: s
 export function FactionsPanel({ projectId }: Props) {
   const f = useFactions(projectId);
   const { openCodexEntry } = useNavigation();
+  const { theme } = useUI();
+  const [view, setView] = useState<'list' | 'canvas'>('list');
+
+  const canvas = view === 'canvas';
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <header className="mb-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Users className="text-indigo-600" size={22} />
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Faksi &amp; Kelompok</h1>
+    <div className={cn('mx-auto', canvas ? 'max-w-none h-full flex flex-col' : 'max-w-6xl')}>
+      <header className={cn('flex items-start justify-between gap-4', canvas ? 'mb-3 shrink-0' : 'mb-5')}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <Users className="text-indigo-600" size={22} />
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Faksi &amp; Kelompok</h1>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Kelompokkan entitas (via tag keanggotaan) lalu lihat politik antar-kelompok. Status
+            yang <b>kamu deklarasikan</b> disajikan berdampingan dengan <b>potret</b> hubungan
+            antar-anggota — netral, tanpa penghakiman.
+          </p>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Kelompokkan entitas (via tag keanggotaan) lalu lihat politik antar-kelompok. Status
-          yang <b>kamu deklarasikan</b> disajikan berdampingan dengan <b>potret</b> hubungan
-          antar-anggota — netral, tanpa penghakiman.
-        </p>
+        {/* Toggle Daftar / Kanvas */}
+        <div className="shrink-0 inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-0.5 gap-0.5">
+          {([['list', 'Daftar', List], ['canvas', 'Kanvas', LayoutGrid]] as const).map(([v, label, Icon]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors',
+                view === v
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200',
+              )}
+            >
+              <Icon size={13} /> {label}
+            </button>
+          ))}
+        </div>
       </header>
 
       {f.loading ? (
         <p className="text-sm text-slate-400 italic py-10 text-center">Memuat…</p>
       ) : f.factions.length === 0 ? (
         <EmptyState />
+      ) : canvas ? (
+        <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <Suspense fallback={<div className="h-full grid place-items-center text-sm text-slate-400">Memuat kanvas…</div>}>
+            <FactionBoardCanvas
+              boardView={f.boardView}
+              entryById={f.entryById}
+              categories={f.categories}
+              colorMode={theme === 'dark' ? 'dark' : 'light'}
+              onOpenEntry={openCodexEntry}
+              onPersistPosition={f.setFactionBoard}
+            />
+          </Suspense>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5">
           {/* Kiri: daftar faksi */}

@@ -33,6 +33,8 @@ export interface Faction {
   hidden: boolean;
   /** Id entri Codex yang menjadi anggota (tags memuat `tag`), terurut. */
   memberIds: number[];
+  /** Posisi kartu di Papan Faksi (kanvas), bila penulis pernah menatanya. */
+  board?: { x: number; y: number };
 }
 
 export interface FactionPairStat {
@@ -68,7 +70,11 @@ export function buildFactions(entries: CodexEntry[]): Faction[] {
       .filter(m => m.id != null && (m.tags ?? []).some(t => t.trim() === tag))
       .map(m => m.id!)
       .sort((x, y) => x - y);
-    factions.push({ id: e.id, name: e.name, tag, hidden: !!e.hidden, memberIds });
+    const board = e.factionBoard
+      && Number.isFinite(e.factionBoard.x) && Number.isFinite(e.factionBoard.y)
+      ? { x: e.factionBoard.x, y: e.factionBoard.y }
+      : undefined;
+    factions.push({ id: e.id, name: e.name, tag, hidden: !!e.hidden, memberIds, board });
   }
   return factions.sort((a, b) => a.name.localeCompare(b.name, 'id') || a.id - b.id);
 }
@@ -178,4 +184,101 @@ export function factionPairSentiment(stat: FactionPairStat | undefined): Faction
   }
 
   return { source: 'none', memberRelations: 0 };
+}
+
+// --- Papan Faksi (#15 fase 2): adapter murni faksi + relasi → node/edge kanvas -----------
+// Prinsip "logika murni = sumber kebenaran, React Flow = cermin". Adapter ini TAK
+// mengimpor React Flow — ia menghasilkan deskriptor node/edge polos & deterministik yang
+// dipetakan komponen ke bentuk library (pola `buildLoreGraphView`). Bisa diuji tanpa render.
+
+/** Node kartu faksi di kanvas. Posisi = `board` tersimpan, else slot fallback grid. */
+export interface FactionBoardNode {
+  /** Id node (= id faksi sebagai string; React Flow butuh id string). */
+  id: string;
+  factionId: number;
+  name: string;
+  tag: string;
+  hidden: boolean;
+  memberIds: number[];
+  /** Posisi kanvas (selalu terisi — fallback deterministik bila belum ditata). */
+  position: { x: number; y: number };
+  /** Apakah `position` berasal dari penataan penulis (true) atau slot fallback (false). */
+  placed: boolean;
+  /** Tally relasi antar-anggota faksi ini sendiri (kohesi internal), per tipe. */
+  cohesion: Record<string, number>;
+}
+
+/** Edge antar dua kartu faksi — satu per pasangan (solid=declared, putus-putus=derived). */
+export interface FactionBoardEdge {
+  /** Id edge stabil (`${aId}-${bId}`, id kecil dulu). */
+  id: string;
+  source: string;
+  target: string;
+  /** Tipe relasi primer (untuk warna/label). */
+  type: string;
+  /** Deklarasi penulis (garis tegas) vs potret turunan antar-anggota (putus-putus). */
+  kind: 'declared' | 'derived';
+  /** Jumlah relasi anggota yang mendasari potret turunan (0 untuk declared murni). */
+  memberRelations: number;
+}
+
+export interface FactionBoardView {
+  nodes: FactionBoardNode[];
+  edges: FactionBoardEdge[];
+}
+
+/** Jarak antar-slot fallback (kartu ~186px + selang). Ekspor agar komponen selaras. */
+export const BOARD_SLOT_W = 240;
+export const BOARD_SLOT_H = 210;
+
+/**
+ * Slot fallback deterministik untuk faksi yang belum ditata: grid rapi, urut indeks.
+ * Kolom = ceil(√n) agar papan mendekati persegi. Dipisah agar teruji & dipakai ulang.
+ */
+export function fallbackSlot(index: number, total: number): { x: number; y: number } {
+  const cols = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, total))));
+  const row = Math.floor(index / cols);
+  const col = index % cols;
+  return { x: 40 + col * BOARD_SLOT_W, y: 40 + row * BOARD_SLOT_H };
+}
+
+/**
+ * Rakit tampilan kanvas Papan Faksi dari faksi + agregasi relasi (keduanya sudah teruji).
+ * Node urut sesuai `factions` (buildFactions → per nama); edge satu per pasangan memakai
+ * `factionPairSentiment` (declared menang; else turunan dominan). Deterministik, nol token.
+ */
+export function buildFactionBoard(
+  factions: Faction[],
+  relData: FactionRelationData,
+): FactionBoardView {
+  const total = factions.length;
+  const nodes: FactionBoardNode[] = factions.map((f, i) => ({
+    id: String(f.id),
+    factionId: f.id,
+    name: f.name,
+    tag: f.tag,
+    hidden: f.hidden,
+    memberIds: f.memberIds,
+    position: f.board ?? fallbackSlot(i, total),
+    placed: !!f.board,
+    cohesion: relData.internal.get(f.id) ?? {},
+  }));
+
+  const factionIds = new Set(factions.map(f => f.id));
+  const edges: FactionBoardEdge[] = [];
+  for (const pair of relData.pairs) {
+    // Lewati pasangan yang salah satu ujungnya bukan (lagi) faksi.
+    if (!factionIds.has(pair.aId) || !factionIds.has(pair.bId)) continue;
+    const s = factionPairSentiment(pair);
+    if (s.source === 'none' || !s.type) continue;
+    edges.push({
+      id: `${pair.aId}-${pair.bId}`,
+      source: String(pair.aId),
+      target: String(pair.bId),
+      type: s.type,
+      kind: s.source,
+      memberRelations: s.memberRelations,
+    });
+  }
+  return { nodes, edges };
 }
