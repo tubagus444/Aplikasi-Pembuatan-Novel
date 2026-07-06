@@ -448,7 +448,8 @@ export const FEATURES: Feature[] = [
       'Data ini jadi acuan bagi Cek Konsistensi, Peta Kontinuitas, dan Konsistensi Inline.',
     ],
     detail: [
-      'Timeline adalah sumber untuk aturan deterministik "tokoh muncul sebelum diperkenalkan" (garis bawah amber di editor).',
+      'Timeline adalah sumber untuk aturan deterministik "tokoh muncul sebelum diperkenalkan" (garis bawah amber di editor) — aturan ini memakai Bab terkait + karakter tertaut & urutan bab, jadi peristiwa dari Kalender Dunia (yang juga menautkan bab & karakter) ikut menyalakannya.',
+      '"Catatan waktu (bebas)" = label teks opsional (mis. "Hari 3, Pagi") untuk peristiwa yang tak ditempatkan di kalender. Peristiwa yang punya tanggal terstruktur dari Kalender Dunia menampilkan tanggal itu di sini (chip ungu).',
       'Semakin lengkap Timeline, semakin tajam deteksi kontradiksi kronologi antar bab.',
     ],
     tip: 'Untuk penanggalan dunia sendiri (bulan/musim/era) + grid visual, lihat Kalender Dunia.',

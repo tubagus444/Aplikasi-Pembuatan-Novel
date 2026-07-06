@@ -6,10 +6,11 @@
 import React, { useState, useMemo } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { CalendarClock, Plus, Trash2, Pencil, GripVertical, X, BookText, Clock, Users } from 'lucide-react';
+import { CalendarClock, CalendarDays, Plus, Trash2, Pencil, GripVertical, X, BookText, Clock, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProjectData } from '@/src/hooks/useProjectData';
-import { TimelineEvent, TimelineEventType, CodexEntry } from '@/src/types';
+import { TimelineEvent, TimelineEventType, CodexEntry, WorldCalendar } from '@/src/types';
+import { formatDateRange } from '@/src/lib/worldCalendar';
 import { cn } from '@/src/lib/utils';
 
 interface TimelinePanelProps {
@@ -48,6 +49,11 @@ export function TimelinePanel({ projectId }: TimelinePanelProps) {
   const chapters = useLiveQuery(() =>
     db.chapters.where('projectId').equals(projectId).sortBy('order')
   , [projectId]);
+
+  // Kalender dunia (opsional) — untuk menampilkan tanggal terstruktur peristiwa
+  // yang dibuat lewat panel Kalender Dunia di daftar Timeline ini juga.
+  const project = useLiveQuery(() => db.projects.get(projectId), [projectId]);
+  const calendar = project?.calendar;
 
   const [filterChapter, setFilterChapter] = useState<'all' | 'none' | number>('all');
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
@@ -207,6 +213,14 @@ export function TimelinePanel({ projectId }: TimelinePanelProps) {
               chapters={chapters || []}
               codex={codexEntries}
               isNew={editingId === 'new'}
+              structuredDate={
+                typeof editingId === 'number' && calendar
+                  ? (() => {
+                      const ev = (events || []).find(e => e.id === editingId);
+                      return ev?.startDate ? formatDateRange(calendar, ev.startDate, ev.endDate) : null;
+                    })()
+                  : null
+              }
               onSave={save}
               onCancel={closeForm}
             />
@@ -237,6 +251,7 @@ export function TimelinePanel({ projectId }: TimelinePanelProps) {
                 <TimelineRow
                   key={ev.id}
                   event={ev}
+                  calendar={calendar}
                   chapterLabel={ev.chapterId != null ? chapterTitle.get(ev.chapterId) : undefined}
                   characterNames={(ev.characterIds || []).map(id => codexName.get(id)).filter((n): n is string => !!n)}
                   canReorder={canReorder}
@@ -259,10 +274,11 @@ export function TimelinePanel({ projectId }: TimelinePanelProps) {
 }
 
 function TimelineRow({
-  event, chapterLabel, characterNames, canReorder, isDragging, isDragOver,
+  event, calendar, chapterLabel, characterNames, canReorder, isDragging, isDragOver,
   onEdit, onDelete, onDragStart, onDragOver, onDrop, onDragEnd
 }: {
   event: TimelineEvent;
+  calendar?: WorldCalendar;
   chapterLabel?: string;
   characterNames: string[];
   canReorder: boolean;
@@ -276,6 +292,10 @@ function TimelineRow({
   onDragEnd: () => void;
 }) {
   const meta = TYPE_META[event.type] || TYPE_META.other;
+  // Tanggal terstruktur (Kalender Dunia) diutamakan bila ada; jika tidak, pakai
+  // label waktu bebas `eventDate`. Menjadikan peristiwa dari Kalender tampil
+  // bertanggal di daftar Timeline juga (tak lagi terlihat kosong).
+  const structuredDate = calendar && event.startDate ? formatDateRange(calendar, event.startDate, event.endDate) : null;
   return (
     <motion.div
       layout
@@ -305,11 +325,15 @@ function TimelineRow({
           )}
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              {event.eventDate && (
+              {structuredDate ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400" title="Tanggal dari Kalender Dunia">
+                  <CalendarDays size={11} /> {structuredDate}
+                </span>
+              ) : event.eventDate ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   <Clock size={11} /> {event.eventDate}
                 </span>
-              )}
+              ) : null}
               <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-semibold border', meta.badge)}>
                 {meta.label}
               </span>
@@ -352,13 +376,15 @@ function TimelineRow({
 }
 
 function EventForm({
-  form, setForm, chapters, codex, isNew, onSave, onCancel
+  form, setForm, chapters, codex, isNew, structuredDate, onSave, onCancel
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   chapters: { id?: number; title: string }[];
   codex: CodexEntry[];
   isNew: boolean;
+  /** Tanggal terstruktur dari Kalender Dunia bila peristiwa ini punya (mode edit). */
+  structuredDate?: string | null;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -395,13 +421,20 @@ function EventForm({
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Waktu in-world</label>
+          <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Catatan waktu (bebas)</label>
           <input
             value={form.eventDate}
             onChange={(e) => setForm(f => ({ ...f, eventDate: e.target.value }))}
             placeholder="mis. Hari 3, Pagi"
             className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400"
           />
+          {structuredDate ? (
+            <p className="text-[11px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              <CalendarDays size={11} className="shrink-0" /> Terjadwal di Kalender: {structuredDate}
+            </p>
+          ) : (
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">Label bebas. Untuk tanggal terstruktur di grid, pakai panel Kalender Dunia.</p>
+          )}
         </div>
       </div>
 
