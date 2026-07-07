@@ -17,6 +17,7 @@
  */
 
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
+import { extractCodexAcKeywords } from '@/src/lib/codexKeywords';
 import { CodexEntry, Relationship, TimelineEvent } from '@/src/types';
 
 export type ContinuityCheck =
@@ -91,14 +92,7 @@ export interface PresenceIndex {
  * divergensi pencocokan / scan ganda.
  */
 export function buildPresenceIndex(chapters: ContinuityChapter[], codexEntries: CodexEntry[]): PresenceIndex {
-  const keywords: { word: string; data: number }[] = [];
-  for (const e of codexEntries) {
-    if (e.id == null) continue;
-    for (const term of [e.name, ...(e.aliases || [])]) {
-      const w = (term || '').trim();
-      if (w.length >= 2) keywords.push({ word: w, data: e.id });
-    }
-  }
+  const keywords = extractCodexAcKeywords(codexEntries, (e) => e.id!);
 
   const ac = keywords.length ? new AhoCorasick(keywords) : null;
   const perChapterCounts: Map<number, number>[] = [];

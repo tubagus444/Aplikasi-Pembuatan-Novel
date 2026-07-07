@@ -7,6 +7,7 @@ import { db } from '@/src/db';
 import { CodexEntry, StoryBibleRule } from '@/src/types';
 import { getCodexRegex } from '@/src/lib/utils';
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
+import { extractCodexAcKeywords } from '@/src/lib/codexKeywords';
 import { formatBibleBlock } from '@/src/lib/storyBible';
 import { buildCodexLoreString, buildRelationshipGraph } from '@/src/lib/loreFormat';
 import { buildPresenceIndex } from '@/src/lib/continuity';
@@ -76,20 +77,9 @@ function getAcInstance(allCodex: CodexEntry[]): AhoCorasick {
   const hash = JSON.stringify(allCodex.map(e => ({ n: e.name, a: e.aliases })));
   if (cachedAcHash === hash && cachedAc) return cachedAc;
   
-  const keywords = allCodex.flatMap(entry => {
-    const items = [];
-    if (entry.name) {
-      items.push({ word: entry.name, data: { entry, isAlias: false } });
-    }
-    if (entry.aliases && Array.isArray(entry.aliases)) {
-      entry.aliases.forEach(alias => {
-        if (alias) {
-          items.push({ word: alias, data: { entry, isAlias: true } });
-        }
-      });
-    }
-    return items;
-  });
+  // Filter konsisten dengan continuity.ts & loreGraph.ts: trim + length >= 2
+  // (dulu di sini tidak ada filter panjang, menyebabkan divergensi hitungan).
+  const keywords = extractCodexAcKeywords(allCodex, (entry, isAlias) => ({ entry, isAlias }));
   
   cachedAc = new AhoCorasick(keywords);
   cachedAcHash = hash;

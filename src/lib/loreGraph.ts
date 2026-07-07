@@ -21,6 +21,7 @@
  */
 
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
+import { extractCodexAcKeywords } from '@/src/lib/codexKeywords';
 import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
 
 /** Lewat jalur apa sebuah entri menautkan ke entri lain. */
@@ -101,14 +102,7 @@ export interface LoreMention {
  * & `buildLoreGraphView` (edge) — dulu blok ini diduplikasi verbatim di keduanya.
  */
 export function scanMentions(entries: CodexEntry[]): LoreMention[] {
-  const keywords: { word: string; data: number }[] = [];
-  for (const e of entries) {
-    if (e.id == null) continue;
-    for (const term of [e.name, ...(e.aliases || [])]) {
-      const w = (term || '').trim();
-      if (w.length >= 2) keywords.push({ word: w, data: e.id });
-    }
-  }
+  const keywords = extractCodexAcKeywords(entries, (e) => e.id!);
   const ac = keywords.length ? new AhoCorasick(keywords) : null;
   if (!ac) return [];
 

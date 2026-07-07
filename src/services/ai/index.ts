@@ -73,12 +73,12 @@ export function isCacheSupported(provider: string): boolean {
 // denominator headroom. Nilai konservatif; model spesifik bisa berbeda, tapi cukup
 // sebagai indikator visual "seberapa penuh konteks".
 const PROVIDER_CONTEXT_WINDOW: Record<string, number> = {
-  google: 1_000_000,
+  google: 2_000_000,
   claude: 200_000,
   openrouter: 128_000,
   openai: 128_000,
-  groq: 32_000,
-  huggingface: 32_000,
+  groq: 128_000,
+  huggingface: 128_000,
   ollama: 8_192,
 };
 

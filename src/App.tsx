@@ -72,7 +72,7 @@ export default function App() {
   if (isLoading || !projectId) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background text-slate-400 dark:text-slate-500 font-mono text-xs uppercase tracking-widest">
-        Initialising AetherScribe...
+        Memulai AetherScribe…
       </div>
     );
   }
