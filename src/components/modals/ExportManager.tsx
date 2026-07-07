@@ -64,6 +64,9 @@ function makeUuid(): string {
   });
 }
 
+/** Kembalikan kendali ke event loop agar React sempat mengecat (spinner) & UI tak beku. */
+const yieldToUI = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export function ExportManager({ projectId, project, onClose }: ExportManagerProps) {
   const [status, setStatus] = useState<ExportStatus>('idle');
   const [format, setFormat] = useState<ExportFormat>('md');
@@ -118,7 +121,7 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
     saveAs(new Blob([content], { type: 'text/markdown' }), `${project?.name || 'Manuscript'}.md`);
   };
 
-  const exportPDF = (list: Chapter[]) => {
+  const exportPDF = async (list: Chapter[]) => {
     const doc = new jsPDF();
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
@@ -165,7 +168,8 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
       y += lineHeight + 4; // jarak antar paragraf
     };
 
-    list.forEach((ch, index) => {
+    for (let index = 0; index < list.length; index++) {
+      const ch = list[index];
       if (y > pageHeight - 40) { doc.addPage(); y = margin; }
 
       doc.setFontSize(18);
@@ -186,7 +190,10 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
       });
 
       y += 10; // jarak antar bab
-    });
+      // Yield tiap beberapa bab: getTextWidth per-token mahal → tanpa ini UI beku
+      // multi-detik pada naskah 100+ bab (spinner pun tak sempat tampil).
+      if ((index & 7) === 7) await yieldToUI();
+    }
 
     doc.save(`${project?.name || 'Manuscript'}.pdf`);
   };
@@ -212,21 +219,76 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
       return runs;
     };
 
+    const runsOfChildren = (el: HTMLElement, styles: { bold?: boolean; italics?: boolean } = {}): TextRun[] => {
+      const runs: TextRun[] = [];
+      el.childNodes.forEach(child => { runs.push(...processNode(child, styles)); });
+      return runs;
+    };
+
+    // Konversi satu elemen BLOK → daftar Paragraph. Rekursif agar `<ul>/<ol>/<blockquote>`
+    // TIDAK diratakan jadi satu paragraf (bug lama: semua `<li>` menyatu). TipTap
+    // membungkus isi item di `<p>`, jadi `<li>` bisa memuat `<p>` dan/atau sub-list.
+    const blockToParagraphs = (el: HTMLElement, depth = 0): Paragraph[] => {
+      const tag = el.tagName;
+
+      if (tag === 'P') {
+        const children = runsOfChildren(el);
+        return children.length ? [new Paragraph({ children, spacing: { after: 200, line: 360 }, alignment: AlignmentType.JUSTIFIED })] : [];
+      }
+
+      if (/^H[1-6]$/.test(tag)) {
+        const level = parseInt(tag.substring(1));
+        const headingMap: Record<number, any> = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
+        return [new Paragraph({ children: runsOfChildren(el), heading: headingMap[level] || HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } })];
+      }
+
+      if (tag === 'UL' || tag === 'OL') {
+        const paras: Paragraph[] = [];
+        let n = 1;
+        Array.from(el.children).forEach((li) => {
+          if (li.tagName !== 'LI') return;
+          // Pisahkan run inline item dari sub-list (yang diproses rekursif berindent).
+          const inline: TextRun[] = [];
+          const nested: HTMLElement[] = [];
+          li.childNodes.forEach((child) => {
+            const c = child as HTMLElement;
+            if (child.nodeType === Node.ELEMENT_NODE && (c.tagName === 'UL' || c.tagName === 'OL')) nested.push(c);
+            else inline.push(...processNode(child));
+          });
+          if (inline.length) {
+            if (tag === 'OL') {
+              // Nomor manual (hindari konfigurasi numbering docx); indent per kedalaman.
+              paras.push(new Paragraph({ children: [new TextRun({ text: `${n}. `, size: 24, font: 'Times New Roman' }), ...inline], indent: { left: 720 * (depth + 1) }, spacing: { after: 120 } }));
+            } else {
+              paras.push(new Paragraph({ children: inline, bullet: { level: depth }, spacing: { after: 120 } }));
+            }
+          }
+          n++;
+          nested.forEach((nl) => paras.push(...blockToParagraphs(nl, depth + 1)));
+        });
+        return paras;
+      }
+
+      if (tag === 'BLOCKQUOTE') {
+        // Satu paragraf per blok-anak (atau seluruh isi), indentasi + miring.
+        const blocks = Array.from(el.children).filter((c) => c.nodeType === Node.ELEMENT_NODE) as HTMLElement[];
+        const targets = blocks.length ? blocks : [el];
+        const paras: Paragraph[] = [];
+        targets.forEach((t) => {
+          const runs = runsOfChildren(t, { italics: true });
+          if (runs.length) paras.push(new Paragraph({ children: runs, indent: { left: 720 }, spacing: { after: 200 } }));
+        });
+        return paras;
+      }
+
+      // Blok lain dengan isi teks → satu paragraf biasa.
+      const children = runsOfChildren(el);
+      return children.length ? [new Paragraph({ children, spacing: { after: 200 } })] : [];
+    };
+
     doc.body.childNodes.forEach(node => {
       if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as HTMLElement;
-        const children: TextRun[] = [];
-        el.childNodes.forEach(child => { children.push(...processNode(child)); });
-
-        if (el.tagName === 'P') {
-          elements.push(new Paragraph({ children, spacing: { after: 200, line: 360 }, alignment: AlignmentType.JUSTIFIED }));
-        } else if (el.tagName.startsWith('H')) {
-          const level = parseInt(el.tagName.substring(1));
-          const headingMap: Record<number, any> = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
-          elements.push(new Paragraph({ children, heading: headingMap[level] || HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }));
-        } else if (children.length > 0) {
-          elements.push(new Paragraph({ children, spacing: { after: 200 } }));
-        }
+        elements.push(...blockToParagraphs(node as HTMLElement));
       } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
         elements.push(new Paragraph({ children: [new TextRun({ text: node.textContent, size: 24, font: 'Times New Roman' })], spacing: { after: 200 } }));
       }
@@ -236,10 +298,13 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
   };
 
   const exportDocx = async (list: Chapter[]) => {
-    const sections = list.map(ch => {
-      const heading = new Paragraph({ text: ch.title, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 400, after: 400 } });
-      return [heading, ...htmlToDocxElements(ch.content || '')];
-    }).flat();
+    const sections: Paragraph[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const ch = list[i];
+      sections.push(new Paragraph({ text: ch.title, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 400, after: 400 } }));
+      sections.push(...htmlToDocxElements(ch.content || ''));
+      if ((i & 7) === 7) await yieldToUI(); // DOMParser per bab → yield agar UI tak beku
+    }
 
     const doc = new Document({
       title: project?.name,
@@ -267,12 +332,16 @@ export function ExportManager({ projectId, project, onClose }: ExportManagerProp
     if (selectedChapters.length === 0) return;
     setStatus('processing');
     try {
+      // Beri React satu tick untuk mengecat overlay "processing" SEBELUM kerja berat
+      // sinkron (jsPDF/DOMParser) memblokir main thread — kalau tidak, spinner tak
+      // pernah tampil & UI beku pada naskah besar.
+      await yieldToUI();
       // Lepas mark catatan revisi dari konten sebelum konversi format apa pun agar
       // catatan pribadi penulis tidak ikut terbawa ke berkas hasil ekspor.
       const cleaned = selectedChapters.map(c => ({ ...c, content: stripRevisionComments(c.content || '') }));
       switch (format) {
         case 'md': exportMarkdown(cleaned); break;
-        case 'pdf': exportPDF(cleaned); break;
+        case 'pdf': await exportPDF(cleaned); break;
         case 'docx': await exportDocx(cleaned); break;
         case 'epub': exportEpub(cleaned); break;
       }

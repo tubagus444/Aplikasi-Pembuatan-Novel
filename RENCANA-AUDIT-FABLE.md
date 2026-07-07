@@ -101,8 +101,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### A — Ekspor manuskrip
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| Ekspor besar beku UI | Seluruh ekspor sinkron di 1 tick main thread → React tak repaint, spinner tak tampil, UI beku pada 100+ bab (jsPDF `getTextWidth` per token mahal). Fix: `await setTimeout(0)` sebelum kerja berat / chunking per-bab | risiko | T | S | `ExportManager.tsx:266-285` |
-| DOCX ratakan struktur | `htmlToDocxElements` hanya tangani `P`/`H*` top-level; `<ul>/<ol>/<blockquote>` di-flatten → semua `<li>` gabung jadi 1 paragraf tanpa pemisah | risiko | S | M | `ExportManager.tsx:194-236` |
+| ✅ Ekspor besar beku UI | **SELESAI** — `handleExport` `await yieldToUI()` sebelum kerja berat (spinner sempat tampil); `exportPDF`/`exportDocx` async + yield tiap 8 bab (jsPDF/DOMParser tak lagi beku multi-detik) | risiko | T | S | `ExportManager.tsx` |
+| ✅ DOCX ratakan struktur | **SELESAI** — `blockToParagraphs` rekursif: `<ul>` → bullet per-`<li>`, `<ol>` → nomor manual + indent per kedalaman (sub-list nested), `<blockquote>` → paragraf indent+miring. Tak lagi menggabung `<li>` jadi 1 paragraf | risiko | S | M | `ExportManager.tsx` |
 | PDF Unicode | jsPDF font "times" = cp1252: kutip lengkung/em-dash/é aman, glyph di luar cp1252 garble. Aman untuk Indonesia (keputusan sadar), perdalam bila pakai glyph khusus dunia fiksi | perdalam | S | M | `ExportManager.tsx:121-192` |
 | EPUB + gambar | Bila konten bab kelak memuat `<img>`, XHTML lolos tapi file gambar tak masuk manifest → EPUB invalid. Guard: strip `<img>` di `htmlToXhtmlBody` | risiko | R | S | `ExportManager.tsx:51-57`, `epub.ts` |
 
@@ -130,7 +130,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 2. ✅ **Perbaiki pemotongan lore senyap + satukan formatter KB** (B1 1b#1 + 1a#2) — **SELESAI** (sumber tunggal `src/lib/loreFormat.ts`, potong batas-entri + warn, meter hitung fields/secret/graf).
 3. ✅ **Jinakkan ErrorBoundary global + cabut re-dispatch tokenWorker + listener `aetherscribe-db-issue`** (B2 #4 + #2) — **SELESAI** (root boundary hanya error render + `PanelErrorBoundary`; tokenWorker tak re-dispatch; `useDbIssueListener` → toast persisten).
 4. ✅ **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — **SELESAI** (scan di worker via `buildPresenceIndexAsync`/`usePresenceIndex`; derivasi terima `options.index`).
-5. **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — UI beku & korektness naskah serah pada novel besar, effort S–M.
+5. ✅ **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — **SELESAI** (yield spinner + per-8-bab; DOCX `blockToParagraphs` rekursif ul/ol/blockquote).
 6. **Guard filter projectId + race init Orama** (B3 C) — cegah polusi/drift indeks RAG saat impor/restore.
 7. **Uji jantung AI** (B1 1a#1) — kode paling kritis & paling sering disentuh, paling tak terlindungi.
 8. **Diet memori jalur backup penuh** (B2 #1) — sebelum ukuran naskah bikin siklus 30-menit jadi sumber jank/gagal.
