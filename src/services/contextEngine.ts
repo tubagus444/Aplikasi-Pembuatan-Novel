@@ -27,8 +27,13 @@ function terminateWorker() {
   pendingRequests.clear();
 }
 
+let lastCrashTime = 0;
+
 function getWorker(): Worker {
   if (!worker) {
+    if (Date.now() - lastCrashTime < 2000) {
+      throw new Error('Context worker is crash-looping. Please wait before retrying.');
+    }
     worker = new ContextWorker();
     worker.onmessage = (e: MessageEvent) => {
       const { id, result, error, type, payload } = e.data;
@@ -51,7 +56,13 @@ function getWorker(): Worker {
       // C11: JANGAN re-dispatch ErrorEvent('error') ke window — itu memicu handler
       // error global (main.tsx) dan bisa menggandakan log / berisiko loop. Cukup log
       // di sini; terminateWorker() me-reject semua pending sehingga pemanggil tahu.
+      lastCrashTime = Date.now();
       console.error('Context Worker Error:', e.message || e);
+      terminateWorker();
+    };
+    worker.onmessageerror = () => {
+      lastCrashTime = Date.now();
+      console.error('Context Worker Message Error');
       terminateWorker();
     };
   }

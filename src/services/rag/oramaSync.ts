@@ -22,15 +22,28 @@ function rejectAllPending(reason: string) {
   pendingRequests.clear();
 }
 
+let lastCrashTime = 0;
+
 function getWorker(): Worker {
   if (!worker) {
+    if (Date.now() - lastCrashTime < 2000) {
+      throw new Error('Orama worker is crash-looping. Please wait before retrying.');
+    }
     worker = new Worker(new URL('./oramaWorker.ts', import.meta.url), { type: 'module' });
 
     worker.onerror = (error) => {
+      lastCrashTime = Date.now();
       console.error('[Orama] Worker error:', error.message);
       // Jangan biarkan caller menggantung: gagalkan semua request lalu reset worker
       // (akan dibuat ulang pada pemakaian berikutnya). Tidak me-redispatch error ke window.
       rejectAllPending('Orama worker error/crash');
+      try { worker?.terminate(); } catch (e) { /* noop */ }
+      worker = null;
+    };
+    worker.onmessageerror = () => {
+      lastCrashTime = Date.now();
+      console.error('[Orama] Worker Message Error');
+      rejectAllPending('Orama worker message error');
       try { worker?.terminate(); } catch (e) { /* noop */ }
       worker = null;
     };

@@ -50,6 +50,9 @@ function extractRuns(el: Element): Run[] {
 /** Konversi HTML bab → badan XHTML well-formed (untuk EPUB). */
 function htmlToXhtmlBody(html: string): string {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  // Hapus elemen <img> karena EPUB butuh gambar terdaftar di manifest;
+  // tanpa ekstensi sinkron, tag ini akan membuat EPUB invalid.
+  doc.querySelectorAll('img').forEach(img => img.remove());
   const serialized = new XMLSerializer().serializeToString(doc.body);
   // Buang pembungkus <body ...> ... </body> → sisakan isi (XHTML, tag void self-closing).
   const inner = serialized.replace(/^<body[^>]*>/, '').replace(/<\/body>\s*$/, '').trim();

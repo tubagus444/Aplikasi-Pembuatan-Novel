@@ -75,8 +75,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | ✅ Tak ada flush saat tab ditutup | **SELESAI** — listener `pagehide` + `visibilitychange`→hidden di `useGlobalEvents` (level App, selalu mount) memanggil `flushActiveEditor()` via bridge; no-op bila editor tak ter-mount | risiko | T | S | `useGlobalEvents.ts`, `editorBridge.ts` |
 | ✅ Reload paksa `versionchange` | **SELESAI** — `db.on('versionchange')` kini `flushActiveEditor()` (koneksi masih terbuka) → `.finally(closeAndReload)` sebelum `close()`+`reload()` | risiko | T | S | `db.ts:539-551` |
 | 🔶 tokenWorker langgar aturan C11 | **re-dispatch DICABUT** — `onerror` kini `console.error` + reset status (tak lagi `ErrorEvent('error')` ke window → tak crash / tulis-ganda). Sisa: worker per-mount tanpa singleton (perdalam, dibiarkan) | risiko | S | S | `useTokenCounter.ts` |
-| Timer auto-backup reset tiap siklus | `runBackup` dependency `isBackingUp` (state) → efek `[runBackup]` bongkar-pasang `setInterval` tiap siklus; guard baca closure basi. Ganti ke ref | debt | S | S | `useAutoBackup.tsx:78-79,240-270` |
-| Celah siklus hidup worker | Sudah benar (reject pending→terminate→lazy-recreate), tapi tanpa `onmessageerror` (pending menggantung sampai timeout) & tanpa backoff saat crash-init | perdalam | S | S | `contextEngine.ts:17-52`, `rag/oramaSync.ts:25-40` |
+| ✅ Timer auto-backup reset tiap siklus | **SELESAI** — interval di `useAutoBackup.tsx` sudah dibungkus ref, tak lagi bongkar-pasang tiap siklus; perubahan hanya dipicu oleh `storage` event `backup_interval` | debt | S | S | `useAutoBackup.tsx:251-283` |
+| ✅ Celah siklus hidup worker | **SELESAI** — menambahkan `onmessageerror` dan logika *backoff* (jeda 2 detik `lastCrashTime`) saat *crash* inisialisasi di `contextEngine.ts` dan `oramaSync.ts` agar pemanggil mendapat pesan *error* dan *worker* tidak masuk ke dalam *crash-loop* | perdalam | S | S | `contextEngine.ts`, `rag/oramaSync.ts` |
 
 ### #4 — Kualitas UX/UI & error-handling
 | Area | Temuan | Kat | Dampak | Effort | File |
@@ -104,7 +104,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | ✅ Ekspor besar beku UI | **SELESAI** — `handleExport` `await yieldToUI()` sebelum kerja berat (spinner sempat tampil); `exportPDF`/`exportDocx` async + yield tiap 8 bab (jsPDF/DOMParser tak lagi beku multi-detik) | risiko | T | S | `ExportManager.tsx` |
 | ✅ DOCX ratakan struktur | **SELESAI** — `blockToParagraphs` rekursif: `<ul>` → bullet per-`<li>`, `<ol>` → nomor manual + indent per kedalaman (sub-list nested), `<blockquote>` → paragraf indent+miring. Tak lagi menggabung `<li>` jadi 1 paragraf | risiko | S | M | `ExportManager.tsx` |
 | PDF Unicode | jsPDF font "times" = cp1252: kutip lengkung/em-dash/é aman, glyph di luar cp1252 garble. Aman untuk Indonesia (keputusan sadar), perdalam bila pakai glyph khusus dunia fiksi | perdalam | S | M | `ExportManager.tsx:121-192` |
-| EPUB + gambar | Bila konten bab kelak memuat `<img>`, XHTML lolos tapi file gambar tak masuk manifest → EPUB invalid. Guard: strip `<img>` di `htmlToXhtmlBody` | risiko | R | S | `ExportManager.tsx:51-57`, `epub.ts` |
+| ✅ EPUB + gambar | **SELESAI** — memasang pelindung `doc.querySelectorAll('img').forEach(img => img.remove())` pada `htmlToXhtmlBody` sebelum membuat EPUB, sehingga gambar dinamis (yang tak ada di manifest) dibersihkan dan tak lagi membuat dokumen EPUB menjadi tidak valid (invalid EPUB) | risiko | R | S | `ExportManager.tsx`, `epub.ts` |
 
 ### B — Worldbuilding runtime
 | Area | Temuan | Kat | Dampak | Effort | File |
