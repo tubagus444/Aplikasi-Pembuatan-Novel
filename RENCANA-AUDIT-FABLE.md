@@ -31,7 +31,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | ✅ Lore terpotong senyap (caching) | **SELESAI** — `buildCodexLoreString` memotong pada BATAS ENTRI (blok `[RAHASIA…]` tak pernah separuh, entri huruf-akhir di-drop utuh) + `console.warn` "N/M entri termuat" saat cap tercapai (arahkan naikkan cap di Pengaturan) | risiko | T | S–M | `loreFormat.ts`, `index.ts` |
 | ✅ Presence scan di main thread | **SELESAI** — scan dipindah ke worker (`buildPresenceIndexAsync` → pesan `BUILD_PRESENCE_INDEX`, fungsi murni yang SAMA). 4 panel diperbarui: Kontinuitas & Lensa `await` di handler scan; Janji Plot & Atlas via hook `usePresenceIndex`. Derivasi terima `options.index` (fallback sinkron utk tes) | risiko | T | M | `contextWorker.ts`, `contextEngine.ts`, `usePresenceIndex.ts`, `continuity.ts`, `plotPromises.ts` |
 | Timeout worker 30 dtk flat | Query sah bisa gagal timeout saat antre di belakang embedding indexing perdana | risiko | S | S | `contextEngine.ts:54` |
-| Cache konsistensi membengkak localStorage | Mirror per-bab × 100+ bab → risiko `QuotaExceededError` yang bisa matikan persist settings lain | risiko | S | S | `src/lib/inlineConsistency.ts` |
+| ✅ Cache konsistensi membengkak localStorage | **SELESAI** — pagar kuota GLOBAL: cap LRU `MAX_CACHED_CHAPTERS=40` (`touchLru`, murni + 6 tes) + degradasi kuota (buang bab tertua lalu retry `setItem`) di `persistChapter` → tak lagi menjatuhkan `setItem` fitur lain | risiko | S | S | `useEditorAIConsistency.ts`, `lruList.ts` |
 | postMessage payload penuh berulang | Seluruh array codex di-clone + `JSON.stringify` hash tiap pesan → O(n) per ketikan | risiko | R | M | `contextEngine.ts:98` |
 
 ### 1c. Fitur yang Perlu Diperdalam
@@ -85,7 +85,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | ✅ Peringatan DB tak sampai ke pengguna | **SELESAI** — `useDbIssueListener` (di App) dengarkan `aetherscribe-db-issue` → toast (`error`=persisten + "Muat Ulang", `warning`=biasa). Isu pra-mount di-buffer di `db.ts` (`drainPendingDbIssues`) & dikuras saat mount; `ToastContainer` dipindah ke `main.tsx` agar tampil walau di layar loading | risiko | T | S | `useDbIssueListener.ts`, `db.ts`, `main.tsx` |
 | ErrorService di jalur error global | Handler global tulis `db.errors` via ErrorService — saat penyebab error IndexedDB sendiri, logging ikut gagal/menggantung. `main.tsx` belum terapkan guard yang `db.ts` sudah sadari | perdalam | S | S | `main.tsx:17-34`, `errorService.ts` |
 | Bahasa Inggris bocor di kesan pertama | "Initialising AetherScribe…", "Untitled Novel", "Start your masterpiece here", "Chapter 1", "Once upon a time…" — langgar aturan string UI Indonesia | debt | R | S | `App.tsx:71-74`, `db.ts:557-582` |
-| Cache konsistensi tanpa pagar kuota global | `ai_inline_consistency_cache_<id>` cap 300/bab tapi tanpa cap jumlah kunci lintas-bab & tanpa strategi saat `setItem` lempar `QuotaExceededError`. Verifikasi try/catch + eviction LRU per-proyek | perdalam | S | S | `useEditorAIConsistency.ts:45-67,193-195` |
+| ✅ Cache konsistensi tanpa pagar kuota global | **SELESAI** (sama dgn B1 1b di atas) — cap jumlah kunci lintas-bab via LRU + eviction saat `QuotaExceededError`; try/catch sudah ada, kini + strategi degradasi | perdalam | S | S | `useEditorAIConsistency.ts`, `lruList.ts` |
 
 ---
 

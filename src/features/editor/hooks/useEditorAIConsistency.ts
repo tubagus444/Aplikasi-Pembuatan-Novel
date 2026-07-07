@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Editor } from '@tiptap/react';
 import { CodexEntry, StoryBibleRule, Relationship } from '@/src/types';
 import { InlineQuoteFinding } from '@/src/lib/inlineConsistency';
+import { touchLru } from '@/src/lib/lruList';
 import { checkConsistency, cancelAI } from '@/src/services/ai';
 
 const ENABLED_KEY = 'ai_inline_consistency';
@@ -43,11 +44,30 @@ const chapterCache = new Map<number, Map<string, InlineQuoteFinding[]>>();
  * terbuang. Memuat ulang dari sini murni membaca hasil lama — NOL token.
  */
 const STORE_PREFIX = 'ai_inline_consistency_cache_';
+const LRU_KEY = 'ai_inline_consistency_lru';
 const MAX_PERSISTED_PER_CHAPTER = 300;
+// Pagar kuota GLOBAL: simpan cache untuk paling banyak N bab (LRU). Tanpa ini, 100+
+// bab × 300 temuan menumpuk kunci `ai_inline_consistency_cache_*` tanpa batas hingga
+// localStorage penuh & `setItem` FITUR LAIN (setting/backup) ikut gagal.
+const MAX_CACHED_CHAPTERS = 40;
 const hydratedChapters = new Set<number>();
 
 function storeKey(chapterId: number): string {
   return STORE_PREFIX + chapterId;
+}
+
+function readLru(): number[] {
+  try {
+    const raw = localStorage.getItem(LRU_KEY);
+    const a = raw ? JSON.parse(raw) : [];
+    return Array.isArray(a) ? a.filter((x) => typeof x === 'number') : [];
+  } catch { return []; }
+}
+function writeLru(list: number[]): void {
+  try { localStorage.setItem(LRU_KEY, JSON.stringify(list)); } catch { /* abaikan */ }
+}
+function evictChapterKey(chapterId: number): void {
+  try { localStorage.removeItem(storeKey(chapterId)); } catch { /* abaikan */ }
 }
 
 function loadPersisted(chapterId: number): Map<string, InlineQuoteFinding[]> | null {
@@ -65,14 +85,39 @@ function persistChapter(
   map: Map<string, InlineQuoteFinding[]>,
   presentTexts: Set<string>,
 ): void {
-  try {
-    const entries: [string, InlineQuoteFinding[]][] = [];
-    for (const [text, findings] of map) {
-      if (findings.length > 0 && presentTexts.has(text)) entries.push([text, findings]);
+  const entries: [string, InlineQuoteFinding[]][] = [];
+  for (const [text, findings] of map) {
+    if (findings.length > 0 && presentTexts.has(text)) entries.push([text, findings]);
+  }
+
+  // Bab tanpa temuan → buang kunci & keluarkan dari LRU (jaga storage ramping).
+  if (entries.length === 0) {
+    evictChapterKey(chapterId);
+    writeLru(readLru().filter((id) => id !== chapterId));
+    return;
+  }
+
+  // Pagar kuota global: jadikan bab ini paling baru & pangkas hingga MAX_CACHED_CHAPTERS,
+  // membuang kunci bab tertua yang tergusur.
+  const { list, evicted } = touchLru(readLru(), chapterId, MAX_CACHED_CHAPTERS);
+  evicted.forEach(evictChapterKey);
+
+  const payload = JSON.stringify(entries.slice(-MAX_PERSISTED_PER_CHAPTER));
+  // Tulis dengan DEGRADASI kuota: bila penuh, buang bab tertua (selain ini) lalu retry —
+  // jangan biarkan cache konsistensi menghabiskan kuota & menjatuhkan setItem fitur lain.
+  const working = [...list];
+  for (;;) {
+    try {
+      localStorage.setItem(storeKey(chapterId), payload);
+      writeLru(working);
+      return;
+    } catch {
+      const victimIdx = working.findIndex((id) => id !== chapterId);
+      if (victimIdx === -1) { writeLru(working); return; } // hanya bab ini tersisa → menyerah
+      const [victim] = working.splice(victimIdx, 1);
+      evictChapterKey(victim);
     }
-    if (entries.length === 0) { localStorage.removeItem(storeKey(chapterId)); return; }
-    localStorage.setItem(storeKey(chapterId), JSON.stringify(entries.slice(-MAX_PERSISTED_PER_CHAPTER)));
-  } catch { /* storage penuh / tak tersedia → abaikan, cache memori tetap jalan */ }
+  }
 }
 
 function getChapterMap(chapterId: number): Map<string, InlineQuoteFinding[]> {
