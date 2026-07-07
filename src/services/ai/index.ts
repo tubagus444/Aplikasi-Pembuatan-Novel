@@ -355,6 +355,72 @@ async function callAI(params: AIRenderParams): Promise<string> {
   }
 }
 
+// Helper functions to deduplicate Boilerplate AI actions
+interface AIExecutionParams {
+  abortKey: string;
+  actionType: AIRenderParams['actionType'];
+  providerOverride?: string;
+  buildPrompts: (ctx: { useCaching: boolean; settings: ReturnType<typeof getSettings>; provider: string }) => Promise<{
+    systemInstruction: string;
+    cachedContext?: string[];
+    userPrompt: string;
+  }>;
+  callOptions?: Omit<AIRenderParams, 'systemInstruction'|'cachedContext'|'userPrompt'|'provider'|'signal'|'actionType'|'cacheable'>;
+}
+
+async function executeAIAction(config: AIExecutionParams): Promise<string> {
+  const settings = getSettings();
+  const provider = config.providerOverride || settings.provider;
+  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
+
+  const { systemInstruction, cachedContext, userPrompt } = await config.buildPrompts({
+    useCaching, settings, provider
+  });
+
+  const controller = new AbortController();
+  registerAbort(config.abortKey, controller);
+  
+  try {
+    return await callAI({
+      ...(config.callOptions || {}),
+      systemInstruction,
+      cachedContext,
+      userPrompt,
+      provider,
+      signal: controller.signal,
+      actionType: config.actionType,
+      cacheable: useCaching,
+    });
+  } catch (error) {
+    if (error instanceof AIError) throw error;
+    throw new AIError(error instanceof Error ? error.message : `AI action ${config.actionType} failed.`, 'API_ERROR');
+  } finally {
+    unregisterAbort(config.abortKey, controller);
+  }
+}
+
+async function resolveContextBuilder(
+  useCaching: boolean,
+  depth: ContextDepth,
+  rules: StoryBibleRule[],
+  codex: CodexEntry[],
+  rels: Relationship[],
+  ragTargetText?: string
+): Promise<{ cachedContext?: string[]; contextBlock?: string }> {
+  if (useCaching) {
+    return { cachedContext: buildCachedContextSegments(rules, codex, rels) };
+  } else {
+    if (ragTargetText) {
+      const relevantCodex = await getRelevantContext(ragTargetText, codex);
+      const relevantRules = await getRelevantBibleRules(ragTargetText, rules);
+      return { contextBlock: buildContextBlock(relevantRules, relevantCodex, rels, depth) };
+    } else {
+      const kbSegments = buildCachedContextSegments(rules, codex, rels);
+      return { contextBlock: kbSegments.join('\n\n') };
+    }
+  }
+}
+
 // Facade Methods
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
@@ -371,77 +437,45 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   if (existing) return existing;
 
   const task = (async (): Promise<string> => {
-  // RAG for Rewrite
-  let textForRAG = params.ragContextText ? params.ragContextText + '\n' + params.selection : params.selection;
-  let relevantScenesText = '';
-  
-  if (params.contextText && params.contextText.length > 500) {
-     const { splitIntoScenes, getRelevantScenes, buildExcerptContext } = await import('@/src/lib/chunkEngine');
-     const scenes = splitIntoScenes(params.contextText);
-     const relevantScenes = getRelevantScenes(params.selection, scenes, params.codexEntries);
-     if (relevantScenes.length > 0) {
-        relevantScenesText = buildExcerptContext(relevantScenes);
-        textForRAG += '\n' + relevantScenesText;
-     }
-  } else if (params.contextText) {
-     textForRAG += '\n' + params.contextText;
-  }
-
-  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  // P0: di caching mode, KB statis dipisah ke cachedContext (blok cache PERTAMA yang
-  // identik lintas-aksi) agar rewrite/chat/consistency berbagi satu cache prefix;
-  // systemInstruction menyisakan instruksi aksi saja. Non-caching: gabung seperti biasa.
-  let cachedContext: string[] | undefined;
-  let systemInstruction: string;
-  if (useCaching) {
-    // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
-    cachedContext = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
-    systemInstruction = AI_PROMPTS.REWRITE.SYSTEM();
-  } else {
-    // LEGACY RAG MODE: Filter dynamically
-    const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
-    const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
-    const contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
-    systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
-  }
-
-  // User Prompt must contain the dynamic scene context to keep the System instruction perfectly static for caching
-  let userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
-  if (relevantScenesText) {
-    userPrompt = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${userPrompt}`;
-  }
-
-  // Plafon output adaptif: rewrite bisa memanjangkan teks, jadi beri ruang ~2.5x
-  // token seleksi, dengan lantai & langit-langit agar tak boros maupun terpotong.
-  const selectionTokens = Math.ceil((params.selection?.length || 0) / 4);
-  const rewriteMaxTokens = Math.min(4000, Math.max(512, Math.ceil(selectionTokens * 2.5)));
-
-  const controller = new AbortController();
-  registerAbort('rewrite', controller);
-  try {
-    const res = await callAI({
-      systemInstruction,
-      cachedContext,
-      userPrompt,
-      provider: provider,
-      // Tugas editor (perbaikan gaya/konsistensi), bukan generasi kreatif bebas —
-      // suhu rendah membuat hasil lebih taat instruksi & tak liar. Default 0.5,
-      // bisa diatur pengguna di Settings → Optimasi AI Lanjutan.
-      temperature: getRewriteTemperature(),
-      maxTokens: rewriteMaxTokens,
-      stream: params.stream,
-      onChunk: params.onChunk,
-      signal: controller.signal,
+    const res = await executeAIAction({
+      abortKey: 'rewrite',
       actionType: 'rewrite',
-      cacheable: useCaching
+      providerOverride: params.provider,
+      buildPrompts: async ({ useCaching, settings }) => {
+        let textForRAG = params.ragContextText ? params.ragContextText + '\n' + params.selection : params.selection;
+        let relevantScenesText = '';
+        if (params.contextText && params.contextText.length > 500) {
+           const { splitIntoScenes, getRelevantScenes, buildExcerptContext } = await import('@/src/lib/chunkEngine');
+           const scenes = splitIntoScenes(params.contextText);
+           const relevantScenes = getRelevantScenes(params.selection, scenes, params.codexEntries);
+           if (relevantScenes.length > 0) {
+              relevantScenesText = buildExcerptContext(relevantScenes);
+              textForRAG += '\n' + relevantScenesText;
+           }
+        } else if (params.contextText) {
+           textForRAG += '\n' + params.contextText;
+        }
+
+        const { cachedContext, contextBlock } = await resolveContextBuilder(
+          useCaching, settings.contextDepth, params.bibleRules, params.codexEntries, params.relationships || [], textForRAG
+        );
+        const systemInstruction = AI_PROMPTS.REWRITE.SYSTEM(contextBlock);
+
+        let userPrompt = AI_PROMPTS.REWRITE.USER(params.action, params.selection, params.prompt);
+        if (relevantScenesText) {
+          userPrompt = `RELEVANT CHAPTER SCENES:\n${relevantScenesText}\n\n${userPrompt}`;
+        }
+
+        return { systemInstruction, cachedContext, userPrompt };
+      },
+      callOptions: {
+        temperature: getRewriteTemperature(),
+        maxTokens: Math.min(4000, Math.max(512, Math.ceil(Math.ceil((params.selection?.length || 0) / 4) * 2.5))),
+        stream: params.stream,
+        onChunk: params.onChunk
+      }
     });
     return cleanRewriteOutput(res);
-  } catch (error) {
-    if (error instanceof AIError) throw error;
-    throw new AIError(error instanceof Error ? error.message : 'AI rewrite failed.', "API_ERROR");
-  } finally {
-    unregisterAbort('rewrite', controller);
-  }
   })();
 
   inFlightRewrites.set(dedupKey, task);
@@ -453,87 +487,57 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
 }
 
 export async function processChat(params: ChatParams): Promise<string> {
-  const settings = getSettings();
-  const provider = params.provider || settings.provider;
+  return executeAIAction({
+    abortKey: 'chat',
+    actionType: 'chat',
+    providerOverride: params.provider,
+    buildPrompts: async ({ useCaching, settings }) => {
+      let textForRAG = params.message;
+      let relevantScenesText = '';
+      let draftSnippet = params.contextText?.substring(0, 3000) || '';
+      
+      if (params.contextText && params.contextText.length > 1000 && params.sessionMode !== 'plot-check') {
+         const { splitIntoScenes, getRelevantScenes, buildExcerptContext, getLastScene } = await import('@/src/lib/chunkEngine');
+         const scenes = splitIntoScenes(params.contextText);
+         const relevantScenes = getRelevantScenes(params.message, scenes, params.codexEntries);
+         
+         if (relevantScenes.length > 0) {
+            relevantScenesText = buildExcerptContext(relevantScenes);
+            textForRAG += '\n' + relevantScenesText;
+            draftSnippet = relevantScenesText; // Only send relevant scenes to AI instead of 3000 chars
+         } else {
+            const lastScene = getLastScene(scenes);
+            if (lastScene) {
+              relevantScenesText = buildExcerptContext([lastScene]);
+              textForRAG += '\n' + relevantScenesText;
+              draftSnippet = relevantScenesText;
+            }
+         }
+      } else {
+         textForRAG += ' ' + (params.contextText || '');
+      }
 
-  // RAG for Chat
-  let textForRAG = params.message;
-  let relevantScenesText = '';
-  let draftSnippet = params.contextText?.substring(0, 3000) || '';
-  
-  if (params.contextText && params.contextText.length > 1000 && params.sessionMode !== 'plot-check') {
-     const { splitIntoScenes, getRelevantScenes, buildExcerptContext, getLastScene } = await import('@/src/lib/chunkEngine');
-     const scenes = splitIntoScenes(params.contextText);
-     const relevantScenes = getRelevantScenes(params.message, scenes, params.codexEntries);
-     
-     if (relevantScenes.length > 0) {
-        relevantScenesText = buildExcerptContext(relevantScenes);
-        textForRAG += '\n' + relevantScenesText;
-        draftSnippet = relevantScenesText; // Only send relevant scenes to AI instead of 3000 chars
-     } else {
-        const lastScene = getLastScene(scenes);
-        if (lastScene) {
-          relevantScenesText = buildExcerptContext([lastScene]);
-          textForRAG += '\n' + relevantScenesText;
-          draftSnippet = relevantScenesText;
-        }
-     }
-  } else {
-     textForRAG += ' ' + (params.contextText || '');
-  }
-
-  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  // P0: KB statis dipisah ke cachedContext (blok cache PERTAMA, identik lintas-aksi).
-  // Instruksi mode (prose-review/plot-check/brainstorm) tetap di systemInstruction →
-  // blok KB pun dibagi antar-mode chat, bukan cuma antar-aksi.
-  let cachedContext: string[] | undefined;
-  let systemInstruction: string;
-  if (useCaching) {
-    // CACHING MODE: knowledge base statis penuh untuk memaksimalkan cache prompt
-    cachedContext = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
-    systemInstruction = AI_PROMPTS.CHAT.SYSTEM(undefined, params.sessionMode);
-  } else {
-    // LEGACY RAG MODE: Filter dynamically
-    const relevantCodex = await getRelevantContext(textForRAG, params.codexEntries);
-    const relevantRules = await getRelevantBibleRules(textForRAG, params.bibleRules);
-    const contextBlock = buildContextBlock(relevantRules, relevantCodex, params.relationships || [], settings.contextDepth);
-    systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
-  }
-  // Instruksi khusus pemanggil (mis. protokol blok codex-draft Lokakarya) di akhir,
-  // setelah instruksi mode — KB tetap di cachedContext sehingga cache-nya tak terpengaruh.
-  if (params.extraSystem) {
-    systemInstruction += '\n\n' + params.extraSystem;
-  }
-  const userPromptWithContext = AI_PROMPTS.CHAT.USER(params.message, draftSnippet);
-
-  // Pemangkasan riwayat dilakukan SATU kali di proxy (MAX_PROXY_HISTORY) sebagai gerbang
-  // akhir, sekaligus titik breakpoint cache riwayat — jadi jangan memangkas ulang di sini
-  // (trim ganda dulu menyesatkan: tampak menyimpan 10, padahal proxy memotong ke 8).
-
-  const controller = new AbortController();
-  registerAbort('chat', controller);
-  try {
-    const res = await callAI({
-      systemInstruction,
-      cachedContext,
-      userPrompt: userPromptWithContext,
-      provider: provider,
+      const { cachedContext, contextBlock } = await resolveContextBuilder(
+        useCaching, settings.contextDepth, params.bibleRules, params.codexEntries, params.relationships || [], textForRAG
+      );
+      
+      let systemInstruction = AI_PROMPTS.CHAT.SYSTEM(contextBlock, params.sessionMode);
+      if (params.extraSystem) {
+        systemInstruction += '\n\n' + params.extraSystem;
+      }
+      
+      const userPrompt = AI_PROMPTS.CHAT.USER(params.message, draftSnippet);
+      
+      return { systemInstruction, cachedContext, userPrompt };
+    },
+    callOptions: {
       history: params.history,
       temperature: 0.7,
       maxTokens: 2048,
       stream: params.stream,
-      onChunk: params.onChunk,
-      signal: controller.signal,
-      actionType: 'chat',
-      cacheable: useCaching
-    });
-    return res;
-  } catch (error) {
-    if (error instanceof AIError) throw error;
-    throw new AIError(error instanceof Error ? error.message : 'AI chat failed.', "API_ERROR");
-  } finally {
-    unregisterAbort('chat', controller);
-  }
+      onChunk: params.onChunk
+    }
+  });
 }
 
 // Plafon teks bab yang dikirim untuk pengecekan konsistensi (~12k token).
@@ -566,64 +570,39 @@ function sanitizeFinding(raw: any): ConsistencyFinding | null {
  * harus melihat seluruh entri untuk menangkap kontradiksi.
  */
 export async function checkConsistency(params: ConsistencyParams): Promise<{ findings: ConsistencyFinding[]; truncated: boolean }> {
-  const settings = getSettings();
-  const provider = params.provider || settings.provider;
-
-  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  const kbSegments = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
-  // Timeline membantu AI menangkap pelanggaran urutan waktu (peristiwa di luar kronologi).
-  // P0/P1: timeline TIDAK dimasukkan ke cachedContext agar segmen KB tetap byte-identik
-  // dengan rewrite/chat → cache KB dibagi lintas-aksi DAN antar-bab (cek 5 bab beruntun =
-  // 1 tulis + 4 baca, bukan 5 tulis cache buangan). Timeline menyusul di blok instruksi
-  // (kecil; story-wide sehingga sering sama antar pemeriksaan bab dalam satu sesi).
-  const timelineBlock = params.timelineSummary && params.timelineSummary.trim()
-    ? `\n\nSTORY TIMELINE (urutan kronologis peristiwa cerita):\n${params.timelineSummary.trim()}`
-    : '';
-
-  let cachedContext: string[] | undefined;
-  let systemInstruction: string;
-  if (useCaching) {
-    cachedContext = kbSegments;
-    systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM() + timelineBlock;
-  } else {
-    systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM(kbSegments.join('\n\n') + timelineBlock);
-  }
-
   const fullText = params.chapterText || '';
   const truncated = fullText.length > MAX_CONSISTENCY_CHARS;
   const chapterText = truncated ? fullText.slice(0, MAX_CONSISTENCY_CHARS) : fullText;
 
-  const userPrompt = AI_PROMPTS.CONSISTENCY.USER(params.chapterTitle || '', chapterText);
-
-  // Kunci abort terpisah (mis. 'consistency-inline') agar pengecekan inline & panel
-  // tak saling membatalkan. Label actionType callAI tetap 'consistency' (routing
-  // model analitis + logging sama).
-  const abortKey = params.actionType || 'consistency';
-  const controller = new AbortController();
-  registerAbort(abortKey, controller);
-  try {
-    const res = await callAI({
-      systemInstruction,
-      cachedContext,
-      userPrompt,
-      provider,
+  const res = await executeAIAction({
+    abortKey: params.actionType || 'consistency',
+    actionType: 'consistency',
+    providerOverride: params.provider,
+    buildPrompts: async ({ useCaching, settings }) => {
+      const { cachedContext, contextBlock } = await resolveContextBuilder(
+        useCaching, settings.contextDepth, params.bibleRules, params.codexEntries, params.relationships || []
+      );
+      
+      const timelineBlock = params.timelineSummary && params.timelineSummary.trim()
+        ? `\n\nSTORY TIMELINE (urutan kronologis peristiwa cerita):\n${params.timelineSummary.trim()}`
+        : '';
+        
+      const systemInstruction = AI_PROMPTS.CONSISTENCY.SYSTEM(contextBlock ? contextBlock + timelineBlock : undefined) + (contextBlock ? '' : timelineBlock);
+      const userPrompt = AI_PROMPTS.CONSISTENCY.USER(params.chapterTitle || '', chapterText);
+      
+      return { systemInstruction, cachedContext, userPrompt };
+    },
+    callOptions: {
       temperature: 0.2, // analitis: minim kreativitas, maksimal konsistensi
       maxTokens: 2048,
-      signal: controller.signal,
-      actionType: 'consistency',
-      cacheable: useCaching,
       onRetry: params.onRetry
-    });
-    const findings = parseJsonArray(res)
-      .map(sanitizeFinding)
-      .filter((f): f is ConsistencyFinding => f !== null);
-    return { findings, truncated };
-  } catch (error) {
-    if (error instanceof AIError) throw error;
-    throw new AIError(error instanceof Error ? error.message : 'Pengecekan konsistensi gagal.', 'API_ERROR');
-  } finally {
-    unregisterAbort(abortKey, controller);
-  }
+    }
+  });
+
+  const findings = parseJsonArray(res)
+    .map(sanitizeFinding)
+    .filter((f): f is ConsistencyFinding => f !== null);
+  return { findings, truncated };
 }
 
 /** Satu temuan audit konsistensi untuk SATU entri Codex (lapis 1: vs lore terstruktur). */
@@ -671,51 +650,35 @@ export interface CodexAuditParams {
  * Abort key terpisah ('codex-audit') agar tak saling batal dengan audit bab.
  */
 export async function auditCodexEntry(params: CodexAuditParams): Promise<CodexAuditFinding[]> {
-  const settings = getSettings();
-  const provider = params.provider || settings.provider;
   const deep = !!params.chapterExcerpts?.trim();
-
-  const useCaching = isCacheSupported(provider) && settings.contextDepth !== 'minimal';
-  const kbSegments = buildCachedContextSegments(params.bibleRules, params.codexEntries, params.relationships || []);
   const prompt = deep ? AI_PROMPTS.AUDIT_CODEX_DEEP : AI_PROMPTS.AUDIT_CODEX;
 
-  let cachedContext: string[] | undefined;
-  let systemInstruction: string;
-  if (useCaching) {
-    cachedContext = kbSegments;
-    systemInstruction = prompt.SYSTEM();
-  } else {
-    systemInstruction = prompt.SYSTEM(kbSegments.join('\n\n'));
-  }
-
-  const userPrompt = deep
-    ? AI_PROMPTS.AUDIT_CODEX_DEEP.USER(params.entry, params.chapterExcerpts!.trim())
-    : AI_PROMPTS.AUDIT_CODEX.USER(params.entry);
-
-  const controller = new AbortController();
-  registerAbort('codex-audit', controller);
-  try {
-    const res = await callAI({
-      systemInstruction,
-      cachedContext,
-      userPrompt,
-      provider,
+  const res = await executeAIAction({
+    abortKey: 'codex-audit',
+    actionType: 'consistency',
+    providerOverride: params.provider,
+    buildPrompts: async ({ useCaching, settings }) => {
+      const { cachedContext, contextBlock } = await resolveContextBuilder(
+        useCaching, settings.contextDepth, params.bibleRules, params.codexEntries, params.relationships || []
+      );
+      
+      const systemInstruction = useCaching ? prompt.SYSTEM() : prompt.SYSTEM(contextBlock);
+      const userPrompt = deep
+        ? AI_PROMPTS.AUDIT_CODEX_DEEP.USER(params.entry, params.chapterExcerpts!.trim())
+        : AI_PROMPTS.AUDIT_CODEX.USER(params.entry);
+        
+      return { systemInstruction, cachedContext, userPrompt };
+    },
+    callOptions: {
       temperature: 0.2, // analitis: minim kreativitas
       maxTokens: deep ? 2000 : 1500,
-      signal: controller.signal,
-      actionType: 'consistency',
-      cacheable: useCaching,
       onRetry: params.onRetry,
-    });
-    return parseJsonArray(res)
-      .map(sanitizeAuditFinding)
-      .filter((f): f is CodexAuditFinding => f !== null);
-  } catch (error) {
-    if (error instanceof AIError) throw error;
-    throw new AIError(error instanceof Error ? error.message : 'Audit entri Codex gagal.', 'API_ERROR');
-  } finally {
-    unregisterAbort('codex-audit', controller);
-  }
+    }
+  });
+
+  return parseJsonArray(res)
+    .map(sanitizeAuditFinding)
+    .filter((f): f is CodexAuditFinding => f !== null);
 }
 
 const ENRICH_CATEGORIES = new Set(['character', 'location', 'item', 'magic', 'event', 'other']);
@@ -738,37 +701,43 @@ export async function enrichEntities(
   bibleRules: StoryBibleRule[]
 ): Promise<EnrichedEntity[]> {
   if (!items || items.length === 0) return [];
-  const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], [], settings.contextDepth);
-  const systemInstruction = AI_PROMPTS.ENRICH_CODEX.SYSTEM(contextBlock);
-  const userPrompt = AI_PROMPTS.ENRICH_CODEX.USER(items);
-  // Plafon output skala jumlah entitas (jaring pengaman), dengan lantai & langit.
   const maxTokens = Math.min(4000, Math.max(600, items.length * 220 + 400));
-
-  // Cocokkan nama hasil ke nama yang diminta (case-insensitive) agar key konsisten.
   const requestedByLower = new Map(items.map(it => [it.name.toLowerCase(), it.name]));
 
-  try {
-    const res = await callAI({ systemInstruction, userPrompt, temperature: 0.3, maxTokens, actionType: 'extract' });
-    const arr = parseJsonArray(res);
-    const out: EnrichedEntity[] = [];
-    for (const raw of arr) {
-      if (!raw || typeof raw !== 'object') continue;
-      const rawName = typeof raw.name === 'string' ? raw.name.trim() : '';
-      if (!rawName) continue;
-      const name = requestedByLower.get(rawName.toLowerCase()) || rawName;
-      const category = ENRICH_CATEGORIES.has(raw.category) ? raw.category : 'other';
-      const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, 1000) : '';
-      const aliases = Array.isArray(raw.aliases)
-        ? raw.aliases.filter((a: any) => typeof a === 'string' && a.trim()).map((a: string) => a.trim()).slice(0, 10)
-        : [];
-      out.push({ name, category, description, aliases });
+  const res = await executeAIAction({
+    abortKey: 'extract',
+    actionType: 'extract',
+    buildPrompts: async ({ useCaching, settings }) => {
+      const { cachedContext, contextBlock } = await resolveContextBuilder(
+        useCaching, settings.contextDepth, bibleRules, [], []
+      );
+      return {
+        systemInstruction: AI_PROMPTS.ENRICH_CODEX.SYSTEM(contextBlock),
+        cachedContext,
+        userPrompt: AI_PROMPTS.ENRICH_CODEX.USER(items)
+      };
+    },
+    callOptions: {
+      temperature: 0.3,
+      maxTokens
     }
-    return out;
-  } catch (error: any) {
-    if (error instanceof AIError) throw error;
-    throw new AIError(error instanceof Error ? error.message : 'Enrichment entitas gagal.', 'API_ERROR');
+  });
+
+  const arr = parseJsonArray(res);
+  const out: EnrichedEntity[] = [];
+  for (const raw of arr) {
+    if (!raw || typeof raw !== 'object') continue;
+    const rawName = typeof raw.name === 'string' ? raw.name.trim() : '';
+    if (!rawName) continue;
+    const name = requestedByLower.get(rawName.toLowerCase()) || rawName;
+    const category = ENRICH_CATEGORIES.has(raw.category) ? raw.category : 'other';
+    const description = typeof raw.description === 'string' ? raw.description.trim().slice(0, 1000) : '';
+    const aliases = Array.isArray(raw.aliases)
+      ? raw.aliases.filter((a: any) => typeof a === 'string' && a.trim()).map((a: string) => a.trim()).slice(0, 10)
+      : [];
+    out.push({ name, category, description, aliases });
   }
+  return out;
 }
 
 export async function expandCodexEntry(
@@ -777,17 +746,23 @@ export async function expandCodexEntry(
   currentDescription: string,
   bibleRules: StoryBibleRule[]
   ): Promise<string> {
-  const settings = getSettings();
-  const contextBlock = buildContextBlock(bibleRules, [], [], settings.contextDepth);
-  const systemInstruction = AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock);
-  const userPrompt = AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription);
-  
-  return await callAI({ 
-    systemInstruction, 
-    userPrompt, 
-    temperature: 0.9,
-    maxTokens: 1000,
-    actionType: 'expand'
+  return executeAIAction({
+    abortKey: 'expand',
+    actionType: 'expand',
+    buildPrompts: async ({ useCaching, settings }) => {
+      const { cachedContext, contextBlock } = await resolveContextBuilder(
+        useCaching, settings.contextDepth, bibleRules, [], []
+      );
+      return {
+        systemInstruction: AI_PROMPTS.EXPAND_CODEX.SYSTEM(contextBlock),
+        cachedContext,
+        userPrompt: AI_PROMPTS.EXPAND_CODEX.USER(name, category, currentDescription)
+      };
+    },
+    callOptions: {
+      temperature: 0.9,
+      maxTokens: 1000
+    }
   });
 }
 
@@ -852,24 +827,20 @@ export async function suggestBibleField(field: BibleAssistField, ctx: BibleConte
   ].filter(r => r.key !== targetKey);
 
   const profileBlock = formatBibleBlock(rules);
-  const systemInstruction = AI_PROMPTS.BIBLE_ASSIST.SYSTEM();
-  const userPrompt = AI_PROMPTS.BIBLE_ASSIST.USER(guide.label, guide.guide, profileBlock);
-
-  const controller = new AbortController();
-  registerAbort('bible-assist', controller);
-  try {
-    const res = await callAI({
-      systemInstruction,
-      userPrompt,
+  const res = await executeAIAction({
+    abortKey: 'bible-assist',
+    actionType: 'expand',
+    buildPrompts: async () => ({
+      systemInstruction: AI_PROMPTS.BIBLE_ASSIST.SYSTEM(),
+      userPrompt: AI_PROMPTS.BIBLE_ASSIST.USER(guide.label, guide.guide, profileBlock)
+    }),
+    callOptions: {
       temperature: 0.8,
-      maxTokens: 800,
-      actionType: 'expand',
-      signal: controller.signal,
-    });
-    return stripWrappers(res);
-  } finally {
-    unregisterAbort('bible-assist', controller);
-  }
+      maxTokens: 800
+    }
+  });
+
+  return stripWrappers(res);
 }
 
 export async function testConnection(provider: string, apiKey: string, model?: string): Promise<boolean> {
