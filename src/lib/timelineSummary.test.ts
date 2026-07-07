@@ -33,6 +33,17 @@ describe('buildTimelineSummary', () => {
     expect(out).toBe('1. [Hari 3] Kael menemukan pedang (Bab: Bab 1) [Tokoh: Kael, Mira] — Di reruntuhan');
   });
 
+  it('uses calendar and startDate if available, falling back to eventDate if not', () => {
+    const cal = { eras: [{ name: 'Era 1', abbr: 'E1' }], months: [{ name: 'Bulan 1', days: 30 }], weekdays: [], seasons: [] };
+    const events = [
+      ev({ id: 1, title: 'Lahir', order: 0, eventDate: 'Dulu', startDate: { era: 0, year: 10, month: 1, day: 5 } }),
+      ev({ id: 2, title: 'Mati', order: 1, eventDate: 'Lama' })
+    ];
+    const out = buildTimelineSummary(events, [], [], cal);
+    // 5 Bulan 1 10 E1
+    expect(out).toBe('1. [5 Bulan 1 10 E1] Lahir\n2. [Lama] Mati');
+  });
+
   it('skips unknown chapter/character ids gracefully', () => {
     const events = [ev({ id: 1, title: 'X', order: 0, chapterId: 999, characterIds: [999] })];
     const out = buildTimelineSummary(events, [], []);

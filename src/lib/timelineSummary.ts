@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { TimelineEvent } from '@/src/types';
+import { TimelineEvent, WorldCalendar } from '@/src/types';
+import { formatDateRange } from '@/src/lib/worldCalendar';
 
 const MAX_SUMMARY_CHARS = 6000; // batasi agar tak membengkak token konteks
 
@@ -15,7 +16,8 @@ const MAX_SUMMARY_CHARS = 6000; // batasi agar tak membengkak token konteks
 export function buildTimelineSummary(
   events: TimelineEvent[],
   chapters: { id?: number; title: string }[],
-  codex: { id?: number; name: string }[]
+  codex: { id?: number; name: string }[],
+  calendar?: WorldCalendar
 ): string {
   if (!events || events.length === 0) return '';
 
@@ -27,7 +29,9 @@ export function buildTimelineSummary(
   const sorted = [...events].sort((a, b) => (a.order - b.order) || ((a.id || 0) - (b.id || 0)));
 
   return sorted.map((e, i) => {
-    const date = e.eventDate ? `[${e.eventDate}] ` : '';
+    const date = (e.startDate && calendar)
+      ? `[${formatDateRange(calendar, e.startDate, e.endDate)}] `
+      : (e.eventDate ? `[${e.eventDate}] ` : '');
     const chap = e.chapterId != null && chapterTitle.has(e.chapterId)
       ? ` (Bab: ${chapterTitle.get(e.chapterId)})` : '';
     const chars = (e.characterIds || [])

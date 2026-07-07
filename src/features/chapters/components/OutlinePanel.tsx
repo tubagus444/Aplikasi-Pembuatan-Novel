@@ -23,7 +23,8 @@ import {
   TrendingUp,
   Bookmark,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, countWords } from '@/src/lib/utils';
@@ -31,6 +32,7 @@ import { STATUS_COLORS, STATUS_DOTS } from '@/src/lib/constants';
 import { useChapterManagement } from '@/src/features/chapters/hooks/useChapterManagement';
 import { useChapterDragAndDrop } from '@/src/features/chapters/hooks/useChapterDragAndDrop';
 import { useNavigation } from '@/src/contexts/NavigationContext';
+import { ChapterAct } from '@/src/types';
 
 const STATUS_LANES: { id: 'outline' | 'draft' | 'edit' | 'polish' | 'done'; label: string; description: string; colorClass: string }[] = [
   { id: 'outline', label: 'Kerangka', description: 'Struktur ide & plot cerita', colorClass: 'border-t-2 border-slate-300 dark:border-slate-700' },
@@ -39,6 +41,22 @@ const STATUS_LANES: { id: 'outline' | 'draft' | 'edit' | 'polish' | 'done'; labe
   { id: 'polish', label: 'Poles', description: 'Polesan gaya bahasa & diksi', colorClass: 'border-t-2 border-emerald-500' },
   { id: 'done', label: 'Selesai', description: 'Bab selesai & siap dipublikasi', colorClass: 'border-t-2 border-blue-500' }
 ];
+
+const ACT_LANES: { id: ChapterAct; label: string; description: string; colorClass: string }[] = [
+  { id: 'act-1', label: 'Babak I', description: 'Pengenalan & Insiden Pemicu', colorClass: 'border-t-2 border-blue-500' },
+  { id: 'act-2a', label: 'Babak IIA', description: 'Aksi Meningkat (Rising Action)', colorClass: 'border-t-2 border-indigo-500' },
+  { id: 'act-2b', label: 'Babak IIB', description: 'Krisis menuju Klimaks', colorClass: 'border-t-2 border-purple-500' },
+  { id: 'act-3', label: 'Babak III', description: 'Klimaks & Resolusi', colorClass: 'border-t-2 border-rose-500' },
+  { id: 'unassigned', label: 'Belum Ditentukan', description: 'Babak belum ditetapkan', colorClass: 'border-t-2 border-slate-400 dark:border-slate-600' }
+];
+
+const ACT_DOTS: Record<ChapterAct, string> = {
+  'act-1': 'bg-blue-500',
+  'act-2a': 'bg-indigo-500',
+  'act-2b': 'bg-purple-500',
+  'act-3': 'bg-rose-500',
+  'unassigned': 'bg-slate-400 dark:bg-slate-500'
+};
 
 interface OutlinePanelProps {
   projectId: number;
@@ -51,6 +69,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
 
   // UX Control States
   const [viewLayout, setViewLayout] = useState<'timeline' | 'kanban'>('timeline');
+  const [kanbanDimension, setKanbanDimension] = useState<'status' | 'act'>('status');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPovFilter, setSelectedPovFilter] = useState<string | null>(null);
   const [globalExpandSummaries, setGlobalExpandSummaries] = useState(true);
@@ -93,14 +112,22 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
   }, [chapters, searchQuery, selectedPovFilter]);
 
   // Hanlde drops onto specific Kanban Columns/Lanes
-  const handleDropOnColumn = async (e: React.DragEvent, status: 'outline' | 'draft' | 'edit' | 'polish' | 'done') => {
+  const handleDropOnColumn = async (e: React.DragEvent, laneId: string) => {
     e.preventDefault();
     e.stopPropagation();
     if (!draggedId || !chapters) return;
     
     const draggedChapter = chapters.find(c => c.id === draggedId);
-    if (draggedChapter && draggedChapter.status !== status) {
-      updateField(draggedId, 'status', status);
+    if (draggedChapter) {
+      if (kanbanDimension === 'status') {
+        if (draggedChapter.status !== laneId) {
+          updateField(draggedId, 'status', laneId);
+        }
+      } else {
+        if ((draggedChapter.act || 'unassigned') !== laneId) {
+          updateField(draggedId, 'act', laneId);
+        }
+      }
     }
   };
 
@@ -311,6 +338,34 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
               <span>Papan</span>
             </button>
           </div>
+
+          {/* Dimension switch (only visible in kanban) */}
+          {viewLayout === 'kanban' && (
+            <div className="flex items-center bg-slate-200/60 dark:bg-slate-950 p-1 rounded-lg border border-slate-300/40 dark:border-slate-800 sm:ml-2">
+              <button
+                onClick={() => setKanbanDimension('status')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer tracking-wide",
+                  kanbanDimension === 'status' 
+                    ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                )}
+              >
+                <span>Berdasarkan Status</span>
+              </button>
+              <button
+                onClick={() => setKanbanDimension('act')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all cursor-pointer tracking-wide",
+                  kanbanDimension === 'act' 
+                    ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                )}
+              >
+                <span>Berdasarkan Babak</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -385,9 +440,15 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
             className="overflow-x-auto pb-6"
           >
             <div className="flex gap-4 min-w-[1200px] h-[calc(100vh-320px)] min-h-[480px]">
-              {STATUS_LANES.map(lane => {
-                const laneChapters = filteredChapters.filter(ch => (ch.status || 'outline') === lane.id);
+              {(kanbanDimension === 'status' ? STATUS_LANES : ACT_LANES).map(lane => {
+                const laneChapters = filteredChapters.filter(ch => {
+                  if (kanbanDimension === 'status') return (ch.status || 'outline') === lane.id;
+                  return (ch.act || 'unassigned') === lane.id;
+                });
                 const isColumnHovered = activeDropColumn === lane.id;
+                const dotColor = kanbanDimension === 'status' 
+                  ? STATUS_DOTS[lane.id as string] 
+                  : ACT_DOTS[lane.id as ChapterAct];
 
                 return (
                   <div
@@ -416,7 +477,7 @@ export function OutlinePanel({ projectId }: OutlinePanelProps) {
                     <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-slate-200/60 dark:border-slate-800 relative">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
-                          <span className={cn("w-2 h-2 rounded-full", STATUS_DOTS[lane.id] || "bg-slate-400")} />
+                          <span className={cn("w-2 h-2 rounded-full", dotColor || "bg-slate-400")} />
                           <h3 className="font-bold text-xs text-slate-800 dark:text-slate-100 uppercase tracking-wider">{lane.label}</h3>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold font-mono text-slate-500 dark:text-slate-400">
                             {laneChapters.length}
@@ -599,9 +660,29 @@ function ChapterCard({
           </select>
           <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-current opacity-50 pointer-events-none" />
         </div>
+
+        {/* Act Dropdown */}
+        <div className="relative">
+          <select 
+            value={chapter.act || 'unassigned'}
+            onChange={(e) => onUpdateField(chapter.id!, 'act', e.target.value)}
+            className={cn(
+              "text-[10px] uppercase font-bold tracking-wider pl-2.5 pr-6 py-1 rounded-md outline-none border hover:shadow-sm cursor-pointer select-none transition-all appearance-none",
+              "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
+              "border-slate-200 dark:border-slate-700/60 focus:border-indigo-400"
+            )}
+          >
+            <option value="unassigned">- Babak -</option>
+            <option value="act-1">Babak I</option>
+            <option value="act-2a">Babak IIA</option>
+            <option value="act-2b">Babak IIB</option>
+            <option value="act-3">Babak III</option>
+          </select>
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-current opacity-50 pointer-events-none" />
+        </div>
         
         {/* POV Field */}
-        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 flex-1 min-w-[80px] hover:border-slate-300 dark:hover:border-slate-700 transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100">
+        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 flex-1 min-w-[80px] max-w-[120px] hover:border-slate-300 dark:hover:border-slate-700 transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100">
           <UserCircle size={12} className="text-slate-400 dark:text-slate-500 shrink-0" />
           <input 
             className="bg-transparent text-[10px] font-bold text-slate-700 dark:text-slate-400 focus:outline-none w-full placeholder:text-slate-400 dark:placeholder:text-slate-600 uppercase tracking-widest truncate"
@@ -610,6 +691,24 @@ function ChapterCard({
             onChange={(e) => onUpdateField(chapter.id!, 'pov', e.target.value)}
           />
         </div>
+
+        {/* Tension Badge */}
+        {chapter.tension && (
+          <div 
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-colors shrink-0 select-none",
+              chapter.tension === 1 ? "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50" :
+              chapter.tension === 2 ? "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-900/50" :
+              chapter.tension === 3 ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50" :
+              chapter.tension === 4 ? "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900/50" :
+              "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+            )}
+            title={`Tensi Naratif: ${chapter.tension}/5`}
+          >
+            <Flame size={12} className={chapter.tension >= 4 ? "animate-pulse" : ""} />
+            <span>{chapter.tension}</span>
+          </div>
+        )}
 
         {/* Word Goal Input */}
         <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 w-[68px] shrink-0 hover:border-slate-300 dark:hover:border-slate-700 transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100">

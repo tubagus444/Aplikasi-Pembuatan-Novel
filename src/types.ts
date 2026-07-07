@@ -103,6 +103,8 @@ export interface Relationship {
 
 export type ChapterStatus = 'outline' | 'draft' | 'edit' | 'polish' | 'done';
 
+export type ChapterAct = 'act-1' | 'act-2a' | 'act-2b' | 'act-3' | 'unassigned';
+
 export type ViewMode = 'write' | 'outline' | 'codex' | 'bible' | 'settings' | 'actions' | 'relationships' | 'guide' | 'errors' | 'brainstorm' | 'dashboard' | 'consistency' | 'timeline' | 'orphans' | 'continuity' | 'arc' | 'prose' | 'workshop' | 'search' | 'promises' | 'glossary' | 'completeness' | 'heatmap' | 'graph' | 'factions' | 'worldcalendar' | 'atlas';
 
 /**
@@ -194,6 +196,12 @@ export interface Chapter {
    * Menumpang objek chapter → backup/impor/deleteProject tak berubah.
    */
   tension?: TensionLevel;
+  /**
+   * Dimensi babak naratif per-bab (#12), field INERT: bukan FK, tak diindeks, tak masuk KB
+   * AI/ekspor. Digunakan di Kanban Papan Rencana.
+   * Menumpang objek chapter → backup/impor/deleteProject tak berubah.
+   */
+  act?: ChapterAct;
 }
 
 export interface Project {

@@ -86,8 +86,9 @@ export function ConsistencyPanel({ projectId }: ConsistencyPanelProps) {
     setCheckedChapterId(chapter.id ?? selectedChapterId);
 
     // Bangun ringkasan timeline dari data terkini agar AI bisa cek urutan waktu.
+    const project = await db.projects.get(projectId);
     const timelineEvents = await db.timeline.where('projectId').equals(projectId).toArray();
-    const timelineSummary = buildTimelineSummary(timelineEvents, chapters || [], codexEntries);
+    const timelineSummary = buildTimelineSummary(timelineEvents, chapters || [], codexEntries, project?.calendar);
 
     try {
       const { findings, truncated } = await checkConsistency({
