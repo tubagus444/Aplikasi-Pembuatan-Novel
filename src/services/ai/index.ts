@@ -9,6 +9,8 @@ import { formatBibleBlock } from '@/src/lib/storyBible';
 import { formatFieldsForAI } from '@/src/lib/codexFields';
 import { buildCodexLoreString, buildRelationshipGraph } from '@/src/lib/loreFormat';
 import { getMaxCachedLoreChars, getRewriteTemperature } from '@/src/lib/aiTuning';
+import { CircuitBreaker } from '@/src/services/ai/circuitBreaker';
+import { computeBackoffDelay, shouldAttemptFallback, selectFallbackProviders, rewriteDedupKey, parseJsonArray } from '@/src/services/ai/resilience';
 
 export class AIError extends Error {
   code: string;
@@ -227,42 +229,10 @@ const FALLBACK_ORDER = ['openrouter', 'google', 'claude', 'groq', 'huggingface',
 // yang sama. rewrite/chat/expand tetap memakai model pilihan pengguna demi kualitas.
 const LIGHT_TASK_ACTIONS = new Set(['extract', 'summarize']);
 
-// Basic circuit breaker implementation
-const circuitBreaker = new Map<string, { failures: number, resetTime: number, halfOpenInFlight?: boolean }>();
+// Circuit breaker per-provider (logika inti + tes di ./circuitBreaker).
 const CIRCUIT_OPEN_THRESHOLD = 3; // 3 consecutive failures to open circuit
 const CIRCUIT_RESET_TIME = 1000 * 30; // 30 seconds
-
-function checkCircuit(provider: string): boolean {
-  const state = circuitBreaker.get(provider);
-  if (!state) return true;
-  if (state.failures >= CIRCUIT_OPEN_THRESHOLD) {
-    if (Date.now() > state.resetTime) {
-      // Half-open: izinkan hanya SATU percobaan; blokir request lain sampai hasilnya diketahui.
-      if (state.halfOpenInFlight) return false;
-      state.halfOpenInFlight = true;
-      return true;
-    }
-    return false; // Circuit Open
-  }
-  return true;
-}
-
-function recordSuccess(provider: string) {
-  circuitBreaker.delete(provider);
-}
-
-function recordFailure(provider: string) {
-  const state = circuitBreaker.get(provider) || { failures: 0, resetTime: 0 };
-  state.failures += 1;
-  state.resetTime = Date.now() + CIRCUIT_RESET_TIME;
-  state.halfOpenInFlight = false; // percobaan half-open gagal → buka kembali
-  circuitBreaker.set(provider, state);
-}
-
-function clearHalfOpen(provider: string) {
-  const state = circuitBreaker.get(provider);
-  if (state) state.halfOpenInFlight = false;
-}
+const breaker = new CircuitBreaker(CIRCUIT_OPEN_THRESHOLD, CIRCUIT_RESET_TIME);
 
 const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -283,7 +253,7 @@ async function callAIWithBackoff(
   const apiKey = settings.keys[provider as keyof typeof settings.keys];
 
   while (attempt <= MAX_RETRIES) {
-    if (!checkCircuit(provider)) {
+    if (!breaker.check(provider)) {
       // Circuit terbuka: provider utama langsung dialihkan ke fallback; fallback digagalkan.
       if (isFallback) {
         throw new AIError(`Koneksi ${provider} terputus sementara (Circuit Open).`, 'CIRCUIT_OPEN', provider);
@@ -294,16 +264,16 @@ async function callAIWithBackoff(
     try {
       const result = await callProxy(provider, { ...params, model }, apiKey);
 
-      recordSuccess(provider);
+      breaker.recordSuccess(provider);
       return result;
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        clearHalfOpen(provider); // jangan biarkan trial half-open menggantung karena pembatalan
+        breaker.clearHalfOpen(provider); // jangan biarkan trial half-open menggantung karena pembatalan
         throw error;
       }
 
-      recordFailure(provider);
+      breaker.recordFailure(provider);
 
       // Kunci salah / kuota habis: percuma diulang, lempar segera agar user tahu.
       if (error.code === 'INVALID_KEY' || error.code === 'QUOTA_EXCEEDED') {
@@ -311,7 +281,7 @@ async function callAIWithBackoff(
       }
 
       if (attempt < MAX_RETRIES) {
-        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500; // Exponential backoff: 2s, 4s, 8s + jitter
+        const delay = computeBackoffDelay(attempt); // Exponential backoff: 2s, 4s, 8s + jitter
         if (params.onRetry) {
           params.onRetry(attempt, error, provider);
         }
@@ -341,13 +311,13 @@ async function callAI(params: AIRenderParams): Promise<string> {
     
     // Only attempt fallback if we know it's a connection/server/rate limit issue
     // NOT if there's no API key or Invalid API Key.
-    if (error.code !== 'INVALID_KEY' && error.code !== 'QUOTA_EXCEEDED') {
-      for (const fallback of FALLBACK_ORDER) {
-        if (fallback === provider) continue; // Already tried
-        
-        // Ensure they have API key for fallback
-        if (!settings.keys[fallback as keyof typeof settings.keys]) continue;
-        
+    if (shouldAttemptFallback(error.code)) {
+      const candidates = selectFallbackProviders(
+        FALLBACK_ORDER,
+        provider,
+        (p) => !!settings.keys[p as keyof typeof settings.keys],
+      );
+      for (const fallback of candidates) {
         try {
           if (params.onRetry) params.onRetry(1, error, `${fallback} (Cadangan)`);
           const fallbackParams = { ...params, model: undefined, provider: fallback }; // let backup decide its own model
@@ -385,23 +355,6 @@ async function callAI(params: AIRenderParams): Promise<string> {
   }
 }
 
-/** Mengupas respons model (yang kerap dibungkus code fence/prosa) menjadi array JSON. */
-function parseJsonArray(raw: string): any[] {
-  let text = raw.trim();
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) text = fenceMatch[1].trim();
-
-  const start = text.indexOf('[');
-  const end = text.lastIndexOf(']');
-  if (start !== -1 && end !== -1 && end > start) {
-    text = text.substring(start, end + 1);
-  }
-
-  const data = JSON.parse(text);
-  if (!Array.isArray(data)) throw new Error('Hasil ekstraksi bukan array JSON.');
-  return data;
-}
-
 // Facade Methods
 
 export async function processRewrite(params: GenerateParams): Promise<string> {
@@ -413,7 +366,7 @@ export async function processRewrite(params: GenerateParams): Promise<string> {
   // tak terpengaruh karena entri terhapus saat selesai, jadi "regenerate" tetap memberi
   // variasi baru. Catatan: peserta kedua berbagi stream peserta pertama sehingga onChunk-nya
   // tak terpanggil — ia tetap menerima hasil final via promise. Cukup untuk kasus double-fire.
-  const dedupKey = `${provider}|${params.action}|${params.prompt ?? ''}|${params.selection ?? ''}`;
+  const dedupKey = rewriteDedupKey(provider, params.action, params.prompt, params.selection);
   const existing = inFlightRewrites.get(dedupKey);
   if (existing) return existing;
 

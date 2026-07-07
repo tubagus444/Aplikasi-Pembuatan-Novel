@@ -19,7 +19,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### 1a. Arsitektur & Tech Debt
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| Jantung AI tanpa test | Circuit breaker, backoff, fallback, dedup, `parseJsonArray` inline di service 950-baris, nol test (34 test semua di `src/lib/`) | debt | T | M | `src/services/ai/index.ts` |
+| ✅ Jantung AI tanpa test | **SELESAI** — logika inti diekstrak ke `circuitBreaker.ts` (kelas, jam disuntik) + `resilience.ts` (`computeBackoffDelay`/`shouldAttemptFallback`/`selectFallbackProviders`/`rewriteDedupKey`/`parseJsonArray`); **24 tes** (open/half-open/reset deterministik, backoff, fallback, dedup, parsing). `index.ts` memakainya (behavior-preserving) & menyusut | debt | T | M | `circuitBreaker.ts`, `resilience.ts`, `index.ts` |
 | ✅ Duplikasi formatter KB → meter token bohong | **SELESAI** — formatter dipusatkan ke `src/lib/loreFormat.ts` (`formatCodexLoreLine`/`buildCodexLoreString`/`buildRelationshipGraph`, +13 tes); `buildCachedContextSegments` & worker `PREVIEW_CONTEXT_TOKENS` sama-sama memanggilnya. Meter kini hitung fields+secret+graf (relasi dimuat di `previewContextTokens`) | debt | T | S | `loreFormat.ts`, `index.ts`, `contextWorker.ts`, `contextEngine.ts` |
 | Boilerplate facade 5× | `getSettings()` baca 14+ kunci localStorage tiap panggilan; pola useCaching→controller→register diulang ~30 baris × 5 | debt | S | M | `index.ts:417-930` |
 | Doc drift | Rule sebut fallback tanpa `'openai'` (kode sudah tambah); `PROVIDER_CONTEXT_WINDOW` hardcode nilai lama | debt | S | S | `.claude/rules/ai.md`, `index.ts:72` |
@@ -132,5 +132,5 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 4. ✅ **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — **SELESAI** (scan di worker via `buildPresenceIndexAsync`/`usePresenceIndex`; derivasi terima `options.index`).
 5. ✅ **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — **SELESAI** (yield spinner + per-8-bab; DOCX `blockToParagraphs` rekursif ul/ol/blockquote).
 6. **Guard filter projectId + race init Orama** (B3 C) — cegah polusi/drift indeks RAG saat impor/restore.
-7. **Uji jantung AI** (B1 1a#1) — kode paling kritis & paling sering disentuh, paling tak terlindungi.
+7. ✅ **Uji jantung AI** (B1 1a#1) — **SELESAI** (ekstrak `circuitBreaker.ts`/`resilience.ts` + 24 tes; `index.ts` behavior-preserving).
 8. **Diet memori jalur backup penuh** (B2 #1) — sebelum ukuran naskah bikin siklus 30-menit jadi sumber jank/gagal.
