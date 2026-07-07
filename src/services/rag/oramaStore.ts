@@ -2,42 +2,72 @@ import { create, insert, search, Orama, remove } from '@orama/orama';
 import { CodexEntry } from '@/src/types';
 import { db } from '@/src/db';
 
+const ORAMA_SCHEMA = {
+  dexieId: 'number',
+  name: 'string',
+  aliases: 'string[]',
+  category: 'string',
+  description: 'string',
+  tags: 'string[]',
+} as const;
+
 export class OramaStore {
   private db: Orama<any> | null = null;
   private currentProjectId: number | null = null;
   private idMap: Map<number, string> = new Map(); // Map Dexie ID to Orama Document ID
+  // Token generasi init: setiap init menaikkannya; init lama membatalkan diri bila
+  // di-supersede (mis. ganti proyek cepat) agar tak menulis ke indeks yang salah.
+  private initGen = 0;
 
   async init(projectId: number) {
     if (this.currentProjectId === projectId && this.db) {
       return; // Already initialized
     }
 
-    this.currentProjectId = projectId;
-    this.idMap.clear();
-    
-    // Create new Orama instance
-    this.db = await create({
-      schema: {
-        dexieId: 'number',
-        name: 'string',
-        aliases: 'string[]',
-        category: 'string',
-        description: 'string',
-        tags: 'string[]',
-      }
-    });
+    const gen = ++this.initGen;
 
-    // Populate with existing codex entries
+    // BUILD-then-SWAP: bangun indeks baru di variabel LOKAL, lalu pasang atomik. Sampai
+    // swap, `this.db`/`this.currentProjectId` tetap milik proyek lama → hook Dexie yang
+    // menembak selama init TIDAK menyisip ke indeks setengah-jadi (dulu = dokumen
+    // duplikat + `idMap` hantu yang tak bisa dihapus sampai re-init).
+    const newDb = await create({ schema: ORAMA_SCHEMA });
+    if (gen !== this.initGen) return; // di-supersede init proyek lain
+
+    const newIdMap = new Map<number, string>();
     const entries = await db.codex.where('projectId').equals(projectId).toArray();
+    if (gen !== this.initGen) return;
+
     for (const entry of entries) {
-      await this.indexEntry(entry);
+      if (!entry.id) continue;
+      try {
+        const oramaId = await insert(newDb, {
+          dexieId: entry.id,
+          name: entry.name,
+          aliases: entry.aliases || [],
+          category: entry.category,
+          description: entry.description || '',
+          tags: entry.tags || [],
+        });
+        newIdMap.set(entry.id, oramaId);
+      } catch (e) {
+        console.error('Failed to index codex entry in Orama', e);
+      }
     }
-    
+    if (gen !== this.initGen) return; // cek terakhir sebelum swap
+
+    this.db = newDb;
+    this.idMap = newIdMap;
+    this.currentProjectId = projectId;
     console.log(`[RAG] Orama initialized with ${entries.length} entries for project ${projectId}.`);
   }
 
   async indexEntry(entry: CodexEntry) {
     if (!this.db || !entry.id) return;
+    // Guard lintas-proyek: hook Dexie `creating`/`updating` global menembak untuk SEMUA
+    // tulis codex — termasuk bulk-write impor/restore proyek LAIN. Tanpa guard ini,
+    // entri proyek lain ikut masuk indeks proyek aktif → hasil pencarian tercemar
+    // sampai re-init. Hanya indeks entri milik proyek yang sedang aktif.
+    if (this.currentProjectId != null && entry.projectId !== this.currentProjectId) return;
     try {
       const oramaId = await insert(this.db, {
         dexieId: entry.id,

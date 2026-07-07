@@ -117,8 +117,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### C — Pencarian, RAG & sesi asisten
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| Polusi indeks Orama lintas-proyek | Hook `creating/updating/deleting` global tanpa filter `projectId` → bulk-write codex proyek lain (impor/restore) ikut ter-index ke indeks proyek aktif → hasil tercemar sampai re-init. Guard `entry.projectId === currentProjectId` | risiko | S | S | `oramaSync.ts:62-84`, `oramaStore.ts:39-54` |
-| Race init vs hook | `init` async `toArray()` lalu index; hook selama init bisa di-drop diam-diam atau index dobel → dokumen duplikat / hantu `idMap` sampai re-init | risiko | S | M | `oramaStore.ts:10-60`, `oramaWorker.ts` |
+| ✅ Polusi indeks Orama lintas-proyek | **SELESAI** — guard `entry.projectId === currentProjectId` di `oramaStore.indexEntry` → bulk-write codex proyek lain (impor/restore) tak lagi mencemari indeks proyek aktif | risiko | S | S | `oramaStore.ts` |
+| ✅ Race init vs hook | **SELESAI** — init BUILD-then-SWAP: bangun indeks+`idMap` baru di variabel lokal lalu pasang atomik; token `initGen` membatalkan init lama saat di-supersede (ganti proyek). Hook selama init tak menyisip ke indeks setengah-jadi → tak ada dokumen duplikat/hantu | risiko | S | M | `oramaStore.ts` |
 | Persist sesi asisten O(n²) | `onMessageAdded` tulis seluruh array messages tiap pesan → membengkak kumulatif pada sesi maraton. Race sempit saat ganti sesi (guard `isSubscribed` hanya tahan unmount) | perdalam | R | M | `useAssistantSession.ts:61-82` |
 | Pencarian federated | `SemanticSearchPanel` (scene) & Orama BM25 (codex) terpisah; satu kotak → hasil bab + codex (skor dinormalkan), murah karena kedua mesin sudah ada | fitur | S | M | `SemanticSearchPanel.tsx`, `src/services/rag/*` |
 
@@ -131,6 +131,6 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 3. ✅ **Jinakkan ErrorBoundary global + cabut re-dispatch tokenWorker + listener `aetherscribe-db-issue`** (B2 #4 + #2) — **SELESAI** (root boundary hanya error render + `PanelErrorBoundary`; tokenWorker tak re-dispatch; `useDbIssueListener` → toast persisten).
 4. ✅ **Amankan `buildPresenceIndex` untuk naskah raksasa** (B1 1b#2) — **SELESAI** (scan di worker via `buildPresenceIndexAsync`/`usePresenceIndex`; derivasi terima `options.index`).
 5. ✅ **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — **SELESAI** (yield spinner + per-8-bab; DOCX `blockToParagraphs` rekursif ul/ol/blockquote).
-6. **Guard filter projectId + race init Orama** (B3 C) — cegah polusi/drift indeks RAG saat impor/restore.
+6. ✅ **Guard filter projectId + race init Orama** (B3 C) — **SELESAI** (guard projectId di `indexEntry` + init build-then-swap dgn token generasi).
 7. ✅ **Uji jantung AI** (B1 1a#1) — **SELESAI** (ekstrak `circuitBreaker.ts`/`resilience.ts` + 24 tes; `index.ts` behavior-preserving).
 8. **Diet memori jalur backup penuh** (B2 #1) — sebelum ukuran naskah bikin siklus 30-menit jadi sumber jank/gagal.
