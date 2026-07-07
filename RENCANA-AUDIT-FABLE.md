@@ -109,7 +109,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### B — Worldbuilding runtime
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
-| Duplikasi scan graf | Blok keyword + scan Aho-Corasick diduplikasi verbatim antara `buildLoreGraph` (124-147) & `buildLoreGraphView` (233-252) → panel bayar 2× scan. Ekstrak `scanMentions(entries)` | debt | S | S | `src/lib/loreGraph.ts` |
+| ✅ Duplikasi scan graf | **SELESAI** — diekstrak ke `scanMentions(entries)` (sumber tunggal, +4 tes); `buildLoreGraph` & `buildLoreGraphView` memakainya, tak ada lagi blok scan Aho-Corasick kembar. Behavior identik (21 tes graf lolos) | debt | S | S | `src/lib/loreGraph.ts` |
 | Graf besar di main thread | `buildLoreGraphView` di main thread; codex ratusan entri → scan AC + d3-force janky. Verifikasi perlu debounce/worker bila codex >500 entri | perdalam | S | M | `loreGraph.ts`, `LoreGraphPanel.tsx` |
 | Analitik "adegan per wilayah" | `pointInPolygon` sudah ada tapi belum dipakai — silangkan `PresenceIndex` × area faksi via centroid/pointInPolygon (layer `atlasAnalytics.ts` per arahan rules) | fitur | S | M | `mapGeometry.ts:79-96`, `.claude/rules/atlas.md` |
 | Bias elipsis heatmap | Split kalimat `[.!?]+` hitung "..." sebagai pemecah → skor kalimat-pendek sedikit bias naik pada prosa ber-elipsis. Heuristik saran, dampak rendah | perdalam | R | S | `pacingHeatmap.ts:68` |

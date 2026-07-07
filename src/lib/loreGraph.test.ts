@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLoreGraph, buildLoreGraphView, findDanglingRefs } from '@/src/lib/loreGraph';
+import { buildLoreGraph, buildLoreGraphView, findDanglingRefs, scanMentions } from '@/src/lib/loreGraph';
 import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
 
 const entry = (
@@ -16,6 +16,33 @@ const rel = (id: number, sourceId: number, targetId: number, type = 'Musuh'): Re
 
 const promise = (id: number, title: string, extra: Partial<PlotPromise> = {}): PlotPromise => ({
   id, projectId: 1, title, status: 'open', createdAt: 0, updatedAt: 0, ...extra,
+});
+
+describe('scanMentions', () => {
+  it('mendeteksi sebutan nama di deskripsi entri lain', () => {
+    const entries = [entry(1, 'Kaelen'), entry(2, 'Mira', 'Sahabat Kaelen sejak kecil.')];
+    expect(scanMentions(entries)).toEqual([{ sourceId: 2, mentionedId: 1 }]);
+  });
+
+  it('memindai alias & isi secret', () => {
+    const entries = [
+      entry(1, 'Kaelen', '', { aliases: ['Sang Naga'] }),
+      entry(2, 'Mira', 'Biasa saja.', { secret: 'Sebenarnya Sang Naga adalah ayahnya.' }),
+    ];
+    expect(scanMentions(entries)).toEqual([{ sourceId: 2, mentionedId: 1 }]);
+  });
+
+  it('mengabaikan entri tanpa teks & tanpa keyword', () => {
+    expect(scanMentions([entry(1, 'A'), entry(2, 'B')])).toEqual([]);
+    expect(scanMentions([])).toEqual([]);
+  });
+
+  it('sumber tunggal: hasil konsisten dengan edge mention buildLoreGraphView', () => {
+    const entries = [entry(1, 'Kaelen'), entry(2, 'Mira', 'Kaelen temanku.')];
+    const mentionLinks = buildLoreGraphView(entries, [], []).links.filter((l) => l.via === 'mention');
+    // scanMentions menghasilkan pasangan yang sama (arah tak-berurut di view).
+    expect(scanMentions(entries).length).toBe(mentionLinks.length);
+  });
 });
 
 describe('buildLoreGraph — backlinks (sebutan)', () => {

@@ -89,6 +89,43 @@ export interface LoreGraphView {
   links: LoreGraphViewLink[];
 }
 
+/** Satu sebutan nama: entri `sourceId` menyebut entri `mentionedId` di teksnya. */
+export interface LoreMention {
+  sourceId: number;
+  mentionedId: number;
+}
+
+/**
+ * SATU scan Aho-Corasick nama+alias atas `description`+`secret` tiap entri → daftar
+ * pasangan (penyebut → yang disebut). SUMBER TUNGGAL untuk `buildLoreGraph` (backlink)
+ * & `buildLoreGraphView` (edge) — dulu blok ini diduplikasi verbatim di keduanya.
+ */
+export function scanMentions(entries: CodexEntry[]): LoreMention[] {
+  const keywords: { word: string; data: number }[] = [];
+  for (const e of entries) {
+    if (e.id == null) continue;
+    for (const term of [e.name, ...(e.aliases || [])]) {
+      const w = (term || '').trim();
+      if (w.length >= 2) keywords.push({ word: w, data: e.id });
+    }
+  }
+  const ac = keywords.length ? new AhoCorasick(keywords) : null;
+  if (!ac) return [];
+
+  const mentions: LoreMention[] = [];
+  for (const e of entries) {
+    if (e.id == null) continue;
+    // Sebutan dipindai dari teks yang HANYA dilihat penulis (deskripsi + kebenaran
+    // tersembunyi). Backlink adalah permukaan penulis, jadi aman menyertakan `secret`.
+    const text = `${e.description || ''}\n${e.secret || ''}`;
+    if (!text.trim()) continue;
+    for (const m of ac.search(text)) {
+      mentions.push({ sourceId: e.id, mentionedId: m.data as number });
+    }
+  }
+  return mentions;
+}
+
 /**
  * Bangun graf lore dari entri Codex + relasi + janji plot.
  *
@@ -121,29 +158,10 @@ export function buildLoreGraph(
     else backlinks.set(targetId, [link]);
   };
 
-  // --- Sebutan nama (satu scan Aho-Corasick atas nama+alias) ---------------
-  const keywords: { word: string; data: number }[] = [];
-  for (const e of entries) {
-    if (e.id == null) continue;
-    for (const term of [e.name, ...(e.aliases || [])]) {
-      const w = (term || '').trim();
-      if (w.length >= 2) keywords.push({ word: w, data: e.id });
-    }
-  }
-  const ac = keywords.length ? new AhoCorasick(keywords) : null;
-
-  if (ac) {
-    for (const e of entries) {
-      if (e.id == null) continue;
-      // Sebutan dipindai dari teks yang HANYA dilihat penulis (deskripsi + kebenaran
-      // tersembunyi). Backlink adalah permukaan penulis, jadi aman menyertakan `secret`.
-      const text = `${e.description || ''}\n${e.secret || ''}`;
-      if (!text.trim()) continue;
-      for (const m of ac.search(text)) {
-        const targetId = m.data as number;
-        addBacklink(targetId, { sourceId: e.id, sourceName: e.name, via: 'mention' });
-      }
-    }
+  // --- Sebutan nama (scan bersama `scanMentions`) --------------------------
+  for (const { sourceId, mentionedId } of scanMentions(entries)) {
+    const src = byId.get(sourceId);
+    if (src) addBacklink(mentionedId, { sourceId, sourceName: src.name, via: 'mention' });
   }
 
   // --- Relasi bertipe (dua arah) -------------------------------------------
@@ -230,25 +248,9 @@ export function buildLoreGraphView(
     addLink(rel.sourceId, rel.targetId, 'relationship', rel.type);
   }
 
-  // --- Sebutan nama (satu scan Aho-Corasick atas nama+alias) -----------------
-  const keywords: { word: string; data: number }[] = [];
-  for (const e of entries) {
-    if (e.id == null) continue;
-    for (const term of [e.name, ...(e.aliases || [])]) {
-      const w = (term || '').trim();
-      if (w.length >= 2) keywords.push({ word: w, data: e.id });
-    }
-  }
-  const ac = keywords.length ? new AhoCorasick(keywords) : null;
-  if (ac) {
-    for (const e of entries) {
-      if (e.id == null) continue;
-      const text = `${e.description || ''}\n${e.secret || ''}`;
-      if (!text.trim()) continue;
-      for (const m of ac.search(text)) {
-        addLink(e.id, m.data as number, 'mention');
-      }
-    }
+  // --- Sebutan nama (scan bersama `scanMentions`) ----------------------------
+  for (const { sourceId, mentionedId } of scanMentions(entries)) {
+    addLink(sourceId, mentionedId, 'mention');
   }
 
   // --- Payoff Janji Plot (setup entri → entri pembayar) ----------------------
