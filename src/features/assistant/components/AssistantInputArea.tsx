@@ -113,7 +113,8 @@ export function AssistantInputArea({
       }
 
       setIsCalculatingTokens(true);
-      previewContextTokens(combinedText, codexEntries || [], bibleRules || [], model, isCachingMode).then(stats => {
+      const projectId = codexEntries?.[0]?.projectId || sessionChapter?.projectId || chapters?.[0]?.projectId || 0;
+      previewContextTokens(combinedText, projectId, model, isCachingMode).then(stats => {
         setTokenStats({
           total: stats.totalTokens,
           text: stats.textTokens,

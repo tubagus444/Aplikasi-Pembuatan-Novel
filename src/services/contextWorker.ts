@@ -74,7 +74,13 @@ let cachedAcHash = '';
 
 function getAcInstance(allCodex: CodexEntry[]): AhoCorasick {
   if (!allCodex || allCodex.length === 0) return new AhoCorasick([]);
-  const hash = JSON.stringify(allCodex.map(e => ({ n: e.name, a: e.aliases })));
+  // Gunakan fast hash string (O(N) loop + concat) untuk menghindari overhead JSON.stringify
+  let hash = '';
+  for (let i = 0; i < allCodex.length; i++) {
+    const e = allCodex[i];
+    hash += e.id + ':' + (e.name||'') + ':' + (e.aliases? e.aliases.join(',') : '') + '|';
+  }
+  
   if (cachedAcHash === hash && cachedAc) return cachedAc;
   
   // Filter konsisten dengan continuity.ts & loreGraph.ts: trim + length >= 2
@@ -661,10 +667,14 @@ self.onmessage = async (e: MessageEvent) => {
         };
         break;
       case 'PREVIEW_CONTEXT_TOKENS': {
-        const { text, allCodex, allRules, allRelationships, model, fullContext, maxCachedLoreChars } = payload;
+        const { text, projectId, model, fullContext, maxCachedLoreChars } = payload;
 
         let codexText: string;
         let rulesText: string;
+
+        // Fetch langsung dari IndexedDB di dalam worker (menghindari O(n) clone postMessage tiap ketikan)
+        const allCodex = await db.codex.where('projectId').equals(projectId).toArray();
+        const allRules = await db.bible.where('projectId').equals(projectId).toArray();
 
         // (reqId diteruskan ke getRelevantContext di cabang non-fullContext di bawah)
         if (fullContext) {
@@ -673,6 +683,7 @@ self.onmessage = async (e: MessageEvent) => {
           // memakai SUMBER TUNGGAL yang sama (field #17 + secret + graf relasi) agar tak
           // underestimate. Cap diteruskan dari main thread (getMaxCachedLoreChars) —
           // worker tak punya localStorage. Fallback ke default bila tak terkirim.
+          const allRelationships = await db.relationships.where('projectId').equals(projectId).toArray();
           const MAX_CACHED_LORE_CHARS = maxCachedLoreChars ?? 50000;
           const sortedRules = [...allRules].sort((a: StoryBibleRule, b: StoryBibleRule) => a.key.localeCompare(b.key));
           const sortedCodex = [...allCodex].sort((a: CodexEntry, b: CodexEntry) => a.name.localeCompare(b.name));

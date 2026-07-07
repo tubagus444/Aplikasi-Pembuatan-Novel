@@ -23,9 +23,7 @@ export function useContextMeter(
     setIsCalculating(true);
     timeoutRef.current = setTimeout(async () => {
       try {
-        const codexEntries = await db.codex.where('projectId').equals(projectId).toArray();
-        const bibleRules = await db.bible.where('projectId').equals(projectId).toArray();
-        const result = await previewContextTokens(text, codexEntries, bibleRules, model);
+        const result = await previewContextTokens(text, projectId, model);
         setTokens(result);
       } catch (err) {
         console.error('Failed to preview context tokens', err);

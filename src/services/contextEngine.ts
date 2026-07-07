@@ -257,17 +257,10 @@ export async function estimateContextTokens(text: string, codexText: string, rul
   return sendToWorker('ESTIMATE_CONTEXT_TOKENS', { text, codexText, rulesText, model });
 }
 
-export async function previewContextTokens(text: string, allCodex: CodexEntry[], allRules: StoryBibleRule[], model?: string, fullContext?: boolean): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
-  // Worker tak punya localStorage → baca cap tunable di main thread & teruskan.
-  // Mode caching menyertakan graf relasi di KB (buildCachedContextSegments) → muat
-  // relasi proyek agar meter tak underestimate. Diturunkan dari projectId codex (semua
-  // entri se-proyek). Non-caching (RAG) tak butuh graf penuh, jadi dilewati.
-  let allRelationships: Relationship[] = [];
-  if (fullContext) {
-    const projectId = allCodex[0]?.projectId;
-    if (projectId != null) {
-      allRelationships = await db.relationships.where('projectId').equals(projectId).toArray();
-    }
-  }
-  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, allCodex, allRules, allRelationships, model, fullContext, maxCachedLoreChars: getMaxCachedLoreChars() });
+export async function previewContextTokens(text: string, projectId: number, model?: string, fullContext?: boolean): Promise<{textTokens: number, codexTokens: number, rulesTokens: number, totalTokens: number}> {
+  // Mode caching menyertakan graf relasi di KB (buildCachedContextSegments).
+  // Karena worker kini mengambil data langsung dari IndexedDB, kita cukup mengirim
+  // projectId dan membiarkan worker yang melakukan fetch & konstruksi teks, sehingga
+  // terhindar dari overhead clone/serialize array besar di setiap ketikan (O(n)).
+  return sendToWorker('PREVIEW_CONTEXT_TOKENS', { text, projectId, model, fullContext, maxCachedLoreChars: getMaxCachedLoreChars() });
 }
