@@ -255,14 +255,20 @@ export function validateProjectBackup(backup: any): void {
   if (!backup || typeof backup !== 'object') {
     throw new Error('Format file tidak valid.');
   }
+  if (typeof backup.version !== 'number') {
+    throw new Error('Format cadangan tidak valid atau versi terlalu usang (tidak dikenali).');
+  }
+  if (backup.version < 3) {
+    throw new Error(`Cadangan versi ${backup.version} terlalu usang dan tidak kompatibel dengan aplikasi versi saat ini.`);
+  }
   if (backup.scope !== 'project') {
     throw new Error(
       'Ini bukan file ekspor per-novel. Untuk memulihkan cadangan penuh semua proyek, gunakan “Kembalikan dari JSON”.',
     );
   }
   const data = backup.data;
-  if (!data || !Array.isArray(data.projects)) {
-    throw new Error('Format cadangan tidak valid.');
+  if (!data || !Array.isArray(data.projects) || !Array.isArray(data.chapters) || !Array.isArray(data.codex)) {
+    throw new Error('Format cadangan tidak valid: tabel inti (proyek/bab/codex) tidak ditemukan atau korup.');
   }
   if (data.projects.length !== 1) {
     throw new Error(`File ini bukan ekspor satu novel (berisi ${data.projects.length} proyek).`);

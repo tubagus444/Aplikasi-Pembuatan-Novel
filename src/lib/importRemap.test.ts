@@ -183,16 +183,16 @@ describe('remapProjectDependents', () => {
 
 describe('validateProjectBackup', () => {
   it('lolos untuk file ekspor satu novel yang valid', () => {
-    expect(() => validateProjectBackup({ scope: 'project', data: sampleData() })).not.toThrow();
+    expect(() => validateProjectBackup({ version: 7, scope: 'project', data: sampleData() })).not.toThrow();
   });
 
   it('menolak cadangan penuh (scope != project)', () => {
-    expect(() => validateProjectBackup({ scope: 'all', data: sampleData() })).toThrow(/bukan file ekspor per-novel/i);
-    expect(() => validateProjectBackup({ data: sampleData() })).toThrow(/bukan file ekspor per-novel/i);
+    expect(() => validateProjectBackup({ version: 7, scope: 'all', data: sampleData() })).toThrow(/bukan file ekspor per-novel/i);
+    expect(() => validateProjectBackup({ version: 7, data: sampleData() })).toThrow(/bukan file ekspor per-novel/i);
   });
 
   it('menolak file berisi lebih dari satu proyek', () => {
-    const multi = { scope: 'project', data: { ...sampleData(), projects: [{}, {}] } };
+    const multi = { version: 7, scope: 'project', data: { ...sampleData(), projects: [{}, {}] } };
     expect(() => validateProjectBackup(multi)).toThrow(/bukan ekspor satu novel/i);
   });
 

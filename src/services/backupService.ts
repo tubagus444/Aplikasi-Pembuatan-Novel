@@ -385,8 +385,19 @@ export const backupService = {
    * Backward-compatible: backup lama tanpa `chatSessions` tetap aman (guard `?.length`).
    */
   async restoreData(parsedData: BackupData): Promise<void> {
-    const data = parsedData?.data;
-    if (!data || !data.projects) throw new Error('Format cadangan tidak valid');
+    if (!parsedData || typeof parsedData.version !== 'number') {
+      throw new Error('Format cadangan tidak valid atau versi terlalu usang (tidak dikenali).');
+    }
+    // Tolak backup yang terlalu tua (mis. sebelum v3) karena skema Dexie mungkin
+    // sangat tidak kompatibel dan memicu error runtime (tabel wajib hilang).
+    if (parsedData.version < 3) {
+      throw new Error(`Cadangan versi ${parsedData.version} terlalu usang dan tidak kompatibel dengan aplikasi versi saat ini.`);
+    }
+
+    const data = parsedData.data;
+    if (!data || !Array.isArray(data.projects) || !Array.isArray(data.chapters) || !Array.isArray(data.codex)) {
+      throw new Error('Format cadangan tidak valid: tabel inti (proyek/bab/codex) tidak ditemukan atau korup.');
+    }
 
     // Verifikasi integritas (#5): bila cadangan menyertakan checksum, cocokkan sebelum
     // menyentuh DB. Menangkap file terpotong/rusak lebih dini — TIDAK menimpa & tidak
