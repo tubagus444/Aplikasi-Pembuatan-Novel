@@ -6,6 +6,7 @@
 import { db } from '@/src/db';
 import { BackupRecord } from '@/src/types';
 import { selectBackupsToDelete, selectBackupToEvict } from '@/src/lib/backupRetention';
+import { assembleBackupJson } from '@/src/lib/backupEnvelope';
 import { blobToDataUrl, dataUrlToBlob } from '@/src/lib/blobCodec';
 import {
   remapProjectDependents,
@@ -187,15 +188,24 @@ export const backupService = {
   async saveToInternalDB(data: BackupData, kind: 'auto' | 'pre-restore' = 'auto'): Promise<void> {
     // Rolling auto-backup menyimpan hingga ~5 salinan → BUANG gambar peta (base64)
     // agar tak membengkak berlipat di IndexedDB. Penanda tetap ikut; gambar dipulihkan
-    // dari file/Drive/ekspor per-novel. Checksum DIHITUNG ULANG atas data ramping ini
-    // (kalau tidak, verifikasi restore akan gagal vs checksum data penuh).
-    let payload = data;
+    // dari file/Drive/ekspor per-novel.
+    let leanData = data.data;
     if (data.data?.maps?.length) {
       const leanMaps = data.data.maps.map((m: any) => { const { imageDataUrl, ...rest } = m; return rest; });
-      const leanData = { ...data.data, maps: leanMaps };
-      payload = { ...data, data: leanData, checksum: await this.computeChecksum(JSON.stringify(leanData)) };
+      leanData = { ...data.data, maps: leanMaps };
     }
-    const jsonString = JSON.stringify(payload);
+
+    // Serialisasi data BESAR sekali saja (dulu 2×: checksum + payload → puncak memori &
+    // jank main thread tiap siklus). Checksum DIHITUNG ULANG atas data ramping ini (kalau
+    // tidak, verifikasi restore gagal vs checksum data penuh), lalu envelope dirakit dengan
+    // menyisipkan `dataString` tanpa men-stringify ulang data besar.
+    const dataString = JSON.stringify(leanData);
+    const checksum = await this.computeChecksum(dataString);
+    const meta: Record<string, unknown> = { version: data.version, timestamp: data.timestamp };
+    if (data.scope) meta.scope = data.scope;
+    if (data.projectName) meta.projectName = data.projectName;
+    if (checksum) meta.checksum = checksum;
+    const jsonString = assembleBackupJson(meta, dataString);
     const { blob, compressed } = await this.compressData(jsonString);
 
     let stored: string | Uint8Array;
