@@ -13,7 +13,9 @@ import type { ContinuityChapter, PresenceIndex } from '@/src/lib/continuity';
 // Worker instance and communication state
 let worker: Worker | null = null;
 let requestId = 0;
-const pendingRequests = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void }>();
+const pendingRequests = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void, resetTimeout: () => void }>();
+
+const WORKER_IDLE_TIMEOUT_MS = 30000;
 
 function terminateWorker() {
   if (worker) {
@@ -32,6 +34,10 @@ function getWorker(): Worker {
       const { id, result, error, type, payload } = e.data;
       if (type === 'PROGRESS') {
         window.dispatchEvent(new CustomEvent('semantic-indexing-progress', { detail: payload }));
+        // Heartbeat: worker sedang bekerja (unduh model / embedding) → perpanjang timeout
+        // SEMUA request tertunda. Tanpa ini, query sah yang antre di belakang indexing
+        // perdana (yang bisa >30 dtk) gagal timeout spurious walau worker sehat.
+        pendingRequests.forEach((p) => p.resetTimeout());
         return;
       }
       const deferred = pendingRequests.get(id);
@@ -55,29 +61,39 @@ function getWorker(): Worker {
 function sendToWorker(type: string, payload: any): Promise<any> {
   const id = ++requestId;
   return new Promise((resolve, reject) => {
-    // 30 second timeout for heavy processing
-    const timeoutId = setTimeout(() => {
-      if (pendingRequests.has(id)) {
-        pendingRequests.delete(id);
-        // C3: beri sinyal batal ke worker agar tak membuang siklus pada operasi
-        // async (mis. embedding) & tak mem-post hasil basi. Best-effort: hanya
-        // berpengaruh di checkpoint await worker (operasi sinkron tak bisa diputus).
-        try { worker?.postMessage({ type: 'CANCEL', cancelId: id }); } catch { /* worker mati */ }
-        reject(new Error(`Context engine worker request timed out (${type})`));
-      }
-    }, 30000);
+    // Timeout IDLE (bukan sejak-mulai): 30 dtk tanpa AKTIVITAS worker apa pun. Di-reset
+    // tiap pesan PROGRESS (lihat onmessage) → operasi berat yang mengabari kemajuan
+    // (unduh model, embedding) tak gagal timeout selama worker masih hidup.
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      timeoutId = setTimeout(() => {
+        if (pendingRequests.has(id)) {
+          pendingRequests.delete(id);
+          // C3: beri sinyal batal ke worker agar tak membuang siklus pada operasi
+          // async (mis. embedding) & tak mem-post hasil basi. Best-effort: hanya
+          // berpengaruh di checkpoint await worker (operasi sinkron tak bisa diputus).
+          try { worker?.postMessage({ type: 'CANCEL', cancelId: id }); } catch { /* worker mati */ }
+          reject(new Error(`Context engine worker request timed out (${type})`));
+        }
+      }, WORKER_IDLE_TIMEOUT_MS);
+    };
+    arm();
 
-    pendingRequests.set(id, { 
+    pendingRequests.set(id, {
       resolve: (val) => {
         clearTimeout(timeoutId);
         resolve(val);
-      }, 
+      },
       reject: (err) => {
         clearTimeout(timeoutId);
         reject(err);
-      } 
+      },
+      resetTimeout: () => {
+        clearTimeout(timeoutId);
+        arm();
+      },
     });
-    
+
     try {
       getWorker().postMessage({ type, id, payload });
     } catch (err) {
