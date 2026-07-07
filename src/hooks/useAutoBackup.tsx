@@ -68,6 +68,10 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
   const directoryHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const idleRef = useRef<number | null>(null);
+  // Guard anti-tumpang-tindih dibaca lewat REF (bukan state) agar selalu nilai terkini
+  // & agar `runBackup` tak bergantung pada state `isBackingUp` (dulu memicu efek timer
+  // bongkar-pasang `setInterval` tiap siklus + guard baca closure basi).
+  const isBackingUpRef = useRef(false);
   // BK10: cegah spam toast konflik/sesi-berakhir tiap siklus auto-backup; cukup
   // beri tahu sekali sampai sync berhasil (atau pengguna bertindak manual).
   const driveNoticeShownRef = useRef(false);
@@ -76,7 +80,8 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
   // belum diberi; notifikasi Drive di-dedup) dari aksi manual (gesture pengguna →
   // boleh prompt izin folder & selalu beri umpan balik).
   const runBackup = useCallback(async (isAuto: boolean) => {
-    if (isBackingUp) return;
+    if (isBackingUpRef.current) return;
+    isBackingUpRef.current = true;
     setIsBackingUp(true);
     let hasError = false;
     // Hasil per-lapisan siklus ini (null = tak dikonfigurasi/tak berlaku).
@@ -165,9 +170,15 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
       console.error("Auto-backup failed:", error);
       toast.error("Pencadangan gagal tak terduga.");
     } finally {
+      isBackingUpRef.current = false;
       setIsBackingUp(false);
     }
-  }, [isBackingUp, toast]);
+  }, [toast]);
+
+  // Ref selalu menunjuk `runBackup` terbaru → efek timer bisa berdeps `[]` (interval
+  // dibangun SEKALI) tanpa memakai closure basi.
+  const runBackupRef = useRef(runBackup);
+  runBackupRef.current = runBackup;
 
   const triggerManualBackup = useCallback(() => runBackup(false), [runBackup]);
 
@@ -240,16 +251,16 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const runBackupTask = () => {
       idleRef.current = idleCallback(() => {
-        runBackup(true);
+        runBackupRef.current(true); // baca runBackup terbaru via ref
       });
     };
 
     const startTimer = () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      
+
       const intervalMinutes = parseInt(localStorage.getItem('backup_interval') || '30');
       const intervalMs = intervalMinutes * 60 * 1000;
-      
+
       timerRef.current = setInterval(runBackupTask, intervalMs);
     };
 
@@ -267,7 +278,9 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
       if (idleRef.current) cancelIdle(idleRef.current);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [runBackup]);
+    // Dibangun SEKALI: interval tak lagi bongkar-pasang tiap siklus backup. Perubahan
+    // interval ditangani listener `storage`; `runBackup` terbaru dibaca via ref.
+  }, []);
 
   return (
     <BackupContext.Provider value={{
