@@ -65,7 +65,8 @@ export function estimateTension(text: string): number {
   const wordCount = words.length;
   if (wordCount === 0) return 0;
 
-  const sentences = clean.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+  const noEllipsis = clean.replace(/\.{2,}|…/g, ' ');
+  const sentences = noEllipsis.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
   const sentCount = sentences.length || 1;
   const avgLen = wordCount / sentCount;
 

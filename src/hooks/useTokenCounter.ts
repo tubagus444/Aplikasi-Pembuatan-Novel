@@ -1,33 +1,55 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export function useTokenCounter(text: string, model: string = 'gpt-4o', debounceMs: number = 500) {
-  const [tokenCount, setTokenCount] = useState<number>(0);
-  const [isCalculating, setIsCalculating] = useState<boolean>(false);
-  const workerRef = useRef<Worker | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+let sharedWorker: Worker | null = null;
+const listeners = new Set<(e: MessageEvent) => void>();
+const errorListeners = new Set<(e: Event) => void>();
 
-  useEffect(() => {
-    // Initialize worker
-    workerRef.current = new Worker(new URL('../workers/tokenWorker.ts', import.meta.url), { type: 'module' });
-
-    workerRef.current.onerror = (error) => {
+function getSharedWorker(): Worker {
+  if (!sharedWorker) {
+    sharedWorker = new Worker(new URL('../workers/tokenWorker.ts', import.meta.url), { type: 'module' });
+    
+    sharedWorker.onerror = (error) => {
       // C11: JANGAN re-dispatch ErrorEvent('error') ke window — itu memicu handler error
       // global (main.tsx) & ErrorBoundary → layar crash penuh hanya karena worker
       // penghitung token gagal, plus tulis-ganda ke db.errors. Cukup log lokal + reset
       // status; penghitung token bukan fitur kritis (meter saja).
       console.error('Token worker error:', error.message || error);
-      setIsCalculating(false);
+      errorListeners.forEach(listener => listener(error));
     };
 
-    workerRef.current.onmessage = (e: MessageEvent) => {
+    sharedWorker.onmessage = (e: MessageEvent) => {
+      listeners.forEach(listener => listener(e));
+    };
+  }
+  return sharedWorker;
+}
+
+export function useTokenCounter(text: string, model: string = 'gpt-4o', debounceMs: number = 500) {
+  const [tokenCount, setTokenCount] = useState<number>(0);
+  const [isCalculating, setIsCalculating] = useState<boolean>(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Initialize shared worker
+    const worker = getSharedWorker();
+
+    const handleMessage = (e: MessageEvent) => {
       if (e.data.type === 'TOKEN_COUNT') {
         setTokenCount(e.data.tokens);
         setIsCalculating(false);
       }
     };
 
+    const handleError = () => {
+      setIsCalculating(false);
+    };
+
+    listeners.add(handleMessage);
+    errorListeners.add(handleError);
+
     return () => {
-      workerRef.current?.terminate();
+      listeners.delete(handleMessage);
+      errorListeners.delete(handleError);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -36,9 +58,8 @@ export function useTokenCounter(text: string, model: string = 'gpt-4o', debounce
 
   const calculateTokens = useCallback((textToCount: string, modelToUse: string) => {
     setIsCalculating(true);
-    if (workerRef.current) {
-      workerRef.current.postMessage({ type: 'COUNT_TOKENS', text: textToCount, model: modelToUse });
-    }
+    const worker = getSharedWorker();
+    worker.postMessage({ type: 'COUNT_TOKENS', text: textToCount, model: modelToUse });
   }, []);
 
   useEffect(() => {
