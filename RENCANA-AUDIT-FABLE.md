@@ -38,20 +38,20 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 ### 1c. Fitur yang Perlu Diperdalam
 | Area | Ide | Dampak | Effort |
 |---|---|---|---|
-| Peta Kontinuitas: triase temuan | Dismiss/acknowledge persist agar daftar tak bising di 100+ bab | T | S–M |
-| Pencarian Semantik: index otomatis inkremental | Picu re-index (debounced) saat bab disimpan — `contentHash` sudah ada | S | S |
-| Timeline × Kalender Dunia | Pakai `worldCalendar.ts` deteksi konflik kronologi tanggal = plot-hole detector nol-token | S | M |
-| Glosarium: cakupan typo | Mode `strictMatch` opt-in per-entri untuk istilah multi-kata/huruf-kecil | R | M |
-| Janji Plot: saran kata kunci | Tawarkan kandidat keyword dari token kapital/glosarium di seleksi | R | S |
+| ❌ Peta Kontinuitas: triase temuan | Dismiss/acknowledge persist agar daftar tak bising di 100+ bab | T | S–M |
+| ❌ Pencarian Semantik: index otomatis inkremental | Picu re-index (debounced) saat bab disimpan — `contentHash` sudah ada | S | S |
+| ❌ Timeline × Kalender Dunia | Pakai `worldCalendar.ts` deteksi konflik kronologi tanggal = plot-hole detector nol-token | S | M |
+| ❌ Glosarium: cakupan typo | Mode `strictMatch` opt-in per-entri untuk istilah multi-kata/huruf-kecil | R | M |
+| ❌ Janji Plot: saran kata kunci | Tawarkan kandidat keyword dari token kapital/glosarium di seleksi | R | S |
 
 ### 1d. Fitur Baru
 | Area | Ide | Dampak | Effort |
 |---|---|---|---|
-| Diff revisi antar-snapshot | Panel diff kata-level snapshot↔draf — jaring pengaman revisi, nol token. Tabel `snapshots` sudah ada | T | M |
-| Lensa Suara Dialog | Metrik ujaran per-karakter deterministik → deteksi "semua terdengar sama" | S | L |
-| Audit konsistensi batch | Antrian N bab beruntun memanfaatkan cache KB lintas-bab | S | M |
-| Papan status dunia per bab | Ledger keadaan (hidup/di mana/pegang apa) divalidasi deterministik — lanjutan Janji Plot | S | L |
-| Ekspor laporan lore | Codex+relasi+glosarium+timeline → satu markdown "seri bible" | R | S |
+| ❌ Diff revisi antar-snapshot | Panel diff kata-level snapshot↔draf — jaring pengaman revisi, nol token. Tabel `snapshots` sudah ada | T | M |
+| ❌ Lensa Suara Dialog | Metrik ujaran per-karakter deterministik → deteksi "semua terdengar sama" | S | L |
+| ❌ Audit konsistensi batch | Antrian N bab beruntun memanfaatkan cache KB lintas-bab | S | M |
+| ❌ Papan status dunia per bab | Ledger keadaan (hidup/di mana/pegang apa) divalidasi deterministik — lanjutan Janji Plot | S | L |
+| ❌ Ekspor laporan lore | Codex+relasi+glosarium+timeline → satu markdown "seri bible" | R | S |
 
 ---
 
@@ -67,8 +67,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | 🔄 Backup besar di main thread | **SEBAGIAN** — jalur rolling internal (hot path 30-mnt) dulu men-stringify data besar **2×/siklus** (checksum + payload); kini **1×** via `assembleBackupJson` (sisip `dataString`, murni + 5 tes) → puncak string & jank per-siklus turun. Berlaku juga pra-restore. **DITUNDA (sadar, risiko tinggi ke jalur safety-critical):** offload serialize/gzip ke worker & checksum lazy di `collectAllData` (masih 1× stringify full-data+base64/siklus utk folder/Drive). Streaming serializer = rewrite besar, di luar cakupan utk app 1-pengguna | risiko | T | M–L | `backupService.ts`, `backupEnvelope.ts` |
 | ✅ Kegagalan kuota `backups` | **SELESAI** — `addBackupResilient` (degradasi): saat `add` lempar error kuota → buang cadangan 'auto' tertua lalu retry, berulang; SELALU sisakan semua 'pre-restore' (undo) + 1 'auto' terbaru. Pilihan korban murni & teruji (`selectBackupToEvict`, +5 tes). Berlaku juga jalur `pre-restore`. Sisa (out): tabel `snapshots` (beda tabel) tak dirotasi — perlu kebijakan retensi sendiri | risiko | T | S–M | `backupService.ts`, `backupRetention.ts` |
 | ✅ 22 blok versi duplikat | **SELESAI** — konstanta berjenjang (`CORE_STORES` → `STORES_V14` → `STORES_V16` → … → `STORES_V32`) + spread; v11–v13 tetap inline (unik); v14–v32 merujuk konstanta. 22 blok × 12 baris → ~280 baris lebih ringkas; rantai versi lengkap dipertahankan, semua komentar historis diringkas. 426 tes lolos, `tsc --noEmit` bersih | debt | S | S | `src/db.ts:58-280` |
-| Upgrade v10/v18 muat-semua | `.upgrade()` pakai `toArray()` seluruh tabel dalam transaksi — jebakan bila migrasi berikutnya sentuh tabel besar. Perlu konvensi "migrasi streaming" di rule | perdalam | S | S | `src/db.ts:37-56,179-191` |
-| Restore lintas-versi tanpa validasi | `restoreData` terima backup lama tanpa cek bentuk per-field selain `data.projects` → file terpotong tetap `bulkAdd` mentah. Validator ringan per-tabel | fitur | S | M | `backupService.ts:310-390` |
+| ❌ Upgrade v10/v18 muat-semua | **BELUM SELESAI** — `.upgrade()` pakai `toArray()` seluruh tabel dalam transaksi — jebakan bila migrasi berikutnya sentuh tabel besar. Perlu konvensi "migrasi streaming" di rule | perdalam | S | S | `src/db.ts:37-56,179-191` |
+| ❌ Restore lintas-versi tanpa validasi | **BELUM SELESAI** — `restoreData` terima backup lama tanpa cek bentuk per-field selain `data.projects` → file terpotong tetap `bulkAdd` mentah. Validator ringan per-tabel | fitur | S | M | `backupService.ts:310-390` |
 
 ### #2 — Editor & daemon latar belakang
 | Area | Temuan | Kat | Dampak | Effort | File |
@@ -104,15 +104,15 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 |---|---|---|---|---|---|
 | ✅ Ekspor besar beku UI | **SELESAI** — `handleExport` `await yieldToUI()` sebelum kerja berat (spinner sempat tampil); `exportPDF`/`exportDocx` async + yield tiap 8 bab (jsPDF/DOMParser tak lagi beku multi-detik) | risiko | T | S | `ExportManager.tsx` |
 | ✅ DOCX ratakan struktur | **SELESAI** — `blockToParagraphs` rekursif: `<ul>` → bullet per-`<li>`, `<ol>` → nomor manual + indent per kedalaman (sub-list nested), `<blockquote>` → paragraf indent+miring. Tak lagi menggabung `<li>` jadi 1 paragraf | risiko | S | M | `ExportManager.tsx` |
-| PDF Unicode | jsPDF font "times" = cp1252: kutip lengkung/em-dash/é aman, glyph di luar cp1252 garble. Aman untuk Indonesia (keputusan sadar), perdalam bila pakai glyph khusus dunia fiksi | perdalam | S | M | `ExportManager.tsx:121-192` |
+| ❌ PDF Unicode | **BELUM SELESAI** — jsPDF font "times" = cp1252: kutip lengkung/em-dash/é aman, glyph di luar cp1252 garble. Aman untuk Indonesia (keputusan sadar), perdalam bila pakai glyph khusus dunia fiksi | perdalam | S | M | `ExportManager.tsx:121-192` |
 | ✅ EPUB + gambar | **SELESAI** — memasang pelindung `doc.querySelectorAll('img').forEach(img => img.remove())` pada `htmlToXhtmlBody` sebelum membuat EPUB, sehingga gambar dinamis (yang tak ada di manifest) dibersihkan dan tak lagi membuat dokumen EPUB menjadi tidak valid (invalid EPUB) | risiko | R | S | `ExportManager.tsx`, `epub.ts` |
 
 ### B — Worldbuilding runtime
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
 | ✅ Duplikasi scan graf | **SELESAI** — diekstrak ke `scanMentions(entries)` (sumber tunggal, +4 tes); `buildLoreGraph` & `buildLoreGraphView` memakainya, tak ada lagi blok scan Aho-Corasick kembar. Behavior identik (21 tes graf lolos) | debt | S | S | `src/lib/loreGraph.ts` |
-| Graf besar di main thread | `buildLoreGraphView` di main thread; codex ratusan entri → scan AC + d3-force janky. Verifikasi perlu debounce/worker bila codex >500 entri | perdalam | S | M | `loreGraph.ts`, `LoreGraphPanel.tsx` |
-| Analitik "adegan per wilayah" | `pointInPolygon` sudah ada tapi belum dipakai — silangkan `PresenceIndex` × area faksi via centroid/pointInPolygon (layer `atlasAnalytics.ts` per arahan rules) | fitur | S | M | `mapGeometry.ts:79-96`, `.claude/rules/atlas.md` |
+| ❌ Graf besar di main thread | **BELUM SELESAI** — `buildLoreGraphView` di main thread; codex ratusan entri → scan AC + d3-force janky. Verifikasi perlu debounce/worker bila codex >500 entri | perdalam | S | M | `loreGraph.ts`, `LoreGraphPanel.tsx` |
+| ❌ Analitik "adegan per wilayah" | **BELUM SELESAI** — `pointInPolygon` sudah ada tapi belum dipakai — silangkan `PresenceIndex` × area faksi via centroid/pointInPolygon (layer `atlasAnalytics.ts` per arahan rules) | fitur | S | M | `mapGeometry.ts:79-96`, `.claude/rules/atlas.md` |
 | ✅ Bias elipsis heatmap | **SELESAI** — Hapus karakter elipsis (`...` atau `…`) sebelum melakukan *split* kalimat, sehingga skor analitik kalimat-pendek lebih akurat (tidak bias) pada teks dengan jeda dialog | perdalam | R | S | `pacingHeatmap.ts:68` |
 
 ### C — Pencarian, RAG & sesi asisten
@@ -120,8 +120,8 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 |---|---|---|---|---|---|
 | ✅ Polusi indeks Orama lintas-proyek | **SELESAI** — guard `entry.projectId === currentProjectId` di `oramaStore.indexEntry` → bulk-write codex proyek lain (impor/restore) tak lagi mencemari indeks proyek aktif | risiko | S | S | `oramaStore.ts` |
 | ✅ Race init vs hook | **SELESAI** — init BUILD-then-SWAP: bangun indeks+`idMap` baru di variabel lokal lalu pasang atomik; token `initGen` membatalkan init lama saat di-supersede (ganti proyek). Hook selama init tak menyisip ke indeks setengah-jadi → tak ada dokumen duplikat/hantu | risiko | S | M | `oramaStore.ts` |
-| Persist sesi asisten O(n²) | `onMessageAdded` tulis seluruh array messages tiap pesan → membengkak kumulatif pada sesi maraton. Race sempit saat ganti sesi (guard `isSubscribed` hanya tahan unmount) | perdalam | R | M | `useAssistantSession.ts:61-82` |
-| Pencarian federated | `SemanticSearchPanel` (scene) & Orama BM25 (codex) terpisah; satu kotak → hasil bab + codex (skor dinormalkan), murah karena kedua mesin sudah ada | fitur | S | M | `SemanticSearchPanel.tsx`, `src/services/rag/*` |
+| ❌ Persist sesi asisten O(n²) | **BELUM SELESAI** — `onMessageAdded` tulis seluruh array messages tiap pesan → membengkak kumulatif pada sesi maraton. Race sempit saat ganti sesi (guard `isSubscribed` hanya tahan unmount) | perdalam | R | M | `useAssistantSession.ts:61-82` |
+| ❌ Pencarian federated | **BELUM SELESAI** — `SemanticSearchPanel` (scene) & Orama BM25 (codex) terpisah; satu kotak → hasil bab + codex (skor dinormalkan), murah karena kedua mesin sudah ada | fitur | S | M | `SemanticSearchPanel.tsx`, `src/services/rag/*` |
 
 ---
 
@@ -134,4 +134,4 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 5. ✅ **Yield/chunking ekspor + perbaiki DOCX ratakan list** (B3 A) — **SELESAI** (yield spinner + per-8-bab; DOCX `blockToParagraphs` rekursif ul/ol/blockquote).
 6. ✅ **Guard filter projectId + race init Orama** (B3 C) — **SELESAI** (guard projectId di `indexEntry` + init build-then-swap dgn token generasi).
 7. ✅ **Uji jantung AI** (B1 1a#1) — **SELESAI** (ekstrak `circuitBreaker.ts`/`resilience.ts` + 24 tes; `index.ts` behavior-preserving).
-8. **Diet memori jalur backup penuh** (B2 #1) — sebelum ukuran naskah bikin siklus 30-menit jadi sumber jank/gagal.
+8. ❌ **Diet memori jalur backup penuh** (B2 #1) — sebelum ukuran naskah bikin siklus 30-menit jadi sumber jank/gagal.
