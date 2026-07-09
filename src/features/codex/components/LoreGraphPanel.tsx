@@ -6,12 +6,15 @@
  * (`src/lib/loreGraph.ts`). Nol token, nol AI, nol tabel baru: seluruh graf DITURUNKAN dari
  * Codex + relasi + janji plot yang sudah ada. Render pakai `react-force-graph-2d` (canvas +
  * d3-force, sudah di dependencies). Klik node → buka entri Codex (deep-link `openCodexEntry`).
+ *
+ * Komputasi graf (scan Aho-Corasick O(n²)) dijalankan di Web Worker via `useLoreGraphWorker`
+ * agar main thread tetap responsif saat codex ratusan entri. Debounce 300ms mencegah burst.
  */
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 import { forceX, forceY } from 'd3-force';
-import { Share2, Database, ArrowRight, Users, Quote, Crosshair, Maximize2, EyeOff } from 'lucide-react';
+import { Share2, Database, ArrowRight, Users, Quote, Crosshair, Maximize2, EyeOff, Loader2 } from 'lucide-react';
 import { db } from '@/src/db';
 import { useOptimizedLiveQuery } from '@/src/hooks/useOptimizedLiveQuery';
 import { useNavigation } from '@/src/contexts/NavigationContext';
@@ -19,7 +22,8 @@ import { useUI } from '@/src/contexts/UIContext';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 import { getCategoryDef, getCategoryLabel } from '@/src/lib/codexCategories';
 import { RELATIONSHIP_TYPES } from '@/src/features/codex/relationshipTypes';
-import { buildLoreGraphView, type LoreGraphNode, type LoreLinkVia } from '@/src/lib/loreGraph';
+import { useLoreGraphWorker } from '@/src/features/codex/hooks/useLoreGraphWorker';
+import { type LoreGraphNode, type LoreLinkVia } from '@/src/lib/loreGraph';
 
 interface LoreGraphPanelProps {
   projectId: number;
@@ -88,16 +92,18 @@ export function LoreGraphPanel({ projectId }: LoreGraphPanelProps) {
     c: (categories || []).map(c => [c.slug, c.color]),
   }), [entries, relationships, promises, categories]);
 
-  // --- Graf dasar (semua node/edge) — dibangun ulang HANYA saat signature berubah ---------
+  // --- Graf dasar (semua node/edge) — dibangun di Web Worker, debounce 300ms ---------------
+  const { data: workerResult, computing } = useLoreGraphWorker(entries, relationships, promises, sig);
+
   const base = useMemo(() => {
-    const view = buildLoreGraphView(entries || [], relationships || [], promises || []);
-    const nodes: GNode[] = view.nodes.map(n => {
+    if (!workerResult) return { nodes: [] as GNode[], links: [] as GLink[] };
+    const nodes: GNode[] = workerResult.nodes.map(n => {
       const colorKey = getCategoryDef(n.category, categories)?.color ?? 'slate';
       return { ...n, color: CATEGORY_HEX[colorKey] ?? FALLBACK_HEX, categoryLabel: getCategoryLabel(n.category, categories) };
     });
-    return { nodes, links: view.links as GLink[] };
+    return { nodes, links: workerResult.links as GLink[] };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sig]);
+  }, [workerResult, categories]);
 
   // Kategori yang benar-benar ada (untuk chip filter).
   const presentCategories = useMemo(() => {
@@ -469,6 +475,15 @@ export function LoreGraphPanel({ projectId }: LoreGraphPanelProps) {
             cooldownTicks={120}
             onEngineStop={fitView}
           />
+        )}
+
+        {/* Indikator komputasi — graf lama tetap terlihat, spinner kecil memberi sinyal
+            bahwa worker sedang memproses data baru (debounce 300ms + build). */}
+        {computing && (
+          <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/70 dark:border-slate-700/70 shadow-sm">
+            <Loader2 size={14} className="animate-spin text-indigo-500" />
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Memperbarui graf…</span>
+          </div>
         )}
 
         {/* Tooltip kustom (bawaan force-graph tak andal di lib ini) */}
