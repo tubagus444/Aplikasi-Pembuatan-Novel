@@ -169,10 +169,13 @@ export function useCodexWorkshop(projectId: number) {
     provider: selectedProvider,
     extraSystem: WORKSHOP_DRAFT_INSTRUCTION,
     initialMessages: [welcomeMessage],
+    sessionId, // Teruskan ID sesi agar generation aman saat sesi berubah
     onError: (msg) => reportAIError(msg),
-    onMessageAdded: (msgs) => {
-      const id = sessionIdRef.current;
-      if (id) db.chatSessions.update(id, { messages: msgs, lastMessageAt: Date.now() }).catch(() => {});
+    onMessageAdded: (msgs, targetSessionId) => {
+      // Gunakan ID presisi dari parameter
+      if (targetSessionId) {
+        db.chatSessions.update(targetSessionId, { messages: msgs, lastMessageAt: Date.now() }).catch(() => {});
+      }
     },
   });
 

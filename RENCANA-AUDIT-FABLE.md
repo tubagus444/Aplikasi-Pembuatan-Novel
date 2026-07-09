@@ -111,7 +111,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | Area | Temuan | Kat | Dampak | Effort | File |
 |---|---|---|---|---|---|
 | ✅ Duplikasi scan graf | **SELESAI** — diekstrak ke `scanMentions(entries)` (sumber tunggal, +4 tes); `buildLoreGraph` & `buildLoreGraphView` memakainya, tak ada lagi blok scan Aho-Corasick kembar. Behavior identik (21 tes graf lolos) | debt | S | S | `src/lib/loreGraph.ts` |
-| ❌ Graf besar di main thread | **BELUM SELESAI** — `buildLoreGraphView` di main thread; codex ratusan entri → scan AC + d3-force janky. Verifikasi perlu debounce/worker bila codex >500 entri | perdalam | S | M | `loreGraph.ts`, `LoreGraphPanel.tsx` |
+| ✅ Graf besar di main thread | **SELESAI** — `buildLoreGraphView` dipindahkan ke dedicated Web Worker (`loreGraphWorker.ts`) via hook `useLoreGraphWorker` (debounce 300ms + request superseding). Main thread tidak lagi memblokir saat scan AC atas codex ratusan entri; graf lama tetap tampil selama worker memproses, dengan spinner "Memperbarui graf…". Logika murni `loreGraph.ts` tidak berubah (25 tes lolos) | perdalam | S | M | `loreGraph.ts`, `LoreGraphPanel.tsx`, `loreGraphWorker.ts`, `useLoreGraphWorker.ts` |
 | ❌ Analitik "adegan per wilayah" | **BELUM SELESAI** — `pointInPolygon` sudah ada tapi belum dipakai — silangkan `PresenceIndex` × area faksi via centroid/pointInPolygon (layer `atlasAnalytics.ts` per arahan rules) | fitur | S | M | `mapGeometry.ts:79-96`, `.claude/rules/atlas.md` |
 | ✅ Bias elipsis heatmap | **SELESAI** — Hapus karakter elipsis (`...` atau `…`) sebelum melakukan *split* kalimat, sehingga skor analitik kalimat-pendek lebih akurat (tidak bias) pada teks dengan jeda dialog | perdalam | R | S | `pacingHeatmap.ts:68` |
 
@@ -120,7 +120,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 |---|---|---|---|---|---|
 | ✅ Polusi indeks Orama lintas-proyek | **SELESAI** — guard `entry.projectId === currentProjectId` di `oramaStore.indexEntry` → bulk-write codex proyek lain (impor/restore) tak lagi mencemari indeks proyek aktif | risiko | S | S | `oramaStore.ts` |
 | ✅ Race init vs hook | **SELESAI** — init BUILD-then-SWAP: bangun indeks+`idMap` baru di variabel lokal lalu pasang atomik; token `initGen` membatalkan init lama saat di-supersede (ganti proyek). Hook selama init tak menyisip ke indeks setengah-jadi → tak ada dokumen duplikat/hantu | risiko | S | M | `oramaStore.ts` |
-| ❌ Persist sesi asisten O(n²) | **BELUM SELESAI** — `onMessageAdded` tulis seluruh array messages tiap pesan → membengkak kumulatif pada sesi maraton. Race sempit saat ganti sesi (guard `isSubscribed` hanya tahan unmount) | perdalam | R | M | `useAssistantSession.ts:61-82` |
+| ✅ Persist sesi asisten O(n²) | **SELESAI** — Menggunakan "Cara Ringan": Memperbaiki `useChatSession.ts` untuk memonitor `sessionId`. Jika pengguna pindah sesi saat AI meng-generate, proses otomatis dibatalkan (`cancelAI`), state UI tidak tertimpa, dan persistensi di DB via `onMessageAdded` menggunakan presisi parameter `targetSessionId` (bukan *ref* yang sudah kadaluarsa). Mencegah kebocoran riwayat antar-sesi secara tuntas, tanpa merombak skema DB IndexedDB | perdalam | R | M | `useChatSession.ts`, `useAssistantSession.ts`, `useCodexWorkshop.ts` |
 | ❌ Pencarian federated | **BELUM SELESAI** — `SemanticSearchPanel` (scene) & Orama BM25 (codex) terpisah; satu kotak → hasil bab + codex (skor dinormalkan), murah karena kedua mesin sudah ada | fitur | S | M | `SemanticSearchPanel.tsx`, `src/services/rag/*` |
 
 ---

@@ -58,9 +58,12 @@ export function useAssistantSession({
     sessionMode: activeSession?.mode,
     provider,
     initialMessages: activeSession?.messages || [],
-    onMessageAdded: async (newMessages) => {
-      if (activeSessionIdRef.current) {
-        await db.chatSessions.update(activeSessionIdRef.current, {
+    sessionId: activeSessionId,
+    onMessageAdded: async (newMessages, targetSessionId) => {
+      // Gunakan targetSessionId yang presisi dari useChatSession, 
+      // jangan mengandalkan ref yang bisa berubah saat user ganti sesi.
+      if (targetSessionId) {
+        await db.chatSessions.update(targetSessionId, {
           messages: newMessages,
           lastMessageAt: Date.now()
         });

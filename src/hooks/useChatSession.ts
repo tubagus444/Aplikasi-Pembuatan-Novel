@@ -18,7 +18,9 @@ interface UseChatSessionProps {
   /** Instruksi system tambahan untuk tiap pesan (mis. protokol codex-draft Lokakarya). */
   extraSystem?: string;
   initialMessages?: ChatMessage[];
-  onMessageAdded?: (messages: ChatMessage[]) => void;
+  /** Session ID (opsional). Digunakan untuk mencegah kebocoran state/persisten saat ganti sesi. */
+  sessionId?: number | null;
+  onMessageAdded?: (messages: ChatMessage[], targetSessionId?: number | null) => void;
   onResponseReceived?: (response: string) => void;
   onError?: (error: string) => void;
 }
@@ -34,6 +36,7 @@ export function useChatSession({
   provider = 'google',
   extraSystem,
   initialMessages = [],
+  sessionId,
   onMessageAdded,
   onResponseReceived,
   onError
@@ -44,6 +47,9 @@ export function useChatSession({
   const messagesRef = useRef(messages);
   const isLoadingRef = useRef(false);
   const manualStopRef = useRef(false);
+  
+  // Track sesi aktif untuk mencegah update silang antar-sesi
+  const sessionIdRef = useRef(sessionId);
 
   const streamBufferRef = useRef<string>('');
   const isStreamingRef = useRef<boolean>(false);
@@ -58,6 +64,17 @@ export function useChatSession({
   }, [isLoading]);
 
   useEffect(() => {
+    // Jika user berganti sesi saat AI masih bekerja, batalkan prosesnya.
+    if (sessionIdRef.current !== sessionId) {
+      if (isLoadingRef.current) {
+        manualStopRef.current = true;
+        cancelAI('chat');
+      }
+      sessionIdRef.current = sessionId;
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
     return () => {
       cancelAI('chat');
     };
@@ -65,6 +82,9 @@ export function useChatSession({
 
   const sendMessage = useCallback(async (text: string, customContext?: string) => {
     if (!text.trim() || isLoadingRef.current) return;
+
+    // Tangkap ID sesi saat pesan ini mulai dikirim
+    const targetSessionId = sessionIdRef.current;
 
     const userMsg: ChatMessage = { 
       id: Date.now().toString(),
@@ -77,7 +97,7 @@ export function useChatSession({
     const newMessages = [...currentMessages, userMsg];
     setMessages(newMessages);
     messagesRef.current = newMessages; // Immediate update for rapid fire messages
-    onMessageAdded?.(newMessages);
+    onMessageAdded?.(newMessages, targetSessionId);
     setIsLoading(true);
     setRetryStatus(null);
     isLoadingRef.current = true;
@@ -106,6 +126,9 @@ export function useChatSession({
 
       const flushBuffer = () => {
         if (!isStreamingRef.current) return;
+        // Jangan timpa state UI jika sesi sudah berpindah
+        if (sessionIdRef.current !== targetSessionId) return;
+
         const streamMsg: ChatMessage = {
            id: assistantMsgId,
            role: 'model',
@@ -151,23 +174,31 @@ export function useChatSession({
       };
 
       const finalMessages = [...newMessages, assistantMsg];
-      setMessages(finalMessages);
-      messagesRef.current = finalMessages; // Update ref to latest state
-      onMessageAdded?.(finalMessages);
+      
+      // Update UI state hanya jika sesi belum berubah
+      if (sessionIdRef.current === targetSessionId) {
+        setMessages(finalMessages);
+        messagesRef.current = finalMessages; // Update ref to latest state
+      }
+      // Tapi SELALU panggil onMessageAdded agar tersimpan ke DB sesi asal
+      onMessageAdded?.(finalMessages, targetSessionId);
       onResponseReceived?.(reply);
 
       return reply;
     } catch (err: any) {
       isStreamingRef.current = false;
-      // Pembatalan manual (tombol Hentikan): simpan teks parsial yang sudah ter-stream, bukan tampilkan error.
+      // Pembatalan manual (tombol Hentikan) ATAU saat ganti sesi: simpan teks parsial
       if (manualStopRef.current) {
         const partial = streamBufferRef.current.trim();
         const stoppedMessages = partial
           ? [...newMessages, { id: assistantMsgId, role: 'model' as const, content: partial, timestamp: Date.now() }]
           : newMessages;
-        setMessages(stoppedMessages);
-        messagesRef.current = stoppedMessages;
-        onMessageAdded?.(stoppedMessages);
+          
+        if (sessionIdRef.current === targetSessionId) {
+          setMessages(stoppedMessages);
+          messagesRef.current = stoppedMessages;
+        }
+        onMessageAdded?.(stoppedMessages, targetSessionId);
         return partial;
       }
       console.error('Chat error:', err);
