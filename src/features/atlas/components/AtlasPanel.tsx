@@ -25,6 +25,7 @@ import { usePresenceIndex } from '@/src/hooks/usePresenceIndex';
 import { resolveMarkerColor } from '@/src/lib/atlasColors';
 import { cn } from '@/src/lib/utils';
 import { CodexEntry, MapMarker, MapPoint } from '@/src/types';
+import { analyzeRegions, RegionAnalytic } from '@/src/lib/atlasAnalytics';
 import { useAtlas } from '../hooks/useAtlas';
 import { useMapImageUpload } from '../hooks/useMapImageUpload';
 import type { DrawMode } from './MapCanvas';
@@ -143,19 +144,35 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
     [presenceChaptersPlain, idx]
   );
 
+  const regionAnalytics = useMemo(() => {
+    if (!presenceIndex || !maps.length) return [];
+    return analyzeRegions(markers, presenceIndex.index, codexEntries);
+  }, [markers, presenceIndex, codexEntries, maps.length]);
+
   const selectedMarker = markers.find((m) => m.id === selectedMarkerId);
   const selectedEntry = selectedMarker?.codexId != null ? entryById.get(selectedMarker.codexId) : undefined;
 
+  const selectedRegionAnalytic = useMemo(() => {
+    return selectedMarker?.kind === 'area' ? regionAnalytics.find(r => r.markerId === selectedMarker.id) : undefined;
+  }, [selectedMarker, regionAnalytics]);
+
   const presenceChapters: PresenceChapter[] = useMemo(() => {
-    if (!selectedEntry?.id || !presenceIndex) return [];
-    const rec = presenceIndex.index.byEntity.get(selectedEntry.id);
-    if (!rec) return [];
-    return rec.indices.map((i) => ({
+    if (!presenceIndex) return [];
+    let indices: number[] = [];
+    
+    if (selectedRegionAnalytic) {
+      indices = selectedRegionAnalytic.associatedChapters;
+    } else if (selectedEntry?.id) {
+      const rec = presenceIndex.index.byEntity.get(selectedEntry.id);
+      if (rec) indices = rec.indices;
+    }
+    
+    return indices.map((i) => ({
       id: presenceIndex.chapters[i].id,
       title: presenceIndex.chapters[i].title,
       number: i + 1,
     }));
-  }, [selectedEntry, presenceIndex]);
+  }, [selectedEntry, presenceIndex, selectedRegionAnalytic]);
 
   // --- Handler ---
   const handleUpload = async (file: File) => {
@@ -373,6 +390,7 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
               entry={selectedEntry}
               categories={categories}
               presence={presenceChapters}
+              regionAnalytic={selectedRegionAnalytic}
               color={colorFor(selectedMarker)}
               codexEntries={codexEntries}
               editing={editingGeometry}

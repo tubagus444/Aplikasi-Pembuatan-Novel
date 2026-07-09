@@ -13,6 +13,7 @@ import { CodexEntry, MapMarker } from '@/src/types';
 import { CategoryDef, getCategoryLabel } from '@/src/lib/codexCategories';
 import { stripHtml } from '@/src/lib/editorUtils';
 import { cn } from '@/src/lib/utils';
+import { RegionAnalytic } from '@/src/lib/atlasAnalytics';
 
 export interface PresenceChapter {
   id: number;
@@ -26,6 +27,7 @@ interface MarkerSidebarProps {
   entry?: CodexEntry;
   categories: CategoryDef[];
   presence: PresenceChapter[];
+  regionAnalytic?: RegionAnalytic;
   color: string;
   /** Entri Codex untuk dropdown taut. */
   codexEntries: CodexEntry[];
@@ -50,6 +52,7 @@ export default function MarkerSidebar({
   entry,
   categories,
   presence,
+  regionAnalytic,
   color,
   codexEntries,
   editing,
@@ -145,9 +148,16 @@ export default function MarkerSidebar({
         </label>
 
         {/* Kehadiran bab */}
-        {entry && (
+        {(entry || regionAnalytic) && (
           <div className="space-y-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Muncul di bab</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              {marker.kind === 'area' ? 'Aktivitas di Wilayah Ini' : 'Muncul di bab'}
+            </span>
+            {regionAnalytic && regionAnalytic.containedPins.length > 0 && (
+              <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+                Menyatukan aktivitas dari area ini dan <span className="font-semibold text-slate-700 dark:text-slate-300">{regionAnalytic.containedPins.length} penanda</span> di dalamnya.
+              </p>
+            )}
             {presence.length ? (
               <div className="flex flex-wrap gap-1.5">
                 {presence.map((ch) => (
