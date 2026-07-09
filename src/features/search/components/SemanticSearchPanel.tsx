@@ -6,16 +6,22 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Telescope, Search, Loader2, RefreshCw, Sparkles, AlertTriangle, BookOpen, DatabaseZap } from 'lucide-react';
+import { Telescope, Search, Loader2, RefreshCw, Sparkles, AlertTriangle, BookOpen, DatabaseZap, FolderHeart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import {
   indexManuscript, searchManuscript, countIndexedScenes, clearManuscriptIndex, SceneSearchHit,
 } from '@/src/services/contextEngine';
+import { oramaStore } from '@/src/services/rag/oramaStore';
+import { CodexEntry } from '@/src/types';
 
 interface SemanticSearchPanelProps {
   projectId: number;
 }
+
+export type FederatedSearchHit =
+  | ({ type: 'scene' } & SceneSearchHit)
+  | { type: 'codex'; entry: CodexEntry; score: number };
 
 type IndexState =
   | { phase: 'idle' }
@@ -45,7 +51,7 @@ export function SemanticSearchPanel({ projectId }: SemanticSearchPanelProps) {
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState<SceneSearchHit[] | null>(null);
+  const [results, setResults] = useState<FederatedSearchHit[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [indexState, setIndexState] = useState<IndexState>({ phase: 'idle' });
   const searchSeq = useRef(0);
@@ -96,9 +102,29 @@ export function SemanticSearchPanel({ projectId }: SemanticSearchPanelProps) {
     setSearching(true);
     setSearchError(null);
     try {
-      const hits = await searchManuscript(projectId, q, 15);
+      const [sceneHitsRaw, codexHitsRaw] = await Promise.all([
+        searchManuscript(projectId, q, 15),
+        oramaStore.searchWithScores(q, 8) // Limit Orama lebih kecil karena bab biasanya lebih prioritas
+      ]);
+      
       if (seq !== searchSeq.current) return; // hasil basi (query berubah)
-      setResults(hits);
+      
+      const sceneHits: FederatedSearchHit[] = sceneHitsRaw.map(h => ({ type: 'scene', ...h }));
+      
+      // Normalisasi skor BM25 Orama agar sebanding dengan Cosine Similarity (0-1)
+      const maxOrama = Math.max(...codexHitsRaw.map(h => h.score), 1);
+      const codexHits: FederatedSearchHit[] = codexHitsRaw.map(h => ({
+        type: 'codex',
+        entry: h.entry,
+        score: h.score / maxOrama
+      }));
+      
+      // Gabungkan, urutkan berdasarkan skor ternormalisasi, ambil 15 teratas
+      const combined = [...sceneHits, ...codexHits]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 15);
+        
+      setResults(combined);
     } catch (e: any) {
       if (seq === searchSeq.current) setSearchError(e?.message || 'Pencarian gagal.');
     } finally {
@@ -119,10 +145,10 @@ export function SemanticSearchPanel({ projectId }: SemanticSearchPanelProps) {
           <span>Cari Adegan</span>
         </div>
         <h1 className="text-3xl md:text-4xl font-serif text-slate-900 dark:text-slate-100 tracking-tight">
-          Pencarian Semantik
+          Pencarian Pintar
         </h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-2xl leading-relaxed">
-          Temukan adegan berdasarkan <em>makna</em>, bukan sekadar kata. Coba <span className="font-medium">"adegan protagonis merasa dikhianati"</span> atau <span className="font-medium">"perpisahan yang menyakitkan"</span>. Sepenuhnya lokal di browser — <span className="font-medium">nol token AI</span>.
+          Temukan adegan naskah berdasarkan <em>makna</em>, dan entri Codex berdasarkan relevansi. Coba <span className="font-medium">"adegan protagonis merasa dikhianati"</span> atau <span className="font-medium">"pedang legendaris"</span>. Sepenuhnya lokal di browser — <span className="font-medium">nol token AI</span>.
         </p>
       </header>
 
@@ -227,21 +253,33 @@ export function SemanticSearchPanel({ projectId }: SemanticSearchPanelProps) {
         results.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16 px-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/50">
             <Sparkles size={24} className="text-slate-300 dark:text-slate-600 mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1.5">Tidak ada adegan yang cocok</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1.5">Tidak ada hasil yang cocok</h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">Coba kata kunci yang lebih deskriptif, atau perbarui indeks bila baru menulis.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">{results.length} adegan paling relevan</h2>
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">{results.length} hasil paling relevan</h2>
             <AnimatePresence mode="popLayout">
-              {results.map((hit) => (
-                <ResultCard
-                  key={`${hit.chapterId}_${hit.chunkIndex}`}
-                  hit={hit}
-                  chapterTitle={chapterTitles.get(hit.chapterId) || 'Bab tak dikenal'}
-                  onOpen={() => jumpToText(hit.chapterId, highlightTermFrom(hit.snippet))}
-                />
-              ))}
+              {results.map((hit, idx) => {
+                if (hit.type === 'scene') {
+                  return (
+                    <SceneResultCard
+                      key={`scene_${hit.chapterId}_${hit.chunkIndex}`}
+                      hit={hit}
+                      chapterTitle={chapterTitles.get(hit.chapterId) || 'Bab tak dikenal'}
+                      onOpen={() => jumpToText(hit.chapterId, highlightTermFrom(hit.snippet))}
+                    />
+                  );
+                } else {
+                  return (
+                    <CodexResultCard
+                      key={`codex_${hit.entry.id}_${idx}`}
+                      entry={hit.entry}
+                      score={hit.score}
+                    />
+                  );
+                }
+              })}
             </AnimatePresence>
           </div>
         )
@@ -268,7 +306,7 @@ export function SemanticSearchPanel({ projectId }: SemanticSearchPanelProps) {
   );
 }
 
-function ResultCard({ hit, chapterTitle, onOpen }: { hit: SceneSearchHit; chapterTitle: string; onOpen: () => void }) {
+function SceneResultCard({ hit, chapterTitle, onOpen }: { hit: SceneSearchHit; chapterTitle: string; onOpen: () => void }) {
   const pct = Math.max(0, Math.round(hit.score * 100));
   return (
     <motion.button
@@ -292,6 +330,42 @@ function ResultCard({ hit, chapterTitle, onOpen }: { hit: SceneSearchHit; chapte
       </p>
       <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
         Klik untuk membuka & menyorot di editor →
+      </p>
+    </motion.button>
+  );
+}
+
+function CodexResultCard({ entry, score }: { entry: CodexEntry; score: number }) {
+  const { openCodexEntry } = useNavigation();
+  const pct = Math.max(0, Math.min(100, Math.round(score * 100)));
+  
+  return (
+    <motion.button
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      onClick={() => openCodexEntry(entry.id!)}
+      className="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all active:scale-[0.99] group"
+    >
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">
+          <FolderHeart size={13} /> Codex: {entry.category}
+        </span>
+        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50">
+          {pct}% relevan
+        </span>
+      </div>
+      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+        {entry.name}
+      </h3>
+      {entry.description && (
+        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2">
+          {entry.description}
+        </p>
+      )}
+      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        Klik untuk membuka detail entri →
       </p>
     </motion.button>
   );

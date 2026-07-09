@@ -103,6 +103,11 @@ export class OramaStore {
   }
 
   async search(query: string, limit: number = 5): Promise<CodexEntry[]> {
+    const hits = await this.searchWithScores(query, limit);
+    return hits.map(h => h.entry);
+  }
+
+  async searchWithScores(query: string, limit: number = 5): Promise<{entry: CodexEntry; score: number}[]> {
     if (!this.db || !query.trim()) return [];
 
     try {
@@ -112,20 +117,24 @@ export class OramaStore {
         limit,
       });
 
-      const ids = results.hits
-        .map(hit => hit.document.dexieId as number)
-        .filter(id => id !== undefined);
-      
-      if (ids.length === 0) return [];
+      const validHits = results.hits.filter(hit => hit.document.dexieId !== undefined);
+      if (validHits.length === 0) return [];
 
+      const ids = validHits.map(hit => hit.document.dexieId as number);
+      
       // Fetch full records from Dexie to get complete up-to-date data
       const entries = await db.codex.where('id').anyOf(ids).toArray();
       
-      // Keep search relevance order
+      // Keep search relevance order & attach score
       const entryMap = new Map(entries.map(e => [e.id, e]));
-      return ids.map(id => entryMap.get(id)!).filter(Boolean);
+      return validHits
+        .map(hit => ({
+          entry: entryMap.get(hit.document.dexieId as number)!,
+          score: hit.score,
+        }))
+        .filter(h => h.entry !== undefined);
     } catch (e) {
-      console.error('Orama search failed', e);
+      console.error('Orama searchWithScores failed', e);
       return [];
     }
   }
