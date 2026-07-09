@@ -8,12 +8,13 @@
  */
 
 import { useEffect, useState } from 'react';
-import { MapPin, Route as RouteIcon, Hexagon, X, Trash2, BookOpen, Link2, Move, Check } from 'lucide-react';
-import { CodexEntry, MapMarker } from '@/src/types';
+import { MapPin, Route as RouteIcon, Hexagon, X, Trash2, BookOpen, Link2, Move, Check, Clock, Ruler } from 'lucide-react';
+import { CodexEntry, MapMarker, AtlasMap, TravelSpeedProfile, MapPoint } from '@/src/types';
 import { CategoryDef, getCategoryLabel } from '@/src/lib/codexCategories';
 import { stripHtml } from '@/src/lib/editorUtils';
 import { cn } from '@/src/lib/utils';
 import { RegionAnalytic } from '@/src/lib/atlasAnalytics';
+import { calculateRelativeDistance, calculateRealDistance, calculateTravelTime } from '@/src/lib/mapGeometry';
 
 export interface PresenceChapter {
   id: number;
@@ -33,6 +34,8 @@ interface MarkerSidebarProps {
   codexEntries: CodexEntry[];
   /** Mode ubah geometri (seret handle di peta) aktif untuk penanda ini. */
   editing: boolean;
+  activeMap: AtlasMap;
+  travelSpeeds?: TravelSpeedProfile[];
   onToggleEdit: () => void;
   onSave: (patch: Partial<MapMarker>) => void;
   onDelete: () => void;
@@ -56,6 +59,8 @@ export default function MarkerSidebar({
   color,
   codexEntries,
   editing,
+  activeMap,
+  travelSpeeds,
   onToggleEdit,
   onSave,
   onDelete,
@@ -76,6 +81,16 @@ export default function MarkerSidebar({
   const Icon = Meta.icon;
   const heading = entry?.name || marker.title || Meta.label;
   const description = entry?.description ? stripHtml(entry.description) : '';
+
+  // Hitung jarak & waktu untuk Rute
+  const isRoute = marker.kind === 'route' && Array.isArray(marker.geometry);
+  const relDist = isRoute ? calculateRelativeDistance(marker.geometry as MapPoint[]) : 0;
+  const realDist = isRoute && activeMap.scale ? calculateRealDistance(relDist, activeMap.scale) : 0;
+  const hasScale = !!activeMap.scale;
+  
+  const selectedSpeedId = marker.meta?.speedProfileId;
+  const selectedSpeed = travelSpeeds?.find(s => s.id === selectedSpeedId);
+  const travelTime = realDist > 0 && selectedSpeed ? calculateTravelTime(realDist, selectedSpeed.speedPerDay) : 0;
 
   return (
     <aside className="w-80 shrink-0 h-full overflow-y-auto border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
@@ -146,6 +161,49 @@ export default function MarkerSidebar({
             ))}
           </select>
         </label>
+        
+        {/* Kalkulator Waktu & Jarak (hanya untuk Rute) */}
+        {marker.kind === 'route' && (
+          <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"><Ruler size={12} /> Jarak Rute</span>
+              {hasScale ? (
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  {realDist.toLocaleString(undefined, { maximumFractionDigits: 1 })} {activeMap.scale!.distanceUnit}
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-600 dark:text-amber-500 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 rounded">Belum dikalibrasi</span>
+              )}
+            </div>
+            
+            {hasScale && (
+              <>
+                <label className="block space-y-1.5 pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Metode Perjalanan</span>
+                  <select
+                    value={selectedSpeedId ?? ''}
+                    onChange={(e) => onSave({ meta: { ...marker.meta, speedProfileId: e.target.value || undefined } })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+                  >
+                    <option value="">— pilih metode —</option>
+                    {(travelSpeeds || []).map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.speedPerDay} {activeMap.scale!.distanceUnit}/{s.unit})</option>
+                    ))}
+                  </select>
+                </label>
+                
+                {selectedSpeed && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1"><Clock size={12} /> Estimasi Waktu</span>
+                    <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                      {Math.ceil(travelTime)} {selectedSpeed.unit}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Kehadiran bab */}
         {(entry || regionAnalytic) && (

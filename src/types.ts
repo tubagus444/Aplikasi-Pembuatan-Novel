@@ -220,6 +220,15 @@ export interface Project {
   // Kalender Dunia (#4): penanggalan in-world kustom. Field JSON inert (tak diindeks),
   // ikut backup via tabel `projects`. Kosong/undefined → panel mengajak buat kalender.
   calendar?: WorldCalendar;
+  /** Profil kecepatan perjalanan global (Atlas Dunia). Field JSON inert. */
+  travelSpeeds?: TravelSpeedProfile[];
+}
+
+export interface TravelSpeedProfile {
+  id: string;
+  name: string;
+  speedPerDay: number;
+  unit: string;
 }
 
 // Kategori bawaan Codex. Kategori KUSTOM (buatan pengguna, tabel `codexCategories`)
@@ -512,6 +521,11 @@ export interface AtlasMap {
   width: number;
   height: number;
   createdAt: number;
+  /** Skala peta (opsional, field inert) untuk menghitung jarak nyata. */
+  scale?: {
+    distanceUnit: string;
+    ratioToRelative: number; // jarak_nyata / jarak_relatif(0-1)
+  };
 }
 
 /** Geometri penanda — koordinat RELATIF 0–1 (bukan piksel) agar tahan ganti
@@ -537,4 +551,9 @@ export interface MapMarker {
   /** Warna override (mis. "#e11d48"). Bila kosong, warna diturunkan dari faksi/kategori Codex. */
   color?: string;
   createdAt: number;
+  /** Data tambahan inert, mis. speedProfileId untuk kalkulator waktu tempuh rute. */
+  meta?: {
+    speedProfileId?: string;
+    [key: string]: any;
+  };
 }

@@ -14,6 +14,9 @@ import {
   centroid,
   pointInPolygon,
   isPointGeometry,
+  calculateRelativeDistance,
+  calculateRealDistance,
+  calculateTravelTime,
 } from './mapGeometry';
 
 describe('clamp01', () => {
@@ -113,5 +116,43 @@ describe('isPointGeometry', () => {
   it('membedakan pin vs array', () => {
     expect(isPointGeometry({ x: 0.5, y: 0.5 })).toBe(true);
     expect(isPointGeometry([{ x: 0, y: 0 }])).toBe(false);
+  });
+});
+
+describe('Kalkulator Jarak & Waktu Tempuh (Skala Peta)', () => {
+  it('calculateRelativeDistance menghitung panjang polyline', () => {
+    const points = [
+      { x: 0.1, y: 0.1 },
+      { x: 0.4, y: 0.1 }, // dx = 0.3, dy = 0 => dist = 0.3
+      { x: 0.4, y: 0.5 }, // dx = 0, dy = 0.4 => dist = 0.4
+    ];
+    // Total harus 0.7
+    expect(calculateRelativeDistance(points)).toBeCloseTo(0.7, 5);
+  });
+
+  it('calculateRelativeDistance mengembalikan 0 bila titik kurang dari 2', () => {
+    expect(calculateRelativeDistance([])).toBe(0);
+    expect(calculateRelativeDistance([{ x: 0.5, y: 0.5 }])).toBe(0);
+  });
+
+  it('calculateRealDistance mengonversi dengan rasio yang tepat', () => {
+    const relativeDist = 0.5;
+    const scale = { distanceUnit: 'km', ratioToRelative: 1000 }; // 1 unit relatif = 1000 km
+    expect(calculateRealDistance(relativeDist, scale)).toBe(500); // 0.5 * 1000 = 500 km
+  });
+
+  it('calculateRealDistance mengembalikan 0 bila skala tak valid', () => {
+    expect(calculateRealDistance(0.5, undefined)).toBe(0);
+  });
+
+  it('calculateTravelTime menghitung waktu (Jarak / Kecepatan)', () => {
+    const realDist = 500; // km
+    const speed = 50; // km/hari
+    expect(calculateTravelTime(realDist, speed)).toBe(10); // 10 hari
+  });
+
+  it('calculateTravelTime menghindari bagi nol', () => {
+    expect(calculateTravelTime(500, 0)).toBe(0);
+    expect(calculateTravelTime(500, -10)).toBe(0);
   });
 });

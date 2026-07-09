@@ -99,3 +99,38 @@ export function pointInPolygon(pt: MapPoint, polygon: MapPoint[]): boolean {
 export function isPointGeometry(g: MapPoint | MapPoint[]): g is MapPoint {
   return !Array.isArray(g);
 }
+
+/**
+ * Menghitung total jarak relatif (0-1) dari sebuah array titik polyline/rute.
+ * Menggunakan Teorema Pythagoras standar di ruang 2D Euclidean.
+ */
+export function calculateRelativeDistance(points: MapPoint[]): number {
+  if (!points || points.length < 2) return 0;
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    total += Math.sqrt(dx * dx + dy * dy);
+  }
+  return total;
+}
+
+/**
+ * Mengonversi jarak relatif (0-1) ke unit jarak nyata (km, mil) menggunakan skala peta.
+ * scale.ratioToRelative = jarak_nyata / jarak_relatif_0_1.
+ */
+export function calculateRealDistance(relativeDistance: number, scale?: { ratioToRelative: number }): number {
+  if (!scale || !scale.ratioToRelative || relativeDistance <= 0) return 0;
+  return relativeDistance * scale.ratioToRelative;
+}
+
+/**
+ * Menghitung waktu tempuh berdasarkan jarak nyata dan profil kecepatan.
+ * @returns Waktu dalam satuan waktu profil kecepatan (biasanya 'hari').
+ */
+export function calculateTravelTime(realDistance: number, speedPerDay: number): number {
+  if (speedPerDay <= 0 || realDistance <= 0) return 0;
+  return realDistance / speedPerDay;
+}

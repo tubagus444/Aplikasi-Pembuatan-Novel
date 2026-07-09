@@ -23,7 +23,7 @@ import {
   isPointGeometry,
 } from '@/src/lib/mapGeometry';
 
-export type DrawMode = 'pin' | 'area' | 'route' | null;
+export type DrawMode = 'pin' | 'area' | 'route' | 'scale' | null;
 
 interface MapCanvasProps {
   map: AtlasMap;
@@ -296,6 +296,8 @@ export default function MapCanvas({
       if (pts.length >= 2) {
         if (drawMode === 'area') {
           L.polygon(latlngs, { color: '#2563eb', weight: 2, fillOpacity: 0.15, dashArray: '4 4' }).addTo(draftLayer);
+        } else if (drawMode === 'scale') {
+          L.polyline(latlngs, { color: '#f59e0b', weight: 3, dashArray: '4 4' }).addTo(draftLayer);
         } else {
           L.polyline(latlngs, { color: '#2563eb', weight: 2, dashArray: '4 4' }).addTo(draftLayer);
         }
@@ -322,6 +324,11 @@ export default function MapCanvas({
       draftPointsRef.current.push(rel);
       propsRef.current.onDraftChange?.(draftPointsRef.current.length);
       redrawDraft();
+      
+      // Auto finish for scale when 2 points are reached
+      if (drawMode === 'scale' && draftPointsRef.current.length === 2) {
+         finishShape();
+      }
     };
 
     const onDblClick = (e: L.LeafletMouseEvent) => {

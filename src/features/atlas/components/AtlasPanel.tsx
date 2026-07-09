@@ -15,8 +15,9 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/src/db';
-import { Map as MapIcon, MapPin, Hexagon, Route as RouteIcon, Plus, Trash2, SlidersHorizontal, Upload, Loader2 } from 'lucide-react';
+import { Map as MapIcon, MapPin, Hexagon, Route as RouteIcon, Plus, Trash2, SlidersHorizontal, Upload, Loader2, Ruler, Gauge } from 'lucide-react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
+import { useProject } from '@/src/contexts/ProjectContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { useCodexCategories } from '@/src/features/codex/hooks/useCodexCategories';
 import { getCategoryLabel } from '@/src/lib/codexCategories';
@@ -28,6 +29,9 @@ import { CodexEntry, MapMarker, MapPoint } from '@/src/types';
 import { analyzeRegions, RegionAnalytic } from '@/src/lib/atlasAnalytics';
 import { useAtlas } from '../hooks/useAtlas';
 import { useMapImageUpload } from '../hooks/useMapImageUpload';
+import { calculateRelativeDistance } from '@/src/lib/mapGeometry';
+import { TravelSpeedSettingsModal } from './TravelSpeedSettingsModal';
+import { ScaleCalibrationModal } from './ScaleCalibrationModal';
 import type { DrawMode } from './MapCanvas';
 import type { PresenceChapter } from './MarkerSidebar';
 
@@ -63,8 +67,13 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
   const [editingGeometry, setEditingGeometry] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSpeedModal, setShowSpeedModal] = useState(false);
+  const [pendingScaleDist, setPendingScaleDist] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const reuploadRef = useRef<HTMLInputElement>(null);
+  
+  // Ambil travelSpeeds dari project
+  const { project } = useProject();
 
   // Filter: set jenis/kategori/faksi yang DIMATIKAN (data tetap penuh).
   const [offKinds, setOffKinds] = useState<Set<string>>(new Set());
@@ -191,7 +200,16 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
 
   const handleCreateGeometry = async (geometry: MapPoint | MapPoint[]) => {
     if (!activeMap?.id || !drawMode) return;
-    const id = await addMarker({ mapId: activeMap.id, kind: drawMode, geometry });
+    
+    if (drawMode === 'scale' && Array.isArray(geometry) && geometry.length === 2) {
+      setDrawMode(null);
+      // Hitung jarak relatif lalu buka modal
+      const relDist = calculateRelativeDistance(geometry);
+      setPendingScaleDist(relDist);
+      return;
+    }
+
+    const id = await addMarker({ mapId: activeMap.id, kind: drawMode as 'pin' | 'area' | 'route', geometry });
     setDrawMode(null);
     if (id != null) setSelectedMarkerId(id);
   };
@@ -287,6 +305,27 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
             <Icon size={14} /> {label}
           </button>
         ))}
+        
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+        <button
+          onClick={() => { setDrawMode(drawMode === 'scale' ? null : 'scale'); setSelectedMarkerId(undefined); }}
+          className={cn('inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm border',
+            drawMode === 'scale'
+              ? 'bg-amber-600 text-white border-amber-600'
+              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-amber-300')}
+          title="Kalibrasi Skala Peta"
+        >
+          <Ruler size={14} /> Skala
+        </button>
+        
+        <button
+          onClick={() => setShowSpeedModal(true)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-300"
+          title="Profil Kecepatan Perjalanan"
+        >
+          <Gauge size={14} /> Kecepatan
+        </button>
 
         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
 
@@ -317,6 +356,8 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
         <div className="shrink-0 px-3 py-1.5 text-xs border-b border-slate-100 dark:border-slate-800 bg-indigo-50/60 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300">
           {uploadError ? <span className="text-rose-600 dark:text-rose-400">{uploadError}</span> : drawMode === 'pin'
             ? 'Klik di peta untuk menaruh pin.'
+            : drawMode === 'scale'
+            ? `Tarik garis lurus (klik awal dan klik akhir) untuk mengkalibrasi skala peta${draftCount ? ` (${draftCount}/2)` : ''}.`
             : `Klik menambah titik · dobel-klik atau Enter untuk selesai · Esc batal${draftCount ? ` (${draftCount} titik)` : ''}.`}
         </div>
       )}
@@ -394,6 +435,8 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
               color={colorFor(selectedMarker)}
               codexEntries={codexEntries}
               editing={editingGeometry}
+              activeMap={activeMap}
+              travelSpeeds={project?.travelSpeeds}
               onToggleEdit={() => { setDrawMode(null); setEditingGeometry((v) => !v); }}
               onSave={(patch) => selectedMarker.id && updateMarker(selectedMarker.id, patch)}
               onDelete={() => { if (selectedMarker.id) { deleteMarker(selectedMarker.id); setSelectedMarkerId(undefined); } }}
@@ -404,6 +447,22 @@ export function AtlasPanel({ projectId }: AtlasPanelProps) {
           </Suspense>
         )}
       </div>
+      
+      {showSpeedModal && (
+        <TravelSpeedSettingsModal
+          projectId={projectId}
+          travelSpeeds={project?.travelSpeeds}
+          onClose={() => setShowSpeedModal(false)}
+        />
+      )}
+      
+      {pendingScaleDist !== null && activeMap?.id && (
+        <ScaleCalibrationModal
+          mapId={activeMap.id}
+          relativeDistance={pendingScaleDist}
+          onClose={() => setPendingScaleDist(null)}
+        />
+      )}
     </div>
   );
 }
