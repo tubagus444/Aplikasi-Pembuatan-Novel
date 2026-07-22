@@ -11,6 +11,8 @@ import { extractCodexAcKeywords } from '@/src/lib/codexKeywords';
 import { formatBibleBlock } from '@/src/lib/storyBible';
 import { buildCodexLoreString, buildRelationshipGraph } from '@/src/lib/loreFormat';
 import { buildPresenceIndex } from '@/src/lib/continuity';
+import { buildProseReport } from '@/src/lib/proseAnalysis';
+import { buildPacingReport } from '@/src/lib/pacingHeatmap';
 import { chunkChapter, hashChunk } from '@/src/lib/manuscriptChunker';
 import { SceneEmbedding } from '@/src/types';
 import { pipeline, env } from '@xenova/transformers';
@@ -658,6 +660,12 @@ self.onmessage = async (e: MessageEvent) => {
         // 100+ bab), dijalankan di worker agar main thread tak jank. Fungsi yang SAMA
         // dipakai jalur sync (continuity.ts) → tak ada divergensi pencocokan.
         result = buildPresenceIndex(payload.chapters, payload.codexEntries);
+        break;
+      case 'BUILD_PROSE_REPORT':
+        result = buildProseReport(payload.chapters, payload.language, payload.excludeWords);
+        break;
+      case 'BUILD_PACING_REPORT':
+        result = buildPacingReport(payload.chapters);
         break;
       case 'ESTIMATE_CONTEXT_TOKENS':
         result = {

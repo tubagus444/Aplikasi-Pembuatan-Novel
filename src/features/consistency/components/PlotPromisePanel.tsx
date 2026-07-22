@@ -17,7 +17,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
-import { stripHtml } from '@/src/lib/editorUtils';
+import { usePlainChapters } from '@/src/hooks/usePlainChapters';
 import { PlotPromise, PlotPromiseImportance, PlotPromiseStatus } from '@/src/types';
 import { analyzePromises, analyzePayoffs, PromiseState, PayoffState } from '@/src/lib/plotPromises';
 import { usePresenceIndex } from '@/src/hooks/usePresenceIndex';
@@ -45,9 +45,7 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
   const { setActiveChapterId, setViewMode } = useNavigation();
   const { codexEntries } = useProjectData(projectId);
 
-  const chapters = useLiveQuery(() =>
-    db.chapters.where('projectId').equals(projectId).sortBy('order')
-  , [projectId]);
+  const chapters = usePlainChapters(projectId);
   const promises = useLiveQuery(() =>
     db.plotPromises.where('projectId').equals(projectId).toArray()
   , [projectId]);
@@ -57,12 +55,7 @@ export function PlotPromisePanel({ projectId }: PlotPromisePanelProps) {
   const [onlyAttention, setOnlyAttention] = useState(false);
 
   // Teks bab polos di-memo (ref stabil selama data tak berubah) untuk feed worker.
-  const plain = useMemo(() => {
-    if (!chapters) return null;
-    return chapters
-      .filter(c => c.id != null)
-      .map(c => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
-  }, [chapters]);
+  const plain = chapters || null;
 
   // Scan kehadiran (nama+alias) di WORKER agar main thread tak jank pada naskah besar.
   const presenceIndex = usePresenceIndex(plain, codexEntries);

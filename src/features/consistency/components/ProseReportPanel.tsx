@@ -12,8 +12,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Gauge, ScanSearch, Loader2, ArrowUpRight, Sparkles, Repeat, MessageSquare, Radar } from 'lucide-react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
-import { stripHtml } from '@/src/lib/editorUtils';
-import { buildProseReport, ProseReport, ProseLanguage, ChapterProseRow, ProximityEcho } from '@/src/lib/proseAnalysis';
+import { usePlainChapters } from '@/src/hooks/usePlainChapters';
+import { useProseReport } from '@/src/hooks/useProseReport';
+import { ProseReport, ProseLanguage, ChapterProseRow, ProximityEcho } from '@/src/lib/proseAnalysis';
 import { cn } from '@/src/lib/utils';
 
 interface ProseReportPanelProps {
@@ -72,32 +73,17 @@ function readabilityColor(score: number): string {
   return 'text-red-500';
 }
 
-/** Pecah nama+alias Codex jadi token kata (lowercase) untuk mengecualikan dari echo. */
-function buildCodexStoplist(entries: { name: string; aliases?: string[] }[]): Set<string> {
-  const set = new Set<string>();
-  for (const e of entries) {
-    for (const term of [e.name, ...(e.aliases || [])]) {
-      for (const w of (term || '').toLowerCase().split(/[^a-z]+/)) {
-        if (w.length >= 2) set.add(w);
-      }
-    }
-  }
-  return set;
-}
 
 export function ProseReportPanel({ projectId }: ProseReportPanelProps) {
   const { setActiveChapterId, setViewMode, jumpToText } = useNavigation();
   const { codexEntries } = useProjectData(projectId);
 
-  const chapters = useLiveQuery(
-    () => db.chapters.where('projectId').equals(projectId).sortBy('order'),
-    [projectId],
-  );
+  const chapters = usePlainChapters(projectId);
 
   const [language, setLanguage] = useState<ProseLanguage>('id');
-  const [scanning, setScanning] = useState(false);
-  const [report, setReport] = useState<ProseReport | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  const { scanning, report, setReport, scan: doScan } = useProseReport(projectId, chapters, codexEntries, language);
 
   // Hidrasi hasil terakhir dari localStorage saat panel di-mount / ganti proyek.
   useEffect(() => {
@@ -118,19 +104,11 @@ export function ProseReportPanel({ projectId }: ProseReportPanelProps) {
   };
 
   const scan = useCallback(async () => {
-    if (!chapters) return;
-    setScanning(true);
-    setReport(null);
-    await new Promise((r) => setTimeout(r, 0)); // yield agar overlay loading render
-    const plain = chapters
-      .filter((c) => c.id != null)
-      .map((c) => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
-    const exclude = buildCodexStoplist(codexEntries);
-    const result = buildProseReport(plain, language, exclude);
-    setReport(result);
-    setSavedAt(saveStoredReport(projectId, language, result));
-    setScanning(false);
-  }, [chapters, codexEntries, language, projectId]);
+    const result = await doScan();
+    if (result) {
+      setSavedAt(saveStoredReport(projectId, language, result));
+    }
+  }, [doScan, projectId, language]);
 
   const totalChapters = chapters?.length ?? 0;
 

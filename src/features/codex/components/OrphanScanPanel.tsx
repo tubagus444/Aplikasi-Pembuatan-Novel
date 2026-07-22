@@ -165,7 +165,7 @@ export function OrphanScanPanel({ projectId }: OrphanScanPanelProps) {
   const totalChapters = chapters?.length ?? 0;
 
   return (
-    <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8 pb-20 w-full">
+    <div className="max-w-4xl mx-auto space-y-8 pb-10 w-full">
       {/* Header */}
       <header className="space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-wide uppercase border border-indigo-100 dark:border-indigo-800/50">

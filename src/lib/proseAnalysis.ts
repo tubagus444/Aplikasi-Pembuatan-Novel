@@ -101,51 +101,73 @@ const EMPTY_METRICS: ProseMetrics = {
   readabilityScore: 0,
 };
 
-/**
- * Metrik gaya untuk satu potong TEKS POLOS. Identik dengan perhitungan lama di
- * ProseInsights (Flesch Reading Ease disederhanakan, kalimat > 25 kata = panjang).
- */
-export function analyzeProse(text: string, language: ProseLanguage): ProseMetrics {
-  const clean = (text || '').trim();
-  if (!clean) return { ...EMPTY_METRICS };
+export interface TokenizedChapter extends ProseChapter {
+  rawWords: string[];
+  cleanWords: string[];
+  sentences: string[];
+  syllables: number;
+}
 
-  const words = clean.split(/\s+/);
-  const sentences = clean.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-  const cleanWords = words.map(cleanToken).filter(Boolean);
+export function tokenizeChapter(ch: ProseChapter): TokenizedChapter {
+  const clean = (ch.content || '').trim();
+  const rawWords = clean ? clean.split(/\s+/) : [];
+  const cleanWords = rawWords.map(cleanToken);
+  const sentences = clean ? clean.split(/[.!?]+/).filter((s) => s.trim().length > 0) : [];
+  const syllables = clean.toLowerCase().match(/[aeiouy]+/g)?.length || 0;
+  
+  return { ...ch, rawWords, cleanWords, sentences, syllables };
+}
+
+export function analyzeTokenizedProse(
+  t: Pick<TokenizedChapter, 'rawWords' | 'cleanWords' | 'sentences' | 'syllables'>,
+  language: ProseLanguage
+): ProseMetrics {
+  const { rawWords, cleanWords, sentences, syllables } = t;
+  if (!rawWords.length) return { ...EMPTY_METRICS };
 
   let adverbs = 0;
   let passiveCount = 0;
+  
+  const validCleanWords = cleanWords.filter(Boolean);
 
   if (language === 'en') {
-    // Deteksi adverbia sederhana (berakhiran 'ly').
-    adverbs = cleanWords.filter((w) => w.endsWith('ly')).length;
-    // Deteksi pasif sederhana (to-be + verba -ed).
+    adverbs = validCleanWords.filter((w) => w.endsWith('ly')).length;
     const passiveWords = ['was', 'were', 'been', 'being', 'is', 'am', 'are'];
-    passiveCount = cleanWords.filter(
-      (w, i) => passiveWords.includes(w) && cleanWords[i + 1]?.endsWith('ed'),
+    passiveCount = validCleanWords.filter(
+      (w, i) => passiveWords.includes(w) && validCleanWords[i + 1]?.endsWith('ed'),
     ).length;
   } else {
-    adverbs = cleanWords.filter((w) => ID_ADVERBS.has(w)).length;
-    passiveCount = cleanWords.filter(isPassiveID).length;
+    adverbs = validCleanWords.filter((w) => ID_ADVERBS.has(w)).length;
+    passiveCount = validCleanWords.filter(isPassiveID).length;
   }
 
   const longSentences = sentences.filter((s) => s.trim().split(/\s+/).length > 25).length;
 
-  // Flesch Reading Ease (disederhanakan; vokal = perkiraan suku kata).
-  const syllables = clean.toLowerCase().match(/[aeiouy]+/g)?.length || 0;
+  const wordCount = rawWords.length;
+  const sentenceCount = sentences.length;
   const readability = Math.max(0, Math.min(100, Math.round(
-    206.835 - 1.015 * (words.length / (sentences.length || 1)) - 84.6 * (syllables / words.length),
+    206.835 - 1.015 * (wordCount / (sentenceCount || 1)) - 84.6 * (syllables / wordCount),
   )));
 
   return {
-    wordCount: words.length,
-    sentenceCount: sentences.length,
-    avgSentenceLength: Math.round(words.length / (sentences.length || 1)),
+    wordCount,
+    sentenceCount,
+    avgSentenceLength: Math.round(wordCount / (sentenceCount || 1)),
     longSentences,
     passiveVoiceCount: passiveCount,
     adverbCount: adverbs,
     readabilityScore: readability,
   };
+}
+
+/**
+ * Metrik gaya untuk satu potong TEKS POLOS. Identik dengan perhitungan lama di
+ * ProseInsights (Flesch Reading Ease disederhanakan, kalimat > 25 kata = panjang).
+ */
+export function analyzeProse(text: string, language: ProseLanguage): ProseMetrics {
+  const ch: ProseChapter = { id: 0, title: '', content: text };
+  const tokenized = tokenizeChapter(ch);
+  return analyzeTokenizedProse(tokenized, language);
 }
 
 // --- Kata muleti / echo words (lintas-bab) ---
@@ -212,7 +234,7 @@ export interface EchoOptions {
  * nama Codex) yang muncul paling sering. Diurutkan menurut kepadatan (per 1000
  * kata) lalu total, agar naskah panjang tak selalu didominasi kata paling umum.
  */
-export function detectEchoWords(chapters: ProseChapter[], opts: EchoOptions): EchoWord[] {
+export function detectEchoWords(chapters: Pick<TokenizedChapter, 'cleanWords'>[], opts: EchoOptions): EchoWord[] {
   const minLength = opts.minLength ?? 4;
   const minTotal = opts.minTotal ?? 6;
   const limit = opts.limit ?? 25;
@@ -224,9 +246,7 @@ export function detectEchoWords(chapters: ProseChapter[], opts: EchoOptions): Ec
   let totalWords = 0;
 
   chapters.forEach((ch, idx) => {
-    const words = (ch.content || '').split(/\s+/);
-    for (const raw of words) {
-      const w = cleanToken(raw);
+    for (const w of ch.cleanWords) {
       if (!w) continue;
       totalWords++;
       if (w.length < minLength) continue;
@@ -294,7 +314,7 @@ function makeExcerpt(rawWords: string[], centerIdx: number, before = 3, after = 
  * lolos dari deteksi frekuensi global. Diurut menurut jarak menaik (terdekat =
  * paling menonjol). Nol token, per-bab.
  */
-export function detectProximityEchoes(chapters: ProseChapter[], opts: ProximityOptions): ProximityEcho[] {
+export function detectProximityEchoes(chapters: Pick<TokenizedChapter, 'id' | 'title' | 'rawWords' | 'cleanWords'>[], opts: ProximityOptions): ProximityEcho[] {
   const minLength = opts.minLength ?? 4;
   const window = opts.window ?? 40;
   const limit = opts.limit ?? 40;
@@ -304,10 +324,9 @@ export function detectProximityEchoes(chapters: ProseChapter[], opts: ProximityO
   const echoes: ProximityEcho[] = [];
 
   chapters.forEach((ch, chapterIndex) => {
-    const rawWords = (ch.content || '').split(/\s+/);
+    const rawWords = ch.rawWords;
     const lastSeen = new Map<string, number>();
-    rawWords.forEach((raw, i) => {
-      const w = cleanToken(raw);
+    ch.cleanWords.forEach((w, i) => {
       if (!w || w.length < minLength) return;
       if (stop.has(w) || exclude?.has(w)) return;
       const prev = lastSeen.get(w);
@@ -386,11 +405,13 @@ export function buildProseReport(
   language: ProseLanguage,
   excludeWords?: Set<string>,
 ): ProseReport {
-  const rows: ChapterProseRow[] = chapters.map((ch, index) => ({
+  const tokenized = chapters.map(tokenizeChapter);
+
+  const rows: ChapterProseRow[] = tokenized.map((ch, index) => ({
     id: ch.id,
     title: ch.title,
     index,
-    metrics: analyzeProse(ch.content, language),
+    metrics: analyzeTokenizedProse(ch, language),
     dialogueRatio: dialogueRatio(ch.content),
   }));
 
@@ -419,8 +440,8 @@ export function buildProseReport(
     totalPassive,
     totalAdverbs,
     totalLongSentences,
-    echoWords: detectEchoWords(chapters, { language, excludeWords }),
-    proximityEchoes: detectProximityEchoes(chapters, { language, excludeWords }),
+    echoWords: detectEchoWords(tokenized, { language, excludeWords }),
+    proximityEchoes: detectProximityEchoes(tokenized, { language, excludeWords }),
     chapterCount: chapters.length,
   };
 }

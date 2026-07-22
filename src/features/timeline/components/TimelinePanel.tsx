@@ -9,6 +9,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { CalendarClock, CalendarDays, Plus, Trash2, Pencil, GripVertical, X, BookText, Clock, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProjectData } from '@/src/hooks/useProjectData';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 import { TimelineEvent, TimelineEventType, CodexEntry, WorldCalendar } from '@/src/types';
 import { formatDateRange } from '@/src/lib/worldCalendar';
 import { cn } from '@/src/lib/utils';
@@ -40,6 +41,7 @@ interface FormState {
 const EMPTY_FORM: FormState = { title: '', eventDate: '', description: '', type: 'plot', chapterId: null, characterIds: [] };
 
 export function TimelinePanel({ projectId }: TimelinePanelProps) {
+  const { setViewMode } = useNavigation();
   const { codexEntries } = useProjectData(projectId);
 
   const events = useLiveQuery(() =>
@@ -168,6 +170,14 @@ export function TimelinePanel({ projectId }: TimelinePanelProps) {
         <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-2xl leading-relaxed">
           Susun urutan peristiwa cerita untuk menjaga alur waktu tetap masuk akal. Tautkan tiap peristiwa ke bab dan karakter, lalu beri label waktu in-world untuk mencegah lubang plot. Seret kartu untuk mengubah urutan.
         </p>
+        <div className="pt-1">
+          <button
+            onClick={() => setViewMode('worldcalendar')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline transition-colors"
+          >
+            Atur sistem penanggalan di Kalender Dunia →
+          </button>
+        </div>
       </header>
 
       {/* Kontrol */}

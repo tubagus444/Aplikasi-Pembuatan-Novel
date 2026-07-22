@@ -12,9 +12,9 @@ import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Activity, ArrowUpRight, Flame, TrendingDown, Sparkles, Info } from 'lucide-react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
-import { stripHtml } from '@/src/lib/editorUtils';
+import { usePlainChapters } from '@/src/hooks/usePlainChapters';
+import { usePacingReport } from '@/src/hooks/usePacingReport';
 import {
-  buildPacingReport,
   TENSION_LABEL,
   TensionRow,
   TensionRun,
@@ -40,23 +40,8 @@ const LEVELS: TensionLevel[] = [1, 2, 3, 4, 5];
 export function PacingHeatmapPanel({ projectId }: PacingHeatmapPanelProps) {
   const { setActiveChapterId, setViewMode } = useNavigation();
 
-  const chapters = useLiveQuery(
-    () => db.chapters.where('projectId').equals(projectId).sortBy('order'),
-    [projectId],
-  );
-
-  const report = useMemo(() => {
-    if (!chapters) return null;
-    const input = chapters
-      .filter((c) => c.id != null)
-      .map((c) => ({
-        id: c.id!,
-        title: c.title,
-        content: stripHtml(c.content || ''),
-        tension: c.tension,
-      }));
-    return buildPacingReport(input);
-  }, [chapters]);
+  const chapters = usePlainChapters(projectId);
+  const { report } = usePacingReport(projectId, chapters);
 
   const openChapter = (id: number) => {
     setActiveChapterId(id);

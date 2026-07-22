@@ -11,6 +11,7 @@ import {
   dialogueRatio,
   buildProseReport,
   ProseChapter,
+  tokenizeChapter,
 } from './proseAnalysis';
 
 describe('analyzeProse', () => {
@@ -56,10 +57,10 @@ describe('analyzeProse', () => {
 });
 
 describe('detectEchoWords', () => {
-  const chapters: ProseChapter[] = [
+  const chapters = [
     { id: 1, title: 'Bab 1', content: 'bayangan bergerak. bayangan itu dingin. bayangan menari.' },
     { id: 2, title: 'Bab 2', content: 'bayangan kembali. angin bertiup. bayangan bergerak lagi.' },
-  ];
+  ].map(tokenizeChapter);
 
   it('menemukan kata muleti lintas-bab', () => {
     const echoes = detectEchoWords(chapters, { language: 'id', minTotal: 3 });
@@ -92,9 +93,9 @@ describe('detectEchoWords', () => {
 
 describe('detectProximityEchoes', () => {
   it('menandai kata sama yang berdekatan', () => {
-    const chapters: ProseChapter[] = [
+    const chapters = [
       { id: 1, title: 'Bab 1', content: 'Dia menatap jendela. Ibunya juga sedang menatap ke arah sama.' },
-    ];
+    ].map(tokenizeChapter);
     const echoes = detectProximityEchoes(chapters, { language: 'id', window: 40 });
     const hit = echoes.find((e) => e.word === 'menatap');
     expect(hit).toBeDefined();
@@ -105,34 +106,34 @@ describe('detectProximityEchoes', () => {
 
   it('mengabaikan pengulangan yang berjauhan (di luar jendela)', () => {
     const filler = Array.from({ length: 60 }, (_, i) => `kata${i}`).join(' ');
-    const chapters: ProseChapter[] = [
+    const chapters = [
       { id: 1, title: 'Bab 1', content: `menatap ${filler} menatap` },
-    ];
+    ].map(tokenizeChapter);
     const echoes = detectProximityEchoes(chapters, { language: 'id', window: 40 });
     expect(echoes.find((e) => e.word === 'menatap')).toBeUndefined();
   });
 
   it('tidak menandai stopword walau berdekatan', () => {
-    const chapters: ProseChapter[] = [
+    const chapters = [
       { id: 1, title: 'Bab 1', content: 'yang ini yang itu' },
-    ];
+    ].map(tokenizeChapter);
     const echoes = detectProximityEchoes(chapters, { language: 'id' });
     expect(echoes.find((e) => e.word === 'yang')).toBeUndefined();
   });
 
   it('mengurutkan menurut jarak menaik', () => {
-    const chapters: ProseChapter[] = [
+    const chapters = [
       { id: 1, title: 'Bab 1', content: 'kastil megah kastil. lembah hijau nan luas indah subur lembah.' },
-    ];
+    ].map(tokenizeChapter);
     const echoes = detectProximityEchoes(chapters, { language: 'id', window: 40 });
     expect(echoes.length).toBeGreaterThanOrEqual(2);
     expect(echoes[0].distance).toBeLessThanOrEqual(echoes[1].distance);
   });
 
   it('menghormati excludeWords', () => {
-    const chapters: ProseChapter[] = [
+    const chapters = [
       { id: 1, title: 'Bab 1', content: 'Rania menatap Rania sekali lagi.' },
-    ];
+    ].map(tokenizeChapter);
     const echoes = detectProximityEchoes(chapters, {
       language: 'id',
       excludeWords: new Set(['rania']),
@@ -159,10 +160,10 @@ describe('dialogueRatio', () => {
 });
 
 describe('buildProseReport', () => {
-  const chapters: ProseChapter[] = [
+  const chapters = [
     { id: 1, title: 'Bab 1', content: 'Dia berlari. "Cepat!" katanya.' },
     { id: 2, title: 'Bab 2', content: 'Malam tiba. Angin dingin bertiup pelan.' },
-  ];
+  ].map(tokenizeChapter);
 
   it('mengagregasi metrik seluruh naskah', () => {
     const report = buildProseReport(chapters, 'id');
@@ -175,9 +176,9 @@ describe('buildProseReport', () => {
   });
 
   it('meneruskan excludeWords ke echo words', () => {
-    const many: ProseChapter[] = [
+    const many = [
       { id: 1, title: 'B1', content: 'kastil kastil kastil kastil kastil kastil kastil' },
-    ];
+    ].map(tokenizeChapter);
     const report = buildProseReport(many, 'id', new Set(['kastil']));
     expect(report.echoWords.find((e) => e.word === 'kastil')).toBeUndefined();
   });

@@ -36,8 +36,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { mode: 'factions', icon: <Users size={14} />, label: 'Faksi & Kelompok' },
       { mode: 'timeline', icon: <CalendarClock size={14} />, label: 'Timeline Cerita' },
       { mode: 'worldcalendar', icon: <CalendarDays size={14} />, label: 'Kalender Dunia' },
-      { mode: 'orphans', icon: <UserSearch size={14} />, label: 'Saran Entitas' },
-      { mode: 'completeness', icon: <ClipboardList size={14} />, label: 'Kelengkapan Dunia' },
+      { mode: 'completeness', icon: <ClipboardList size={14} />, label: 'Kesehatan Codex' },
       { mode: 'graph', icon: <Waypoints size={14} />, label: 'Graf Lore' },
       { mode: 'atlas', icon: <MapIcon size={14} />, label: 'Atlas Dunia' },
     ],
@@ -48,7 +47,6 @@ const NAV_GROUPS: NavGroupDef[] = [
     items: [
       { mode: 'consistency', icon: <ShieldCheck size={14} />, label: 'Cek Konsistensi' },
       { mode: 'continuity', icon: <Network size={14} />, label: 'Peta Kontinuitas' },
-      { mode: 'arc', icon: <Activity size={14} />, label: 'Lensa Karakter' },
       { mode: 'prose', icon: <Gauge size={14} />, label: 'Wawasan Prosa' },
       { mode: 'heatmap', icon: <Flame size={14} />, label: 'Heatmap Tensi' },
       { mode: 'promises', icon: <Crosshair size={14} />, label: 'Janji Plot' },

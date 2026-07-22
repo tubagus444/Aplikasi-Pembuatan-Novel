@@ -13,10 +13,11 @@ import { Network, ScanSearch, Loader2, CheckCircle2, ArrowUpRight, Sparkles, Use
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
-import { stripHtml } from '@/src/lib/editorUtils';
+import { usePlainChapters } from '@/src/hooks/usePlainChapters';
 import {
-  analyzeContinuity, ContinuityReport, ContinuityFinding, ContinuityCheck, ContinuitySeverity,
+  analyzeContinuity, ContinuityReport, ContinuityFinding, ContinuityCheck, ContinuitySeverity, PresenceIndex
 } from '@/src/lib/continuity';
+import { CharacterArcSidePanel } from './CharacterArcPanel';
 import { buildPresenceIndexAsync } from '@/src/services/contextEngine';
 import { cn } from '@/src/lib/utils';
 
@@ -41,9 +42,7 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
   const { setActiveChapterId, setViewMode } = useNavigation();
   const { codexEntries, relationships } = useProjectData(projectId);
 
-  const chapters = useLiveQuery(() =>
-    db.chapters.where('projectId').equals(projectId).sortBy('order')
-  , [projectId]);
+  const chapters = usePlainChapters(projectId);
   const timeline = useLiveQuery(() =>
     db.timeline.where('projectId').equals(projectId).toArray()
   , [projectId]);
@@ -51,6 +50,8 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
   const [gapThreshold, setGapThreshold] = useState(4);
   const [scanning, setScanning] = useState(false);
   const [report, setReport] = useState<ContinuityReport | null>(null);
+  const [presenceIndex, setPresenceIndex] = useState<PresenceIndex | null>(null);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
 
   const openChapter = (id: number) => {
     setActiveChapterId(id);
@@ -62,11 +63,9 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
     setScanning(true);
     setReport(null);
     await new Promise(r => setTimeout(r, 0)); // yield agar overlay loading render
-    const plain = chapters
-      .filter(c => c.id != null)
-      .map(c => ({ id: c.id!, title: c.title, content: stripHtml(c.content || '') }));
-    // Scan Aho-Corasick berat di worker (bukan main thread) agar UI tak beku.
+    const plain = chapters;
     const index = await buildPresenceIndexAsync(plain, codexEntries);
+    setPresenceIndex(index);
     const result = analyzeContinuity(plain, codexEntries, relationships, timeline || [], { gapThreshold, index });
     setReport(result);
     setScanning(false);
@@ -138,8 +137,14 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
                   {characters.map(p => {
                     const present = new Set(p.chapterIndices);
                     return (
-                      <div key={p.entityId} className="flex items-center gap-3">
-                        <span className="w-28 shrink-0 truncate text-xs font-medium text-slate-600 dark:text-slate-300 text-right" title={p.name}>{p.name}</span>
+                      <div key={p.entityId} className="flex items-center gap-3 group">
+                        <button
+                          onClick={() => setSelectedCharacterId(p.entityId)}
+                          className="w-28 shrink-0 truncate text-xs font-medium text-slate-600 dark:text-slate-300 text-right hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer transition-colors"
+                          title={`Lihat Alur Karakter ${p.name}`}
+                        >
+                          {p.name}
+                        </button>
                         <div className="flex gap-[3px]">
                           {Array.from({ length: report.chapterCount }).map((_, i) => (
                             <div
@@ -189,17 +194,27 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
         </div>
       )}
 
-      {report === null && !scanning && (
-        <div className="flex flex-col items-center justify-center text-center py-16 px-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/50">
-          <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center mb-5">
-            <Sparkles size={24} className="text-slate-300 dark:text-slate-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1.5">Belum dipindai</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
-            Klik <span className="font-medium">Pindai Kontinuitas</span> untuk memetakan kemunculan tiap entitas di seluruh bab dan menemukan celah kontinuitas.
-          </p>
-        </div>
-      )}
+
+      {/* Backdrop & Side Panel Lensa Karakter */}
+      <AnimatePresence>
+        {selectedCharacterId !== null && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedCharacterId(null)}
+              className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"
+            />
+            <CharacterArcSidePanel
+              projectId={projectId}
+              characterId={selectedCharacterId}
+              presenceIndex={presenceIndex}
+              onClose={() => setSelectedCharacterId(null)}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

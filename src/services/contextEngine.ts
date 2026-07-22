@@ -9,6 +9,8 @@ import ContextWorker from '@/src/services/contextWorker?worker';
 import { oramaSync } from '@/src/services/rag/oramaSync';
 import { getMaxCachedLoreChars } from '@/src/lib/aiTuning';
 import type { ContinuityChapter, PresenceIndex } from '@/src/lib/continuity';
+import type { ProseReport, ProseLanguage, ProseChapter } from '@/src/lib/proseAnalysis';
+import type { PacingReport, ChapterTensionInput } from '@/src/lib/pacingHeatmap';
 
 // Worker instance and communication state
 let worker: Worker | null = null;
@@ -251,6 +253,18 @@ export async function buildPresenceIndexAsync(
     return { perChapterCounts: chapters.map(() => new Map<number, number>()), byEntity: new Map() };
   }
   return sendToWorker('BUILD_PRESENCE_INDEX', { chapters, codexEntries });
+}
+
+export async function buildProseReportAsync(
+  chapters: ProseChapter[],
+  language: ProseLanguage,
+  excludeWords?: Set<string>
+): Promise<ProseReport> {
+  return sendToWorker('BUILD_PROSE_REPORT', { chapters, language, excludeWords });
+}
+
+export async function buildPacingReportAsync(chapters: ChapterTensionInput[]): Promise<PacingReport> {
+  return sendToWorker('BUILD_PACING_REPORT', { chapters });
 }
 
 export async function estimateContextTokens(text: string, codexText: string, rulesText: string, model?: string): Promise<{textTokens: number, codexTokens: number, rulesTokens: number}> {

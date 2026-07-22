@@ -15,6 +15,7 @@ import {
   CalendarDays, CalendarCog, CalendarPlus, ChevronLeft, ChevronRight, ChevronDown, Plus, BookText, Users, Search, X, Filter,
 } from 'lucide-react';
 import { db } from '@/src/db';
+import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { TimelineEvent, WorldCalendar, WorldDate } from '@/src/types';
 import {
@@ -28,6 +29,7 @@ import { CalendarEventModal, CalendarEventSeed } from './CalendarEventModal';
 interface Props { projectId: number; }
 
 export function WorldCalendarPanel({ projectId }: Props) {
+  const { setViewMode } = useNavigation();
   const { codexEntries } = useProjectData(projectId);
   const project = useLiveQuery(() => db.projects.get(projectId), [projectId]);
   const events = useLiveQuery(() => db.timeline.where('projectId').equals(projectId).toArray(), [projectId]);
@@ -93,6 +95,7 @@ function CalendarView({
   chapters: { id?: number; title: string }[];
   codex: import('@/src/types').CodexEntry[];
 }) {
+  const { setViewMode } = useNavigation();
   const [era, setEra] = useState(0);
   const [year, setYear] = useState(1);
   const [month, setMonth] = useState(1); // 1-based
@@ -203,6 +206,14 @@ function CalendarView({
             <CalendarDays size={14} /> Kalender Dunia
           </div>
           <h1 className="text-2xl md:text-3xl font-serif text-slate-900 dark:text-slate-100 tracking-tight">Penanggalan Cerita</h1>
+          <div className="pt-1">
+            <button
+              onClick={() => setViewMode('timeline')}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline transition-colors"
+            >
+              Lihat daftar peristiwa di Timeline Cerita →
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setEditorOpen(true)} className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"><CalendarCog size={15} /> Editor</button>

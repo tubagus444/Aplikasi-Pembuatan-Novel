@@ -26,15 +26,13 @@ const AIAssistantPanel = lazy(() => import('@/src/features/assistant/components/
 const DashboardPanel = lazy(() => import('@/src/components/panels/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const ConsistencyPanel = lazy(() => import('@/src/features/consistency/components/ConsistencyPanel').then(m => ({ default: m.ConsistencyPanel })));
 const ContinuityDashboard = lazy(() => import('@/src/features/consistency/components/ContinuityDashboard').then(m => ({ default: m.ContinuityDashboard })));
-const CharacterArcPanel = lazy(() => import('@/src/features/consistency/components/CharacterArcPanel').then(m => ({ default: m.CharacterArcPanel })));
 const ProseReportPanel = lazy(() => import('@/src/features/consistency/components/ProseReportPanel').then(m => ({ default: m.ProseReportPanel })));
 const PacingHeatmapPanel = lazy(() => import('@/src/features/consistency/components/PacingHeatmapPanel').then(m => ({ default: m.PacingHeatmapPanel })));
 const PlotPromisePanel = lazy(() => import('@/src/features/consistency/components/PlotPromisePanel').then(m => ({ default: m.PlotPromisePanel })));
 const GlossaryPanel = lazy(() => import('@/src/features/consistency/components/GlossaryPanel').then(m => ({ default: m.GlossaryPanel })));
 const TimelinePanel = lazy(() => import('@/src/features/timeline/components/TimelinePanel').then(m => ({ default: m.TimelinePanel })));
 const WorldCalendarPanel = lazy(() => import('@/src/features/timeline/components/WorldCalendarPanel').then(m => ({ default: m.WorldCalendarPanel })));
-const OrphanScanPanel = lazy(() => import('@/src/features/codex/components/OrphanScanPanel').then(m => ({ default: m.OrphanScanPanel })));
-const WorldCompletenessPanel = lazy(() => import('@/src/features/codex/components/WorldCompletenessPanel').then(m => ({ default: m.WorldCompletenessPanel })));
+const CodexHealthDashboard = lazy(() => import('@/src/features/codex/components/CodexHealthDashboard').then(m => ({ default: m.CodexHealthDashboard })));
 const LoreGraphPanel = lazy(() => import('@/src/features/codex/components/LoreGraphPanel').then(m => ({ default: m.LoreGraphPanel })));
 const FactionsPanel = lazy(() => import('@/src/features/lore/components/FactionsPanel').then(m => ({ default: m.FactionsPanel })));
 const AtlasPanel = lazy(() => import('@/src/features/atlas/components/AtlasPanel').then(m => ({ default: m.AtlasPanel })));
@@ -184,18 +182,10 @@ export function MainView() {
             </ViewContainer>
           )}
 
-          {viewMode === 'orphans' && projectId && (
-            <ViewContainer key="orphans" className="z-20">
-              <Suspense fallback={<LoadingFallback />}>
-                <OrphanScanPanel projectId={projectId} />
-              </Suspense>
-            </ViewContainer>
-          )}
-
           {viewMode === 'completeness' && projectId && (
             <ViewContainer key="completeness" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
-                <WorldCompletenessPanel projectId={projectId} />
+                <CodexHealthDashboard projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}
@@ -244,14 +234,6 @@ export function MainView() {
             <ViewContainer key="continuity" className="z-20">
               <Suspense fallback={<LoadingFallback />}>
                 <ContinuityDashboard projectId={projectId} />
-              </Suspense>
-            </ViewContainer>
-          )}
-
-          {viewMode === 'arc' && projectId && (
-            <ViewContainer key="arc" className="z-20">
-              <Suspense fallback={<LoadingFallback />}>
-                <CharacterArcPanel projectId={projectId} />
               </Suspense>
             </ViewContainer>
           )}

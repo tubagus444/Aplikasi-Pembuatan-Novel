@@ -9,7 +9,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Activity, ScanSearch, Loader2, Sparkles, Eye, Users, MapPin, Clock } from 'lucide-react';
+import { X, Activity, Loader2, Sparkles, Eye, Users, MapPin, Clock } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
 import { stripHtml } from '@/src/lib/editorUtils';
@@ -18,11 +19,14 @@ import { buildPresenceIndexAsync } from '@/src/services/contextEngine';
 import { computeCharacterArc, CharacterArc, ArcChapter } from '@/src/lib/characterArc';
 import { cn } from '@/src/lib/utils';
 
-interface CharacterArcPanelProps {
+export interface CharacterArcSidePanelProps {
   projectId: number;
+  characterId: number;
+  onClose: () => void;
+  presenceIndex?: PresenceIndex | null;
 }
 
-export function CharacterArcPanel({ projectId }: CharacterArcPanelProps) {
+export function CharacterArcSidePanel({ projectId, characterId, onClose, presenceIndex }: CharacterArcSidePanelProps) {
   const { setActiveChapterId, setViewMode } = useNavigation();
   const { codexEntries } = useProjectData(projectId);
 
@@ -32,12 +36,9 @@ export function CharacterArcPanel({ projectId }: CharacterArcPanelProps) {
 
   const characters = codexEntries.filter(e => e.category === 'character');
 
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [arc, setArc] = useState<CharacterArc | null>(null);
 
-  // Index presence dibangun sekali per scan; ganti karakter memakai cache ini.
-  const indexRef = useRef<PresenceIndex | null>(null);
   const arcChaptersRef = useRef<ArcChapter[]>([]);
 
   const openChapter = (id: number) => {
@@ -45,90 +46,75 @@ export function CharacterArcPanel({ projectId }: CharacterArcPanelProps) {
     setViewMode('write');
   };
 
-  const computeFor = (id: number) => {
-    if (!indexRef.current) return;
-    setArc(computeCharacterArc(id, arcChaptersRef.current, codexEntries, { index: indexRef.current }));
-  };
-
   const scan = useCallback(async () => {
-    if (!chapters || characters.length === 0) return;
-    const targetId = selectedId ?? characters[0].id!;
-    setSelectedId(targetId);
+    if (!chapters || chapters.length === 0) return;
     setScanning(true);
     setArc(null);
-    await new Promise(r => setTimeout(r, 0)); // yield agar overlay loading render
+    await new Promise(r => setTimeout(r, 0));
+    
     const arcChapters: ArcChapter[] = chapters
       .filter(c => c.id != null)
       .map(c => ({ id: c.id!, title: c.title, content: stripHtml(c.content || ''), pov: c.pov }));
     arcChaptersRef.current = arcChapters;
-    // Scan Aho-Corasick berat di worker agar main thread tak jank pada naskah besar.
-    indexRef.current = await buildPresenceIndexAsync(arcChapters, codexEntries);
-    setArc(computeCharacterArc(targetId, arcChapters, codexEntries, { index: indexRef.current }));
-    setScanning(false);
-  }, [chapters, characters, codexEntries, selectedId]);
 
-  const onSelectChange = (id: number) => {
-    setSelectedId(id);
-    if (indexRef.current) computeFor(id); // sudah dipindai → recompute instan
-  };
+    // Gunakan indeks dari properti (bila diteruskan dari Peta Kontinuitas) atau hitung baru
+    let index = presenceIndex;
+    if (!index) {
+      index = await buildPresenceIndexAsync(arcChapters, codexEntries);
+    }
+    
+    setArc(computeCharacterArc(characterId, arcChapters, codexEntries, { index }));
+    setScanning(false);
+  }, [chapters, codexEntries, characterId, presenceIndex]);
+
+  // Otomatis scan saat characterId berubah atau chapters dimuat
+  React.useEffect(() => {
+    scan();
+  }, [scan]);
 
   const totalChapters = chapters?.length ?? 0;
   const maxCount = arc ? Math.max(1, ...arc.perChapter.map(c => c.count)) : 1;
   const chapterLabel = (i: number) => arc?.perChapter[i]?.title ?? `Bab ${i + 1}`;
 
   return (
-    <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8 pb-20 w-full">
-      {/* Header */}
-      <header className="space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-wide uppercase border border-indigo-100 dark:border-indigo-800/50">
-          <Activity size={14} />
-          <span>Lensa Karakter</span>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-serif text-slate-900 dark:text-slate-100 tracking-tight">
-          Alur Kemunculan Karakter
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-2xl leading-relaxed">
-          Melacak "porsi layar" tiap karakter sepanjang manuskrip: di bab mana ia muncul dan seberapa sering, kapan ia hilang, bab ber-POV-nya, dan dengan siapa ia paling sering berbagi adegan. Sepenuhnya lokal — <span className="font-medium">tanpa AI, tanpa token</span>.
-        </p>
-      </header>
-
-      {/* Kontrol */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-end gap-4">
-        <div className="flex-1 space-y-1.5">
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Karakter</label>
-          <select
-            aria-label="Pilih karakter"
-            value={selectedId ?? ''}
-            onChange={(e) => onSelectChange(Number(e.target.value))}
-            disabled={scanning || characters.length === 0}
-            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 disabled:opacity-50"
-          >
-            {characters.length === 0 ? (
-              <option value="">Belum ada karakter di Codex</option>
-            ) : (
-              <>
-                {selectedId == null && <option value="" disabled>Pilih karakter…</option>}
-                {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </>
-            )}
-          </select>
+    <motion.div
+      initial={{ x: '100%', opacity: 0.5 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: '100%', opacity: 0.5 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      className="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-[60] flex flex-col"
+    >
+      {/* Header Panel */}
+      <header className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
+        <div className="flex flex-col gap-0.5">
+          <div className="inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-wide uppercase">
+            <Activity size={14} />
+            <span>Lensa Karakter</span>
+          </div>
+          <h2 className="text-xl font-serif font-bold text-slate-900 dark:text-slate-100 truncate pr-4">
+            {arc ? arc.name : (characters.find(c => c.id === characterId)?.name ?? 'Memuat...')}
+          </h2>
         </div>
         <button
-          onClick={scan}
-          disabled={scanning || totalChapters === 0 || characters.length === 0}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 dark:bg-indigo-500 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 transition-all active:scale-[0.98] shadow-sm hover:shadow-md"
+          onClick={onClose}
+          className="p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
-          {scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
-          {scanning ? 'Memindai…' : indexRef.current ? 'Pindai Ulang' : 'Pindai Manuskrip'}
+          <X size={20} />
         </button>
-        <p className="text-xs text-slate-400 dark:text-slate-500 sm:ml-auto self-center">{totalChapters} bab</p>
-      </div>
+      </header>
 
-      {/* Hasil */}
-      {arc && !scanning && (
-        <div className="space-y-8">
-          {/* Statistik */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Konten Scrollable */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+        {scanning && !arc && (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <Loader2 size={32} className="animate-spin mb-4" />
+            <p className="text-sm">Menghitung statistik porsi layar...</p>
+          </div>
+        )}
+        {arc && !scanning && (
+          <div className="space-y-8">
+            {/* Statistik */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard icon={<Sparkles size={14} />} label="Total sebutan" value={arc.totalMentions} accent="text-indigo-600 dark:text-indigo-400" />
             <StatCard icon={<MapPin size={14} />} label="Bab muncul" value={`${arc.chaptersPresent}/${totalChapters}`} />
             <StatCard icon={<Eye size={14} />} label="Bab POV" value={arc.povCount} />
@@ -200,24 +186,9 @@ export function CharacterArcPanel({ projectId }: CharacterArcPanelProps) {
             </>
           )}
         </div>
-      )}
-
-      {!arc && !scanning && (
-        <div className="flex flex-col items-center justify-center text-center py-16 px-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/50">
-          <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center mb-5">
-            <Activity size={24} className="text-slate-300 dark:text-slate-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1.5">
-            {characters.length === 0 ? 'Belum ada karakter' : 'Belum dipindai'}
-          </h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
-            {characters.length === 0
-              ? 'Tambahkan karakter di Kamus Data terlebih dahulu untuk melihat alur kemunculannya.'
-              : <>Pilih karakter lalu klik <span className="font-medium">Pindai Manuskrip</span> untuk melihat porsi layar dan ko-kemunculannya.</>}
-          </p>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
