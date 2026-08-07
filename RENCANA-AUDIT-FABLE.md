@@ -40,14 +40,14 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 |---|---|---|---|
 | ❌ Peta Kontinuitas: triase temuan | Dismiss/acknowledge persist agar daftar tak bising di 100+ bab | T | S–M |
 | ❌ Pencarian Semantik: index otomatis inkremental | Picu re-index (debounced) saat bab disimpan — `contentHash` sudah ada | S | S |
-| ❌ Timeline × Kalender Dunia | Pakai `worldCalendar.ts` deteksi konflik kronologi tanggal = plot-hole detector nol-token | S | M |
+| ✅ Timeline × Kalender Dunia | **SELESAI** — cek `timeline-mismatch` di `continuity.ts` (baris 220): peristiwa timeline menandai karakter terlibat tapi tak muncul di bab terkait. UI di `ContinuityDashboard` ("Timeline Tak Cocok"). Teruji di `continuity.test.ts` | S | M |
 | ❌ Glosarium: cakupan typo | Mode `strictMatch` opt-in per-entri untuk istilah multi-kata/huruf-kecil | R | M |
 | ❌ Janji Plot: saran kata kunci | Tawarkan kandidat keyword dari token kapital/glosarium di seleksi | R | S |
 
 ### 1d. Fitur Baru
 | Area | Ide | Dampak | Effort |
 |---|---|---|---|
-| ❌ Diff revisi antar-snapshot | Panel diff kata-level snapshot↔draf — jaring pengaman revisi, nol token. Tabel `snapshots` sudah ada | T | M |
+| ✅ Diff revisi antar-snapshot | **SELESAI** — `textDiff.ts` (word-level LCS, fallback per-baris untuk dokumen besar, +4 tes) + `SnapshotDiffModal.tsx` (modal perbandingan visual: hijau=muncul, merah=hilang, ringkasan kata +/−). Tombol "Bandingkan" di `SnapshotPanel.tsx`. Didokumentasikan di panduan | T | M |
 | ❌ Lensa Suara Dialog | Metrik ujaran per-karakter deterministik → deteksi "semua terdengar sama" | S | L |
 | ❌ Audit konsistensi batch | Antrian N bab beruntun memanfaatkan cache KB lintas-bab | S | M |
 | ❌ Papan status dunia per bab | Ledger keadaan (hidup/di mana/pegang apa) divalidasi deterministik — lanjutan Janji Plot | S | L |
@@ -68,7 +68,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | ✅ Kegagalan kuota `backups` | **SELESAI** — `addBackupResilient` (degradasi): saat `add` lempar error kuota → buang cadangan 'auto' tertua lalu retry, berulang; SELALU sisakan semua 'pre-restore' (undo) + 1 'auto' terbaru. Pilihan korban murni & teruji (`selectBackupToEvict`, +5 tes). Berlaku juga jalur `pre-restore`. Sisa (out): tabel `snapshots` (beda tabel) tak dirotasi — perlu kebijakan retensi sendiri | risiko | T | S–M | `backupService.ts`, `backupRetention.ts` |
 | ✅ 22 blok versi duplikat | **SELESAI** — konstanta berjenjang (`CORE_STORES` → `STORES_V14` → `STORES_V16` → … → `STORES_V32`) + spread; v11–v13 tetap inline (unik); v14–v32 merujuk konstanta. 22 blok × 12 baris → ~280 baris lebih ringkas; rantai versi lengkap dipertahankan, semua komentar historis diringkas. 426 tes lolos, `tsc --noEmit` bersih | debt | S | S | `src/db.ts:58-280` |
 | ❌ Upgrade v10/v18 muat-semua | **BELUM SELESAI** — `.upgrade()` pakai `toArray()` seluruh tabel dalam transaksi — jebakan bila migrasi berikutnya sentuh tabel besar. Perlu konvensi "migrasi streaming" di rule | perdalam | S | S | `src/db.ts:37-56,179-191` |
-| ❌ Restore lintas-versi tanpa validasi | **BELUM SELESAI** — `restoreData` terima backup lama tanpa cek bentuk per-field selain `data.projects` → file terpotong tetap `bulkAdd` mentah. Validator ringan per-tabel | fitur | S | M | `backupService.ts:310-390` |
+| ✅ Restore lintas-versi tanpa validasi | **SELESAI** — `restoreData` kini validasi: versi minimal ≥v3 (`version < 3` → tolak), cek `typeof version`, validasi array tabel inti (`projects`/`chapters`/`codex`), verifikasi checksum SHA-256 (backward-compatible: backup lama tanpa checksum dilewati). `validateProjectBackup` di `importRemap.ts` juga lengkap (+tes). Commit `fb9499f`/`998c1b9` | fitur | S | M | `backupService.ts:387-411`, `importRemap.ts:254-276` |
 
 ### #2 — Editor & daemon latar belakang
 | Area | Temuan | Kat | Dampak | Effort | File |
