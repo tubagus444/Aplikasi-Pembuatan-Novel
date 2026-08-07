@@ -11,6 +11,7 @@ import { useUI } from '@/src/contexts/UIContext';
 import { useGlobalEvents } from '@/src/hooks/useGlobalEvents';
 import { useAutoBackup } from '@/src/hooks/useAutoBackup';
 import { useAutoSummarizer } from '@/src/hooks/useAutoSummarizer';
+import { useAutoSemanticIndex } from '@/src/hooks/useAutoSemanticIndex';
 import { useStorageQuota } from '@/src/hooks/useStorageQuota';
 import { useDbIssueListener } from '@/src/hooks/useDbIssueListener';
 import { motion } from 'motion/react';
@@ -57,6 +58,8 @@ export default function App() {
   useAutoBackup();
   // Initialize Auto-Summarizer daemon
   useAutoSummarizer();
+  // Initialize Auto Semantic Index daemon (re-index saat bab disimpan)
+  useAutoSemanticIndex();
 
   // Surface kegagalan DB (terblokir/gagal buka/diperbarui di tab lain) sebagai toast.
   useDbIssueListener();

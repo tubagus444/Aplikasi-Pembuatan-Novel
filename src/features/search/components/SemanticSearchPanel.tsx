@@ -195,6 +195,14 @@ export function SemanticSearchPanel({ projectId }: SemanticSearchPanelProps) {
           </div>
         </div>
 
+        {/* Keterangan auto-index */}
+        {!neverIndexed && !isIndexing && (
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 -mt-1">
+            <Sparkles size={11} />
+            Indeks diperbarui otomatis saat Anda menulis. Tombol di atas untuk memaksa pembaruan segera.
+          </p>
+        )}
+
         {/* Progress bar */}
         {isIndexing && indexState.total > 0 && (
           <div className="space-y-1.5">

@@ -39,7 +39,7 @@ Menambah DB backend, multi-user/kolaborasi, pengerasan keamanan proxy — **out 
 | Area | Ide | Dampak | Effort |
 |---|---|---|---|
 | ❌ Peta Kontinuitas: triase temuan | Dismiss/acknowledge persist agar daftar tak bising di 100+ bab | T | S–M |
-| ❌ Pencarian Semantik: index otomatis inkremental | Picu re-index (debounced) saat bab disimpan — `contentHash` sudah ada | S | S |
+| ✅ Pencarian Semantik: index otomatis inkremental | **SELESAI** — daemon `useAutoSemanticIndex` (di `App.tsx`, selalu mount): pantau `MAX(lastModified)` bab via live query → debounce 8 detik → `indexManuscript` fire-and-forget. Hanya aktif jika indeks sudah pernah dibangun. Worker mengabaikan jika indexing berjalan (`manuscriptIndexing` guard) dan hanya embed chunk yang `contentHash` berubah. Panel menampilkan indikator "Indeks diperbarui otomatis" | S | S |
 | ✅ Timeline × Kalender Dunia | **SELESAI** — cek `timeline-mismatch` di `continuity.ts` (baris 220): peristiwa timeline menandai karakter terlibat tapi tak muncul di bab terkait. UI di `ContinuityDashboard` ("Timeline Tak Cocok"). Teruji di `continuity.test.ts` | S | M |
 | ❌ Glosarium: cakupan typo | Mode `strictMatch` opt-in per-entri untuk istilah multi-kata/huruf-kecil | R | M |
 | ❌ Janji Plot: saran kata kunci | Tawarkan kandidat keyword dari token kapital/glosarium di seleksi | R | S |
