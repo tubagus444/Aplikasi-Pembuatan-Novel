@@ -50,6 +50,7 @@ export interface BackupData {
     // (saveToInternalDB) demi menekan bengkak 5× — lengkap hanya di file/Drive/ekspor.
     maps?: any[];
     mapMarkers?: any[];
+    continuityTriage?: any[];
   };
 }
 
@@ -108,7 +109,8 @@ export const backupService = {
       plotPromises: await db.plotPromises.toArray(),
       glossary: await db.glossary.toArray(),
       maps: await this.serializeMaps(await db.maps.toArray()),
-      mapMarkers: await db.mapMarkers.toArray()
+      mapMarkers: await db.mapMarkers.toArray(),
+      continuityTriage: await db.continuityTriage.toArray()
     };
     return {
       version: 7, // v7: maps/mapMarkers (v6: glossary; v5: plotPromises; v4: checksum; v3: codexCategories)
@@ -427,7 +429,7 @@ export const backupService = {
     const mapRows = await this.deserializeMaps(data.maps);
 
     await db.transaction('rw',
-      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories, db.plotPromises, db.glossary, db.maps, db.mapMarkers],
+      [db.projects, db.chapters, db.codex, db.bible, db.aiActions, db.snapshots, db.timeline, db.relationships, db.chatSessions, db.embeddings, db.sceneEmbeddings, db.codexCategories, db.plotPromises, db.glossary, db.maps, db.mapMarkers, db.continuityTriage],
       async () => {
         // Clear existing data
         await db.projects.clear();
@@ -444,6 +446,7 @@ export const backupService = {
         await db.glossary.clear();
         await db.maps.clear();
         await db.mapMarkers.clear();
+        await db.continuityTriage.clear();
         await db.embeddings.clear(); // di-regenerasi dari codex; jangan dipulihkan dari backup
         await db.sceneEmbeddings.clear(); // indeks Pencarian Semantik; di-regenerasi on-demand
 
@@ -474,6 +477,7 @@ export const backupService = {
         if (data.glossary?.length) await db.glossary.bulkAdd(data.glossary);
         if (mapRows.length) await db.maps.bulkAdd(mapRows);
         if (data.mapMarkers?.length) await db.mapMarkers.bulkAdd(data.mapMarkers);
+        if (data.continuityTriage?.length) await db.continuityTriage.bulkAdd(data.continuityTriage);
     });
   },
 

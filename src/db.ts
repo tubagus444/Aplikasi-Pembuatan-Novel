@@ -4,7 +4,7 @@
  */
 
 import Dexie, { Table } from 'dexie';
-import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise, GlossaryEntry, AtlasMap, MapMarker } from '@/src/types';
+import { Chapter, Project, CodexEntry, StoryBibleRule, AIAction, Snapshot, TimelineEvent, Relationship, AppError, BackupRecord, ChatSession, VectorEmbedding, AIUsageLog, CustomCategory, SceneEmbedding, PlotPromise, GlossaryEntry, AtlasMap, MapMarker, ContinuityTriage } from '@/src/types';
 import { flushActiveEditor } from '@/src/features/editor/editorBridge';
 
 export class AetherScribeDB extends Dexie {
@@ -27,6 +27,7 @@ export class AetherScribeDB extends Dexie {
   glossary!: Table<GlossaryEntry>;
   maps!: Table<AtlasMap>;
   mapMarkers!: Table<MapMarker>;
+  continuityTriage!: Table<ContinuityTriage>;
 
   constructor() {
     super('AetherScribeDB');
@@ -103,6 +104,12 @@ export class AetherScribeDB extends Dexie {
       ...STORES_V25,
       maps: '++id, projectId',
       mapMarkers: '++id, projectId, mapId, codexId',
+    };
+
+    // v33: +continuityTriage
+    const STORES_V33 = {
+      ...STORES_V32,
+      continuityTriage: '++id, projectId, findingId'
     };
 
     // ─── Rantai versi ─────────────────────────────────────────────────────
@@ -214,6 +221,9 @@ export class AetherScribeDB extends Dexie {
     // codexId ber-factionTag, tanpa FK faksi terpisah). Append-only, tanpa migrasi
     // data (tabel baru kosong).
     this.version(32).stores(STORES_V32);
+
+    // v33: Triase temuan Peta Kontinuitas. Append-only, tanpa migrasi data.
+    this.version(33).stores(STORES_V33);
   }
 }
 

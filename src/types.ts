@@ -557,3 +557,14 @@ export interface MapMarker {
     [key: string]: any;
   };
 }
+
+// --- Kontinuitas (Triase Temuan) -----------------------------------------
+export type TriageStatus = 'dismissed' | 'acknowledged';
+
+export interface ContinuityTriage {
+  id?: number;
+  projectId: number;
+  findingId: string;
+  status: TriageStatus;
+  timestamp: number;
+}

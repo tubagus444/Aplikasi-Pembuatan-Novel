@@ -20,6 +20,8 @@ import {
 import { CharacterArcSidePanel } from './CharacterArcPanel';
 import { buildPresenceIndexAsync } from '@/src/services/contextEngine';
 import { cn } from '@/src/lib/utils';
+import { useContinuityTriage } from '@/src/hooks/useContinuityTriage';
+import { TriageStatus } from '@/src/types';
 
 interface ContinuityDashboardProps {
   projectId: number;
@@ -52,6 +54,9 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
   const [report, setReport] = useState<ContinuityReport | null>(null);
   const [presenceIndex, setPresenceIndex] = useState<PresenceIndex | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'hidden'>('active');
+
+  const { triageMap, setTriage, clearTriage } = useContinuityTriage(projectId);
 
   const openChapter = (id: number) => {
     setActiveChapterId(id);
@@ -73,6 +78,21 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
 
   const totalChapters = chapters?.length ?? 0;
   const characters = report?.presence.filter(p => p.category === 'character').slice(0, 14) ?? [];
+
+  const activeFindings: ContinuityFinding[] = [];
+  const hiddenFindings: ContinuityFinding[] = [];
+  
+  if (report) {
+    for (const f of report.findings) {
+      if (triageMap.has(f.id)) {
+        hiddenFindings.push(f);
+      } else {
+        activeFindings.push(f);
+      }
+    }
+  }
+
+  const displayedFindings = activeTab === 'active' ? activeFindings : hiddenFindings;
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8 pb-20 w-full">
@@ -180,14 +200,53 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
             </div>
           ) : (
             <section className="space-y-4">
-              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">{report.findings.length} temuan kontinuitas</h2>
-              <AnimatePresence mode="popLayout">
-                {report.findings.map((f, idx) => (
-                  <FindingCard key={f.id} finding={f} index={idx} onOpen={f.chapterIds[0] != null ? () => openChapter(f.chapterIds[0]) : undefined} />
-                ))}
-              </AnimatePresence>
+              <div className="flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <button
+                  onClick={() => setActiveTab('active')}
+                  className={cn(
+                    'text-sm font-bold pb-2 border-b-2 transition-colors',
+                    activeTab === 'active' 
+                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' 
+                      : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                  )}
+                >
+                  Temuan Aktif ({activeFindings.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('hidden')}
+                  className={cn(
+                    'text-sm font-bold pb-2 border-b-2 transition-colors',
+                    activeTab === 'hidden' 
+                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' 
+                      : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                  )}
+                >
+                  Disembunyikan ({hiddenFindings.length})
+                </button>
+              </div>
+              
+              {displayedFindings.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                  Tidak ada temuan di kategori ini.
+                </div>
+              ) : (
+                <AnimatePresence mode="popLayout">
+                  {displayedFindings.map((f, idx) => (
+                    <FindingCard 
+                      key={f.id} 
+                      finding={f} 
+                      index={idx} 
+                      triageStatus={triageMap.get(f.id)?.status}
+                      onTriage={(status) => setTriage(f.id, status)}
+                      onClearTriage={() => clearTriage(f.id)}
+                      onOpen={f.chapterIds[0] != null ? () => openChapter(f.chapterIds[0]) : undefined} 
+                    />
+                  ))}
+                </AnimatePresence>
+              )}
+              
               <p className="text-[11px] text-slate-400 dark:text-slate-500 italic pt-2">
-                Temuan bersifat heuristik (pencocokan nama) — beberapa jeda mungkin disengaja. Verifikasi sebelum mengubah naskah. Hasil tidak disimpan; pindai ulang kapan saja.
+                Temuan bersifat heuristik (pencocokan nama) — beberapa jeda mungkin disengaja. Verifikasi sebelum mengubah naskah. Pindai ulang kapan saja.
               </p>
             </section>
           )}
@@ -228,7 +287,14 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
   );
 }
 
-function FindingCard({ finding, index, onOpen }: { finding: ContinuityFinding; index: number; onOpen?: () => void }) {
+function FindingCard({ finding, index, triageStatus, onTriage, onClearTriage, onOpen }: { 
+  finding: ContinuityFinding; 
+  index: number; 
+  triageStatus?: TriageStatus;
+  onTriage?: (status: TriageStatus) => void;
+  onClearTriage?: () => void;
+  onOpen?: () => void 
+}) {
   const sev = SEVERITY_META[finding.severity];
   const check = CHECK_META[finding.check];
   return (
@@ -238,7 +304,12 @@ function FindingCard({ finding, index, onOpen }: { finding: ContinuityFinding; i
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ delay: Math.min(index * 0.03, 0.3) }}
-      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3"
+      className={cn(
+        "bg-white dark:bg-slate-900 border rounded-2xl p-5 shadow-sm space-y-3",
+        triageStatus === 'dismissed' ? "border-slate-200 dark:border-slate-800 opacity-60 grayscale-[0.5]" :
+        triageStatus === 'acknowledged' ? "border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/20 dark:bg-emerald-900/10" :
+        "border-slate-200 dark:border-slate-800"
+      )}
     >
       <div className="flex items-center gap-2 flex-wrap">
         <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border', sev.badge)}>
@@ -248,15 +319,56 @@ function FindingCard({ finding, index, onOpen }: { finding: ContinuityFinding; i
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
           {check.icon}{check.label}
         </span>
-        {onOpen && (
-          <button
-            onClick={onOpen}
-            title="Buka bab terkait di editor"
-            className="ml-auto inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors active:scale-95"
-          >
-            Buka bab <ArrowUpRight size={12} />
-          </button>
+        
+        {triageStatus === 'acknowledged' && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+            <CheckCircle2 size={12} /> Disengaja
+          </span>
         )}
+        
+        {triageStatus === 'dismissed' && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+            <EyeOff size={12} /> Diabaikan
+          </span>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          {onOpen && (
+            <button
+              onClick={onOpen}
+              title="Buka bab terkait di editor"
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors active:scale-95"
+            >
+              Buka bab <ArrowUpRight size={12} />
+            </button>
+          )}
+          
+          {triageStatus ? (
+            <button
+              onClick={onClearTriage}
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors active:scale-95"
+            >
+              Batal
+            </button>
+          ) : (
+            <div className="flex gap-1">
+              <button
+                onClick={() => onTriage?.('acknowledged')}
+                title="Tandai bahwa ini memang disengaja (misal: plot twist)"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors active:scale-95"
+              >
+                <CheckCircle2 size={12} /> Sengaja
+              </button>
+              <button
+                onClick={() => onTriage?.('dismissed')}
+                title="Abaikan dan sembunyikan temuan ini"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors active:scale-95"
+              >
+                <EyeOff size={12} /> Abaikan
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <h3 className="font-semibold text-slate-900 dark:text-slate-100 break-words">{finding.title}</h3>
       <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{finding.detail}</p>
