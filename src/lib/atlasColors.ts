@@ -23,19 +23,21 @@ const CATEGORY_HEX: Record<string, string> = {
   pink: '#ec4899', cyan: '#06b6d4', lime: '#84cc16', fuchsia: '#d946ef',
 };
 const FALLBACK_HEX = '#64748b';
+/** Warna kabut rahasia untuk entri tersembunyi (hidden: true). */
+export const FOG_HEX = '#7c3aed';
 
 /** Palet stabil untuk faksi — dipilih via hash tag agar warna konsisten antar sesi. */
 const FACTION_PALETTE = [
-  '#ef4444', '#3b82f6', '#10b981', '#f59e0b',
-  '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-  '#f97316', '#14b8a6', '#a855f7', '#eab308',
+  '#e11d48', '#2563eb', '#059669', '#d97706',
+  '#7c3aed', '#db2777', '#0891b2', '#65a30d',
+  '#ea580c', '#0d9488', '#9333ea', '#ca8a04',
 ];
 
 /** Warna default per jenis bila penanda tak tertaut Codex & tanpa warna eksplisit. */
 const KIND_DEFAULT: Record<string, string> = {
-  pin: '#ef4444',
-  area: '#8b5cf6',
-  route: '#0ea5e9',
+  pin: '#e11d48', // Ruby crimson hangat, anggun & kontras tinggi di peta terang/gelap
+  area: '#7c3aed', // Royal violet
+  route: '#0284c7', // Ocean sky blue, terbaca jelas di atas peta perkamen maupun peta gelap
 };
 
 /** Hash string → index palet (djb2 sederhana, deterministik). */

@@ -15,6 +15,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { ArrowLeft } from 'lucide-react';
 import { AtlasMap, MapMarker, MapPoint } from '@/src/types';
 import {
   relToLatLng,
@@ -22,6 +23,9 @@ import {
   latLngToRel,
   isPointGeometry,
 } from '@/src/lib/mapGeometry';
+import { RegionAnalytic } from '@/src/lib/atlasAnalytics';
+import { PresenceIndex } from '@/src/lib/continuity';
+import { FOG_HEX } from '@/src/lib/atlasColors';
 
 export type DrawMode = 'pin' | 'area' | 'route' | 'scale' | null;
 
@@ -35,6 +39,8 @@ interface MapCanvasProps {
   editing?: boolean;
   /** Warna render tiap penanda (diturunkan pemanggil dari faksi/kategori Codex). */
   colorFor: (m: MapMarker) => string;
+  /** Nama/judul tampilan aktual tiap penanda (mengutamakan nama entri Codex). */
+  titleFor?: (m: MapMarker) => string;
   /** Dipanggil saat sebuah geometri baru selesai digambar. */
   onCreateGeometry: (geometry: MapPoint | MapPoint[]) => void;
   onMarkerClick: (m: MapMarker) => void;
@@ -42,6 +48,18 @@ interface MapCanvasProps {
   onGeometryChange?: (markerId: number, geometry: MapPoint | MapPoint[]) => void;
   /** Progres gambar area/rute (jumlah titik draft) — untuk hint UI. */
   onDraftChange?: (points: number) => void;
+  // Fase 2 Props:
+  orphanMarkerIds?: Set<number>;
+  highlightOrphans?: boolean;
+  fadedMarkerIds?: Set<number>;
+  fogMode?: boolean;
+  isSecretEntry?: (codexId?: number) => boolean;
+  showHeatmap?: boolean;
+  regionAnalytics?: RegionAnalytic[];
+  presenceIndex?: PresenceIndex | null;
+  onOpenSubMap?: (mapId: number) => void;
+  parentMap?: AtlasMap | null;
+  onReturnToParent?: () => void;
 }
 
 /** Handle titik (bulat = pin/vertex, kotak vs bulat hanya kosmetik). */
@@ -64,6 +82,137 @@ function midIcon(): L.DivIcon {
   });
 }
 
+/** Ikon Pin Regular (Beacon Pin dengan kontras drop-shadow & dual-ring yang terbaca jelas di peta terang maupun gelap) */
+function regularPinIcon(color: string, isOrphan?: boolean): L.DivIcon {
+  const pinColor = isOrphan ? '#f59e0b' : color;
+  return L.divIcon({
+    className: 'atlas-beacon-pin',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    html: `
+      <div style="position:relative;width:22px;height:22px;display:flex;align-items:center;justify-content:center;">
+        <!-- Ring Luar Kontras Tinggi -->
+        <span style="position:absolute;inset:0;border-radius:9999px;background:rgba(0,0,0,0.28);"></span>
+        <!-- Badan Pin dengan Border Putih Bersih -->
+        <span style="position:absolute;inset:1.5px;border-radius:9999px;background:${pinColor};border:2px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></span>
+        <!-- Titik Inti Kilau Tengah -->
+        <span style="position:relative;width:4px;height:4px;border-radius:9999px;background:rgba(255,255,255,0.85);"></span>
+      </div>
+    `,
+  });
+}
+
+/** Ikon portal berkilau untuk Pin yang menautkan ke Sub-Peta */
+function portalPinIcon(color: string, selected: boolean): L.DivIcon {
+  const glow = selected ? '0 0 14px rgba(245, 158, 11, 0.95)' : '0 0 10px rgba(99, 102, 241, 0.75)';
+  const borderColor = selected ? '#f59e0b' : '#818cf8';
+  return L.divIcon({
+    className: 'atlas-portal-marker',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    html: `
+      <div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <span style="position:absolute;inset:0;border-radius:9999px;background:rgba(99,102,241,0.3);animation:ping 2s cubic-bezier(0,0,0.2,1) infinite;"></span>
+        <span style="position:absolute;inset:1px;border-radius:9999px;border:2px solid ${borderColor};background:rgba(15,23,42,0.88);box-shadow:${glow};"></span>
+        <span style="position:relative;width:15px;height:15px;border-radius:9999px;background:${color};display:flex;align-items:center;justify-content:center;color:#ffffff;box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </span>
+      </div>
+    `,
+  });
+}
+
+/** Badge melayang di pusat Wilayah (Area) yang menautkan ke Sub-Peta */
+function portalAreaBadgeIcon(title: string, selected: boolean): L.DivIcon {
+  return L.divIcon({
+    className: 'atlas-portal-area-badge',
+    iconSize: [120, 26],
+    iconAnchor: [60, 13],
+    html: `
+      <div style="${selected ? 'border-color: #f59e0b !important;' : ''}">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span style="max-width:80px;overflow:hidden;text-overflow:ellipsis;">${title}</span>
+        <span style="font-size:9px;background:#4f46e5;color:#ffffff;padding:1px 4px;border-radius:4px;margin-left:2px;font-weight:bold;">↗ Sub</span>
+      </div>
+    `,
+  });
+}
+
+/** Ikon Pin Terpilih — Radar Pulse Beacon & Floating Pill Nama Wilayah (Sangat Kontras & Adaptif Tema) */
+function selectedPinIcon(color: string, title: string, hasSubMap: boolean): L.DivIcon {
+  return L.divIcon({
+    className: 'atlas-selected-pin-marker',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    html: `
+      <div style="position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <!-- Radar Wave Ping 1 (Besar) -->
+        <span style="position:absolute;width:56px;height:56px;border-radius:9999px;background:rgba(245,158,11,0.22);border:2.5px solid rgba(245,158,11,0.9);animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></span>
+        <!-- Radar Wave Ping 2 (Lambat) -->
+        <span style="position:absolute;width:40px;height:40px;border-radius:9999px;background:rgba(245,158,11,0.28);border:2px solid rgba(245,158,11,0.95);animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;animation-delay:0.5s;"></span>
+        
+        <!-- Cincin Spotlight Utama (Adaptif Tema via CSS) -->
+        <span class="atlas-selected-pin-spotlight" style="position:absolute;width:28px;height:28px;border-radius:9999px;"></span>
+        
+        <!-- Titik Inti Pin -->
+        <span style="position:relative;width:15px;height:15px;border-radius:9999px;background:${color};border:2px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+          ${hasSubMap ? `<span style="font-size:8px;color:#ffffff;font-weight:900;">↗</span>` : ''}
+        </span>
+
+        <!-- Floating Badge Mengambang di Atas Pin (Adaptif Tema via CSS) -->
+        <div style="position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:999;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.3));">
+          <div class="atlas-selected-pin-badge">
+            <span style="width:7px;height:7px;border-radius:9999px;background:#f59e0b;display:inline-block;animation:pulse 1s infinite;"></span>
+            <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">${title}</span>
+            ${hasSubMap ? `<span style="font-size:9px;background:#4f46e5;color:#fff;padding:0 3px;border-radius:3px;">Sub-Peta</span>` : ''}
+          </div>
+          <!-- Indikator Panah Bawah -->
+          <div class="atlas-selected-pin-arrow"></div>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/** Badge Pusat Wilayah Poligon yang Sedang Dipilih */
+function selectedAreaBadgeIcon(title: string): L.DivIcon {
+  return L.divIcon({
+    className: 'atlas-selected-area-badge',
+    iconSize: [160, 30],
+    iconAnchor: [80, 15],
+    html: `
+      <div>
+        <span style="color:#f59e0b;font-size:13px;">🏰</span>
+        <span style="max-width:115px;overflow:hidden;text-overflow:ellipsis;">${title}</span>
+      </div>
+    `,
+  });
+}
+
+/** Badge Pusat Rute yang Sedang Dipilih */
+function selectedRouteBadgeIcon(title: string): L.DivIcon {
+  return L.divIcon({
+    className: 'atlas-selected-route-badge',
+    iconSize: [140, 28],
+    iconAnchor: [70, 14],
+    html: `
+      <div>
+        <span style="color:#f59e0b;">🛣️</span>
+        <span style="max-width:95px;overflow:hidden;text-overflow:ellipsis;">${title}</span>
+      </div>
+    `,
+  });
+}
+
 export default function MapCanvas({
   map,
   markers,
@@ -71,13 +220,26 @@ export default function MapCanvas({
   selectedMarkerId,
   editing,
   colorFor,
+  titleFor,
   onCreateGeometry,
   onMarkerClick,
   onGeometryChange,
   onDraftChange,
+  orphanMarkerIds,
+  highlightOrphans,
+  fadedMarkerIds,
+  fogMode,
+  isSecretEntry,
+  showHeatmap,
+  regionAnalytics,
+  presenceIndex,
+  onOpenSubMap,
+  parentMap,
+  onReturnToParent,
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const heatLayerRef = useRef<L.LayerGroup | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const draftLayerRef = useRef<L.LayerGroup | null>(null);
   const editLayerRef = useRef<L.LayerGroup | null>(null);
@@ -85,8 +247,42 @@ export default function MapCanvas({
 
   // Callback & data terbaru lewat ref → handler Leaflet imperatif tak jadi basi
   // tanpa memasang-ulang listener tiap render.
-  const propsRef = useRef({ colorFor, onCreateGeometry, onMarkerClick, onGeometryChange, onDraftChange, drawMode, selectedMarkerId });
-  propsRef.current = { colorFor, onCreateGeometry, onMarkerClick, onGeometryChange, onDraftChange, drawMode, selectedMarkerId };
+  const propsRef = useRef({
+    colorFor,
+    titleFor,
+    onCreateGeometry,
+    onMarkerClick,
+    onGeometryChange,
+    onDraftChange,
+    drawMode,
+    selectedMarkerId,
+    orphanMarkerIds,
+    highlightOrphans,
+    fadedMarkerIds,
+    fogMode,
+    isSecretEntry,
+    onOpenSubMap,
+    parentMap,
+    onReturnToParent,
+  });
+  propsRef.current = {
+    colorFor,
+    titleFor,
+    onCreateGeometry,
+    onMarkerClick,
+    onGeometryChange,
+    onDraftChange,
+    drawMode,
+    selectedMarkerId,
+    orphanMarkerIds,
+    highlightOrphans,
+    fadedMarkerIds,
+    fogMode,
+    isSecretEntry,
+    onOpenSubMap,
+    parentMap,
+    onReturnToParent,
+  };
 
   // --- Inisialisasi peta (sekali per gambar/peta) ---
   useEffect(() => {
@@ -113,6 +309,7 @@ export default function MapCanvas({
     leaflet.fitBounds(bounds);
     leaflet.setMaxBounds(leaflet.getBounds().pad(0.5));
 
+    heatLayerRef.current = L.layerGroup().addTo(leaflet);
     markerLayerRef.current = L.layerGroup().addTo(leaflet);
     draftLayerRef.current = L.layerGroup().addTo(leaflet);
     editLayerRef.current = L.layerGroup().addTo(leaflet);
@@ -121,12 +318,116 @@ export default function MapCanvas({
       URL.revokeObjectURL(objectUrl);
       leaflet.remove();
       mapRef.current = null;
+      heatLayerRef.current = null;
       markerLayerRef.current = null;
       draftLayerRef.current = null;
       editLayerRef.current = null;
       draftPointsRef.current = [];
     };
   }, [map.id, map.imageBlob, map.width, map.height]);
+
+  // --- Pan / pusatkan kamera saat penanda dipilih (mis. dari deep-link Codex atau katalog sidebar) ---
+  useEffect(() => {
+    if (!selectedMarkerId || !mapRef.current) return;
+    const m = markers.find((mk) => mk.id === selectedMarkerId);
+    if (!m) return;
+    const w = map.width || 1;
+    const h = map.height || 1;
+    let targetLatLng: L.LatLngTuple | null = null;
+    if (m.kind === 'pin' && isPointGeometry(m.geometry)) {
+      targetLatLng = relToLatLng(m.geometry, w, h);
+    } else if (Array.isArray(m.geometry) && m.geometry.length > 0) {
+      // Hitung titik pusat bounding box poligon/rute secara presisi
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const pt of m.geometry) {
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+      }
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      targetLatLng = relToLatLng({ x: centerX, y: centerY }, w, h);
+    }
+    if (targetLatLng) {
+      const leaflet = mapRef.current;
+      const currentZoom = leaflet.getZoom();
+      // Bila zoom terlalu jauh ke luar (kurang dari -0.5), zoom in agar objek langsung terlihat sangat jelas
+      if (currentZoom < -0.5) {
+        leaflet.flyTo(targetLatLng, -0.25, { animate: true, duration: 0.6 });
+      } else {
+        leaflet.panTo(targetLatLng, { animate: true, duration: 0.5 });
+      }
+    }
+  }, [selectedMarkerId, map.width, map.height]);
+
+  // --- Render layer heatmap (intensitas aktivitas cerita) ---
+  useEffect(() => {
+    const heatLayer = heatLayerRef.current;
+    if (!heatLayer) return;
+    heatLayer.clearLayers();
+    if (!showHeatmap) return;
+
+    const w = map.width || 1;
+    const h = map.height || 1;
+
+    // 1. Heat circle untuk wilayah berdasarkan score aktivitas
+    if (regionAnalytics) {
+      for (const reg of regionAnalytics) {
+        if (reg.score <= 0) continue;
+        const areaMarker = markers.find((m) => m.id === reg.markerId);
+        if (!areaMarker || !Array.isArray(areaMarker.geometry) || areaMarker.geometry.length === 0) continue;
+
+        let sumX = 0;
+        let sumY = 0;
+        const pts = areaMarker.geometry as MapPoint[];
+        for (const p of pts) {
+          sumX += p.x;
+          sumY += p.y;
+        }
+        const centroid: MapPoint = { x: sumX / pts.length, y: sumY / pts.length };
+        const centerLatLng = relToLatLng(centroid, w, h);
+
+        const radius = Math.min(100, Math.max(20, Math.sqrt(reg.score) * 16));
+        const heatColor = reg.score > 10 ? '#dc2626' : reg.score > 3 ? '#f97316' : '#eab308';
+
+        L.circleMarker(centerLatLng, {
+          radius,
+          color: heatColor,
+          weight: 0,
+          fillColor: heatColor,
+          fillOpacity: 0.35,
+          interactive: false,
+        }).addTo(heatLayer);
+      }
+    }
+
+    // 2. Heat circle untuk pin dengan sebutan dalam naskah
+    if (presenceIndex) {
+      for (const m of markers) {
+        if (m.kind !== 'pin' || !isPointGeometry(m.geometry) || !m.codexId) continue;
+        const p = presenceIndex.byEntity.get(m.codexId);
+        const mentions = p?.mentions ?? 0;
+        if (mentions <= 0) continue;
+
+        const pinLatLng = relToLatLng(m.geometry, w, h);
+        const radius = Math.min(60, Math.max(14, Math.sqrt(mentions) * 10));
+        const heatColor = mentions > 10 ? '#dc2626' : mentions > 3 ? '#ea580c' : '#f59e0b';
+
+        L.circleMarker(pinLatLng, {
+          radius,
+          color: heatColor,
+          weight: 0,
+          fillColor: heatColor,
+          fillOpacity: 0.3,
+          interactive: false,
+        }).addTo(heatLayer);
+      }
+    }
+  }, [showHeatmap, regionAnalytics, presenceIndex, markers, map.width, map.height]);
 
   // --- Render penanda tersimpan ---
   useEffect(() => {
@@ -139,31 +440,150 @@ export default function MapCanvas({
     for (const m of markers) {
       // Penanda yang sedang diedit digambar di editLayer (dengan handle) — lewati di sini.
       if (editing && m.id === selectedMarkerId) continue;
-      const color = propsRef.current.colorFor(m);
       const selected = m.id === selectedMarkerId;
+
+      const isOrphan = orphanMarkerIds?.has(m.id ?? 0);
+      const isFaded = fadedMarkerIds?.has(m.id ?? 0);
+      const isSecret = !!(fogMode && isSecretEntry?.(m.codexId));
+      const ghosted = highlightOrphans ? !isOrphan : isFaded;
+      const hasSubMap = m.linkedMapId != null;
+
+      const color = isSecret ? FOG_HEX : propsRef.current.colorFor(m);
+      const displayTitle = propsRef.current.titleFor
+        ? propsRef.current.titleFor(m)
+        : (isSecret ? '??? (Lokasi Rahasia)' : (m.title || (m.kind === 'area' ? 'Wilayah' : m.kind === 'route' ? 'Rute' : 'Lokasi')));
+
       let shape: L.Layer | null = null;
 
       if (m.kind === 'pin' && isPointGeometry(m.geometry)) {
-        shape = L.circleMarker(relToLatLng(m.geometry, w, h), {
-          radius: selected ? 9 : 7,
-          color: '#ffffff',
-          weight: 2,
-          fillColor: color,
-          fillOpacity: 1,
-        });
+        if (ghosted) {
+          shape = L.circleMarker(relToLatLng(m.geometry, w, h), {
+            radius: 5,
+            color: '#94a3b8',
+            weight: 1,
+            fillColor: '#cbd5e1',
+            fillOpacity: 0.25,
+            opacity: 0.3,
+          });
+        } else if (selected) {
+          // PIN TERPILIH: Sangat menonjol dengan Radar Wave, Halo Amber, dan Floating Pill Nama
+          shape = L.marker(relToLatLng(m.geometry, w, h), {
+            icon: selectedPinIcon(color, displayTitle, hasSubMap),
+            zIndexOffset: 1000,
+          });
+        } else if (highlightOrphans && isOrphan) {
+          shape = L.marker(relToLatLng(m.geometry, w, h), {
+            icon: regularPinIcon(color, true),
+          });
+        } else if (hasSubMap) {
+          shape = L.marker(relToLatLng(m.geometry, w, h), {
+            icon: portalPinIcon(color, false),
+          });
+        } else {
+          shape = L.marker(relToLatLng(m.geometry, w, h), {
+            icon: regularPinIcon(color, false),
+          });
+        }
       } else if (m.kind === 'area' && Array.isArray(m.geometry)) {
-        shape = L.polygon(relPathToLatLngs(m.geometry, w, h), {
-          color,
-          weight: selected ? 3 : 2,
-          fillColor: color,
-          fillOpacity: selected ? 0.4 : 0.22,
-        });
+        if (ghosted) {
+          shape = L.polygon(relPathToLatLngs(m.geometry, w, h), {
+            color: '#94a3b8',
+            weight: 1,
+            fillColor: '#cbd5e1',
+            fillOpacity: 0.05,
+            opacity: 0.2,
+          });
+        } else if (highlightOrphans && isOrphan) {
+          shape = L.polygon(relPathToLatLngs(m.geometry, w, h), {
+            color: '#f59e0b',
+            weight: selected ? 4 : 2.5,
+            dashArray: '6 4',
+            fillColor: '#f59e0b',
+            fillOpacity: selected ? 0.38 : 0.22,
+          });
+        } else {
+          const latlngs = relPathToLatLngs(m.geometry, w, h);
+          shape = L.polygon(latlngs, {
+            color: selected ? '#f59e0b' : (hasSubMap ? '#6366f1' : color),
+            weight: selected ? 4 : (hasSubMap ? 2.5 : 2),
+            dashArray: selected ? '8 4' : (isSecret ? '5 5' : (hasSubMap ? '6 3' : undefined)),
+            fillColor: color,
+            fillOpacity: selected ? 0.38 : (isSecret ? 0.12 : (hasSubMap ? 0.25 : 0.18)),
+          });
+
+          // Badge di pusat area: jika memiliki sub-peta atau sedang terpilih
+          if (latlngs.length >= 3) {
+            const polyCenter = (shape as L.Polygon).getBounds().getCenter();
+            if (hasSubMap) {
+              const badge = L.marker(polyCenter, {
+                icon: portalAreaBadgeIcon(displayTitle || 'Sub-Peta', selected),
+                zIndexOffset: selected ? 900 : 0,
+                keyboard: false,
+              });
+              badge.on('click', (e) => {
+                L.DomEvent.stopPropagation(e as unknown as Event);
+                propsRef.current.onMarkerClick(m);
+              });
+              badge.on('dblclick', (e) => {
+                L.DomEvent.stopPropagation(e as unknown as Event);
+                propsRef.current.onOpenSubMap?.(m.linkedMapId!);
+              });
+              if (!selected) {
+                badge.bindTooltip(displayTitle + ' (↗ Dobel-klik: Buka Sub-Peta)', { direction: 'top', offset: [0, -8] });
+              }
+              badge.addTo(layer);
+            } else if (selected) {
+              // Jika area biasa tapi sedang terpilih: tampilkan badge nama wilayah di pusat
+              const badge = L.marker(polyCenter, {
+                icon: selectedAreaBadgeIcon(displayTitle),
+                zIndexOffset: 900,
+                keyboard: false,
+              });
+              badge.on('click', (e) => {
+                L.DomEvent.stopPropagation(e as unknown as Event);
+                propsRef.current.onMarkerClick(m);
+              });
+              badge.addTo(layer);
+            }
+          }
+        }
       } else if (m.kind === 'route' && Array.isArray(m.geometry)) {
-        shape = L.polyline(relPathToLatLngs(m.geometry, w, h), {
-          color,
-          weight: selected ? 5 : 3,
-          opacity: 0.9,
-        });
+        if (ghosted) {
+          shape = L.polyline(relPathToLatLngs(m.geometry, w, h), {
+            color: '#94a3b8',
+            weight: 2,
+            opacity: 0.2,
+          });
+        } else if (highlightOrphans && isOrphan) {
+          shape = L.polyline(relPathToLatLngs(m.geometry, w, h), {
+            color: '#f59e0b',
+            weight: selected ? 6 : 4,
+            dashArray: '8 4',
+            opacity: 1,
+          });
+        } else {
+          shape = L.polyline(relPathToLatLngs(m.geometry, w, h), {
+            color: selected ? '#f59e0b' : color,
+            weight: selected ? 5.5 : 3.5,
+            dashArray: selected ? '8 4' : undefined,
+            opacity: 0.9,
+          });
+
+          if (selected && Array.isArray(m.geometry) && m.geometry.length >= 2) {
+            const routeBounds = (shape as L.Polyline).getBounds();
+            const routeCenter = routeBounds.getCenter();
+            const badge = L.marker(routeCenter, {
+              icon: selectedRouteBadgeIcon(displayTitle),
+              zIndexOffset: 900,
+              keyboard: false,
+            });
+            badge.on('click', (e) => {
+              L.DomEvent.stopPropagation(e as unknown as Event);
+              propsRef.current.onMarkerClick(m);
+            });
+            badge.addTo(layer);
+          }
+        }
       }
 
       if (shape) {
@@ -171,11 +591,28 @@ export default function MapCanvas({
           L.DomEvent.stopPropagation(e as unknown as Event);
           propsRef.current.onMarkerClick(m);
         });
-        if (m.title) (shape as any).bindTooltip?.(m.title, { direction: 'top' });
+        shape.on('dblclick', (e) => {
+          L.DomEvent.stopPropagation(e as unknown as Event);
+          if (hasSubMap) {
+            propsRef.current.onOpenSubMap?.(m.linkedMapId!);
+          } else {
+            propsRef.current.onMarkerClick(m);
+          }
+        });
+        // Tooltip hover hanya ditampilkan saat penanda TIDAK sedang dipilih.
+        // Saat dipilih, penanda sudah memiliki floating pill badge permanen yang jelas,
+        // sehingga tooltip hover tidak lagi tumpang-tindih atau menghalangi nama penanda.
+        if (displayTitle && !selected) {
+          const tooltipText = displayTitle + (hasSubMap ? ' (↗ Dobel-klik: Buka Sub-Peta)' : '');
+          (shape as any).bindTooltip?.(tooltipText, {
+            direction: 'top',
+            offset: m.kind === 'pin' ? [0, -14] : [0, -6],
+          });
+        }
         shape.addTo(layer);
       }
     }
-  }, [markers, selectedMarkerId, editing, map.width, map.height, map.id]);
+  }, [markers, selectedMarkerId, editing, map.width, map.height, map.id, orphanMarkerIds, highlightOrphans, fadedMarkerIds, fogMode]);
 
   // --- Mode edit geometri penanda terpilih ---
   useEffect(() => {
@@ -362,5 +799,57 @@ export default function MapCanvas({
     };
   }, [drawMode, map.width, map.height, map.id]);
 
-  return <div ref={containerRef} className="h-full w-full bg-neutral-100 dark:bg-neutral-900" />;
+  // Pan halus ke penanda saat selectedMarkerId berubah dari luar (mis. kembali lewat breadcrumb / Codex)
+  const lastSelectedMarkerIdRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (selectedMarkerId == null) {
+      lastSelectedMarkerIdRef.current = undefined;
+      return;
+    }
+    if (lastSelectedMarkerIdRef.current !== selectedMarkerId) {
+      lastSelectedMarkerIdRef.current = selectedMarkerId;
+      const marker = markers.find((m) => m.id === selectedMarkerId);
+      const leaflet = mapRef.current;
+      if (!marker || !leaflet) return;
+
+      const w = map.width || 1;
+      const h = map.height || 1;
+      let targetLatLng: L.LatLng | null = null;
+
+      if (marker.kind === 'pin' && isPointGeometry(marker.geometry)) {
+        const tuple = relToLatLng(marker.geometry, w, h);
+        targetLatLng = L.latLng(tuple[0], tuple[1]);
+      } else if (Array.isArray(marker.geometry) && marker.geometry.length > 0) {
+        const bounds = L.latLngBounds(relPathToLatLngs(marker.geometry, w, h));
+        targetLatLng = bounds.getCenter();
+      }
+
+      if (targetLatLng) {
+        if (!leaflet.getBounds().contains(targetLatLng)) {
+          leaflet.panTo(targetLatLng, { animate: true, duration: 0.5 });
+        }
+      }
+    }
+  }, [selectedMarkerId, markers, map.width, map.height]);
+
+  return (
+    <div className="relative h-full w-full overflow-hidden select-none">
+      <div ref={containerRef} className="h-full w-full bg-neutral-100 dark:bg-neutral-900" />
+      {/* Floating Return Pill ke Peta Induk */}
+      {parentMap && onReturnToParent && (
+        <div className="absolute top-3 left-14 z-[400] flex items-center pointer-events-auto">
+          <button
+            onClick={onReturnToParent}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 hover:bg-white dark:hover:bg-slate-800 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer group"
+            title={`Kembali ke peta induk: ${parentMap.name}`}
+          >
+            <ArrowLeft size={14} className="text-indigo-400 group-hover:-translate-x-0.5 transition-transform" />
+            <span>
+              Kembali ke <span className="text-indigo-300 font-bold">{parentMap.name}</span>
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -408,22 +408,30 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'atlas', group: 'world', Icon: MapIcon, color: 'cyan', view: 'atlas',
-    title: 'Atlas Dunia (peta interaktif)',
+    title: 'Atlas Dunia (peta interaktif & bertingkat)',
     where: 'Menu: Atlas Dunia',
-    what: 'Unggah gambar peta dunia Anda sendiri, lalu tandai lokasi, wilayah, dan rute yang bisa diklik — tertaut ke Codex & manuskrip. Sepenuhnya lokal, tanpa AI.',
+    what: 'Kanvas peta multilayer offline: unggah gambar peta, tandai lokasi/wilayah/rute, kalibrasi skala nyata, hitung waktu tempuh rute, bangun hierarki sub-peta bertingkat, dan lacak kontinuitas kehadiran adegan. Sepenuhnya lokal, nol token.',
     steps: [
-      'Unggah gambar peta (PNG/JPG/WEBP/GIF, maks 5 MB — otomatis diperkecil bila terlalu besar).',
-      'Pilih alat di bilah: "Pin" (klik sekali di peta), "Area" atau "Rute" (klik-klik menambah titik, dobel-klik atau Enter untuk selesai, Esc batal).',
-      'Klik sebuah penanda → panel samping: tautkan ke entri Codex, lihat deskripsinya, dan daftar "muncul di bab" (dari kehadiran nama entri di naskah).',
-      'Untuk mengubah penanda: pilih → "Ubah posisi/bentuk" → seret titik; pada area/rute klik titik-tengah untuk menambah titik, klik-kanan untuk menghapus.',
+      'Unggah gambar peta (PNG/JPG/WEBP/GIF, maks 5 MB — otomatis dioptimalkan). Anda bisa memiliki banyak peta per proyek (dunia, benua, kota, denah kastil).',
+      'Tandai fitur geografis: gunakan alat "Pin" (klik 1×), "Area" (poligon batas kerajaan/hutan), atau "Rute" (polyline jalan/pelayaran). Dobel-klik atau Enter untuk menyelesaikan garis, Esc untuk batal.',
+      'Kalibrasi Skala (tombol "Skala"): tarik garis sepanjang mistar skala grafis di peta, lalu masukkan jarak nyata (mis. 100 km). Rute otomatis menampilkan jarak riil dan waktu tempuh berdasarkan metode perjalanan (Jalan Kaki, Kuda, Kapal, dll di tombol "Kecepatan").',
+      'Katalog Wilayah & Direktori Semesta: Sidebar kanan otomatis menampilkan katalog seluruh wilayah (tab "Peta Ini" dan "Semua Peta"). Dilengkapi pencarian instan, filter jenis (Area/Pin/Rute), filter Yatim, dan tombol kembali "← Daftar Wilayah".',
+      'Peta Bertingkat (Sub-Maps): pilih Pin atau Area → tautkan ke sub-peta di sidebar lewat Kartu Pratinjau Sub-Peta. Penanda portal berpendar terang di kanvas; dobel-klik penanda untuk langsung menjelajahi sub-peta.',
+      'Navigasi Cepat & Pohon Peta: gunakan bilah remah roti (breadcrumbs) di atas atau tombol melayang "← Kembali ke [Peta Induk]" di kanvas. Klik tombol "Pohon" di toolbar untuk melihat pohon hierarki seluruh peta dunia novel Anda.',
+      'Analitik Kontinuitas: aktifkan tombol "Yatim" (deteksi lokasi yang belum pernah dikunjungi di naskah), "Linimasa" (slider bab untuk meredupkan penanda bab masa depan), "Heatmap" (konsentrasi aktivitas adegan), dan "Kabut" (menyamarkan rahasia penulis).',
     ],
     detail: [
-      'Boleh banyak peta per novel (dunia, benua, kota) — ganti lewat pemilih di bilah alat.',
-      'Warna penanda diturunkan otomatis: dari faksi entri tertaut (entri Codex ber-tag faksi), lalu warna kategorinya; bisa ditimpa manual per penanda.',
-      'Filter (tombol "Filter"): sembunyikan per jenis (pin/area/rute), per kategori Codex, atau per faksi — datanya tetap utuh, hanya tampilannya disaring.',
-      'Peta digambar di atas gambar Anda tanpa koneksi internet (tak ada peta jalan/tile server) — murni kanvas offline.',
+      'Katalog Wilayah Terpadu: Sidebar kanan dual-mode menampilkan daftar wilayah terindeks saat tidak ada penanda dipilih. Tab "Semua Peta" mengelompokkan wilayah per peta novel dengan teleportasi 1-klik (otomatis berganti peta dan meluncurkan kamera langsung ke wilayah target). Anda juga bisa menutup sidebar dengan tombol "Wilayah" di toolbar untuk memaksimalkan kanvas.',
+      'Peta Bertingkat & Memori Spasial: Penanda portal memiliki cincin pendar pulsa (pin) atau badge interaktif di pusat poligon (area). Saat kembali ke peta induk lewat breadcrumbs atau tombol melayang kanvas, aplikasi mengingat penanda asal dan secara halus memusatkan kamera kembali ke titik tersebut.',
+      'Pohon Hierarki Peta: Tombol "Pohon" membuka direktori visual pohon relasi (Peta Dunia → Benua → Kota), status peta aktif, pencarian instan, dan daftar peta mandiri yang belum tertaut.',
+      'Deep-Link Balik dari Codex: Entri Codex lokasi/faksi/tokoh yang ditandai di peta memiliki tombol ikon MapPin ("Lihat di Peta"). Sekali klik langsung berpindah ke peta yang tepat, memusatkan kamera, dan membuka panel detailnya.',
+      'Wilayah Yatim (Orphan Markers): Mengidentifikasi lokasi yang belum memiliki entri Codex atau belum pernah menjadi latar adegan di bab mana pun (mengecek nama & sebutan region); lokasi aktif diredupkan (ghosting) agar yang belum ditulis terlihat jelas.',
+      'Estimasi Jarak & Waktu Tempuh: Jarak rute dihitung secara matematis berdasarkan kalibrasi piksel. Tombol "Kecepatan" memungkinkan Anda membuat profil transportasi kustom (mis. Naga Terbang: 150 km/hari, Gerobak: 20 km/hari).',
+      'Mode Kabut Rahasia: Penanda yang menaut entri berkategori "Rahasia Penulis" (hidden: true) otomatis disamarkan namanya menjadi "??? (Lokasi Rahasia)" dengan pendar ungu kabut (FOG_HEX) dan sensor deskripsi ramah spoiler.',
+      'Heatmap Kehadiran: Memvisualisasikan frekuensi dan bobot sebutan adegan per wilayah secara native di atas kanvas Leaflet tanpa dependensi luar.',
+      'Penyuntingan Geometri: Pilih penanda → "Ubah posisi/bentuk": seret titik untuk memindah, klik titik-tengah untuk menambah lekukan, klik-kanan titik untuk menghapus.',
     ],
-    tip: 'Gambar peta ikut dalam Ekspor Novel & cadangan file/Drive, tapi TIDAK dalam cadangan otomatis internal (agar ramping). Bila memulihkan dari cadangan otomatis, penanda tetap utuh — cukup unggah ulang gambarnya.',
+    tip: 'Seluruh komputasi analitik (skala, jarak, pohon hierarki sub-peta, wilayah yatim, linimasa bab, heatmap) berjalan 100% lokal & gratis token. Gambar peta disimpan lokal di IndexedDB dan disertakan dalam Ekspor Cadangan Novel penuh.',
   },
   {
     id: 'bible', group: 'world', Icon: Book, color: 'sky', view: 'bible',
@@ -792,6 +800,13 @@ export const SMALL_FEATURES: SmallFeature[] = [
   { title: 'Cek koneksi provider', where: 'Pengaturan → kredensial AI', desc: 'Uji apakah kunci & model sebuah penyedia benar-benar bekerja sebelum Anda mulai menulis.' },
   { title: 'Pencarian Global', where: 'Ctrl+K (atau Ctrl+F)', desc: 'Lompat cepat ke bab atau entri Codex mana pun dari mana saja di aplikasi.' },
   { title: 'Sinkronisasi Google Drive', where: 'Pengaturan → Backup', desc: 'Cadangan otomatis ke Drive (BYOK) untuk salinan luar perangkat, di atas backup lokal internal.' },
+  { title: 'Peta Bertingkat (Sub-Maps)', where: 'Atlas Dunia → Form Penanda / Kanvas', desc: 'Tautkan wilayah/pin ke peta lokal (kota, dungeon, denah gedung). Menghadirkan portal klik ganda dan pil navigasi mengambang untuk kembali ke peta induk.' },
+  { title: 'Pohon Hierarki Peta', where: 'Atlas Dunia → Toolbar (ikon Pohon)', desc: 'Dialog direktori visual yang menampilkan silsilah bersarang seluruh peta proyek (Dunia → Benua → Kota → Denah) dengan pencarian dan lompat langsung.' },
+  { title: 'Kalibrasi Skala & Waktu Tempuh', where: 'Atlas Dunia → Toolbar (ikon Skala)', desc: 'Tentukan rasio piksel ke kilometer/mil untuk menghitung jarak rute dan estimasi durasi perjalanan karakter (jalan kaki, kuda, kapal) otomatis tanpa AI.' },
+  { title: 'Sorot Wilayah Yatim', where: 'Atlas Dunia → Toolbar (ikon Yatim)', desc: 'Mendeteksi dan menyorot penanda peta yang belum memiliki entri Codex, meredupkan penanda lain agar Anda fokus melengkapi kontinuitas lore.' },
+  { title: 'Linimasa Bab Peta', where: 'Atlas Dunia → Toolbar (ikon Linimasa)', desc: 'Slider kronologis bab untuk melihat wilayah mana saja yang sudah dijelajahi atau aktif hingga bab tertentu dalam cerita novel.' },
+  { title: 'Lompat ke Peta dari Codex', where: 'Kamus Data → Header detail entri (ikon MapPin)', desc: 'Satu klik pada ikon pin di entri Codex lokasi untuk membuka modul Atlas dan langsung menyorot kamera ke penanda wilayahnya.' },
+  { title: 'Katalog Wilayah Terpadu', where: 'Atlas Dunia → Sidebar kanan / Toolbar "Wilayah"', desc: 'Daftar seluruh wilayah di peta aktif maupun seluruh peta novel dengan pencarian cepat, filter jenis, deteksi yatim, dan teleportasi 1-klik ke lokasi.' },
 ];
 
 export const TIPS = [
@@ -810,6 +825,8 @@ export const SHORTCUTS = [
   { key: 'Ctrl+Alt+F',  action: 'Mode Fokus (sembunyikan antarmuka)' },
   { key: 'Ctrl+Enter',  action: 'Simpan catatan revisi (saat mengetik catatan)' },
   { key: 'Esc',         action: 'Tutup bilah Cari & Ganti / dialog' },
+  { key: 'Enter / Dobel-klik', action: 'Selesaikan poligon area atau rute di Atlas' },
+  { key: 'Dobel-klik Penanda', action: 'Buka sub-peta (pada penanda bertaut di Atlas)' },
 ];
 
 // Kategori navigasi (pil).

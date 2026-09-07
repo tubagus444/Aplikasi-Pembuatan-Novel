@@ -208,6 +208,11 @@ export function remapProjectDependents(
         if (nc !== undefined) remapped.codexId = nc;
         else delete remapped.codexId;
       }
+      if (mk.linkedMapId !== undefined) {
+        const nlm = mapIdMap.get(mk.linkedMapId);
+        if (nlm !== undefined) remapped.linkedMapId = nlm;
+        else delete remapped.linkedMapId;
+      }
       return remapped as MapMarker;
     })
     .filter((mk): mk is MapMarker => mk !== null);

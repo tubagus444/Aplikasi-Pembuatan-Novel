@@ -8,13 +8,14 @@
  */
 
 import { useEffect, useState } from 'react';
-import { MapPin, Route as RouteIcon, Hexagon, X, Trash2, BookOpen, Link2, Move, Check, Clock, Ruler } from 'lucide-react';
+import { MapPin, Route as RouteIcon, Hexagon, X, Trash2, BookOpen, Link2, Move, Check, Clock, Ruler, AlertTriangle, Layers, ExternalLink, EyeOff, ArrowLeft } from 'lucide-react';
 import { CodexEntry, MapMarker, AtlasMap, TravelSpeedProfile, MapPoint } from '@/src/types';
 import { CategoryDef, getCategoryLabel } from '@/src/lib/codexCategories';
 import { stripHtml } from '@/src/lib/editorUtils';
 import { cn } from '@/src/lib/utils';
 import { RegionAnalytic } from '@/src/lib/atlasAnalytics';
 import { calculateRelativeDistance, calculateRealDistance, calculateTravelTime } from '@/src/lib/mapGeometry';
+import { SubMapPreviewCard } from './SubMapPreviewCard';
 
 export interface PresenceChapter {
   id: number;
@@ -36,6 +37,15 @@ interface MarkerSidebarProps {
   editing: boolean;
   activeMap: AtlasMap;
   travelSpeeds?: TravelSpeedProfile[];
+  /** Status yatim */
+  isOrphan?: boolean;
+  orphanReason?: 'never_mentioned' | 'unlinked';
+  /** Mode kabut rahasia */
+  fogMode?: boolean;
+  /** Daftar seluruh peta untuk penautan sub-peta */
+  allMaps?: AtlasMap[];
+  allMarkers?: MapMarker[];
+  onOpenSubMap?: (mapId: number) => void;
   onToggleEdit: () => void;
   onSave: (patch: Partial<MapMarker>) => void;
   onDelete: () => void;
@@ -61,6 +71,12 @@ export default function MarkerSidebar({
   editing,
   activeMap,
   travelSpeeds,
+  isOrphan,
+  orphanReason,
+  fogMode,
+  allMaps,
+  allMarkers,
+  onOpenSubMap,
   onToggleEdit,
   onSave,
   onDelete,
@@ -79,7 +95,8 @@ export default function MarkerSidebar({
 
   const Meta = KIND_META[marker.kind] ?? KIND_META.pin;
   const Icon = Meta.icon;
-  const heading = entry?.name || marker.title || Meta.label;
+  const isHiddenSecret = !!(fogMode && entry?.hidden);
+  const heading = isHiddenSecret ? '??? (Lokasi Rahasia)' : (entry?.name || marker.title || Meta.label);
   const description = entry?.description ? stripHtml(entry.description) : '';
 
   // Hitung jarak & waktu untuk Rute
@@ -93,10 +110,28 @@ export default function MarkerSidebar({
   const travelTime = realDist > 0 && selectedSpeed ? calculateTravelTime(realDist, selectedSpeed.speedPerDay) : 0;
 
   return (
-    <aside className="w-80 shrink-0 h-full overflow-y-auto border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
+    <aside className="w-80 shrink-0 h-full overflow-y-auto border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col z-10 shadow-sm">
+      {/* Navigasi Cepat: Kembali ke Katalog Wilayah */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-xs">
+        <button
+          onClick={onClose}
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-medium cursor-pointer"
+        >
+          <ArrowLeft size={13} />
+          <span>Daftar Wilayah</span>
+        </button>
+        <button
+          onClick={onClose}
+          title="Tutup Detail"
+          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
       <div className="flex items-start justify-between gap-2 p-4 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: color }}>
+          <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: isHiddenSecret ? '#7c3aed' : color }}>
             <Icon size={14} className="text-white" />
           </span>
           <div className="min-w-0">
@@ -104,12 +139,24 @@ export default function MarkerSidebar({
             <p className="text-[11px] text-slate-400">{Meta.label}{entry && ` · ${getCategoryLabel(entry.category, categories)}`}</p>
           </div>
         </div>
-        <button onClick={onClose} aria-label="Tutup" className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-          <X size={16} />
-        </button>
       </div>
 
       <div className="p-4 space-y-5 flex-1">
+        {/* Peringatan Wilayah Yatim */}
+        {isOrphan && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
+              <AlertTriangle size={14} className="shrink-0" />
+              {orphanReason === 'unlinked' ? 'Penanda Belum Ditautkan' : 'Wilayah / Lokasi Yatim'}
+            </div>
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+              {orphanReason === 'unlinked'
+                ? 'Penanda ini belum memiliki entri Codex sehingga tidak dapat dilacak kehadirannya di naskah.'
+                : 'Entri ini belum pernah disebutkan atau menjadi latar adegan di bab mana pun dalam manuskrip.'}
+            </p>
+          </div>
+        )}
+
         {/* Ubah geometri */}
         <div className="space-y-2">
           <button
@@ -133,8 +180,15 @@ export default function MarkerSidebar({
         {/* Deskripsi Codex */}
         {entry ? (
           <div className="space-y-2">
-            {description && (
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-6">{description}</p>
+            {isHiddenSecret ? (
+              <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/60 rounded-xl text-xs text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                <EyeOff size={14} className="shrink-0" />
+                <span>Deskripsi disamarkan dalam Mode Kabut Rahasia.</span>
+              </div>
+            ) : (
+              description && (
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-6">{description}</p>
+              )
             )}
             <button
               onClick={() => onOpenCodex(entry.id!)}
@@ -153,7 +207,7 @@ export default function MarkerSidebar({
           <select
             value={marker.codexId ?? ''}
             onChange={(e) => onSave({ codexId: e.target.value ? Number(e.target.value) : undefined })}
-            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-indigo-400"
+            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-400 dark:[&>option]:bg-slate-900 dark:[&>option]:text-slate-100"
           >
             <option value="">— tak tertaut —</option>
             {codexEntries.map((c) => (
@@ -161,6 +215,18 @@ export default function MarkerSidebar({
             ))}
           </select>
         </label>
+
+        {/* Peta Bertingkat (Sub-peta) */}
+        {allMaps && allMaps.length > 1 && (
+          <SubMapPreviewCard
+            subMapId={marker.linkedMapId}
+            activeMapId={activeMap.id!}
+            allMaps={allMaps}
+            allMarkers={allMarkers}
+            onOpenSubMap={onOpenSubMap}
+            onChangeLinkedMap={(linkedMapId) => onSave({ linkedMapId })}
+          />
+        )}
         
         {/* Kalkulator Waktu & Jarak (hanya untuk Rute) */}
         {marker.kind === 'route' && (
@@ -183,7 +249,7 @@ export default function MarkerSidebar({
                   <select
                     value={selectedSpeedId ?? ''}
                     onChange={(e) => onSave({ meta: { ...marker.meta, speedProfileId: e.target.value || undefined } })}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-400 dark:[&>option]:bg-slate-900 dark:[&>option]:text-slate-100"
                   >
                     <option value="">— pilih metode —</option>
                     {(travelSpeeds || []).map(s => (
@@ -243,7 +309,7 @@ export default function MarkerSidebar({
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => title !== (marker.title ?? '') && onSave({ title: title.trim() || undefined })}
             placeholder="mis. Gerbang Utara"
-            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-indigo-400"
+            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-400"
           />
         </label>
         <label className="block space-y-1.5">
@@ -254,7 +320,7 @@ export default function MarkerSidebar({
             onBlur={() => note !== (marker.note ?? '') && onSave({ note: note.trim() || undefined })}
             rows={3}
             placeholder="Catatan bebas untuk penanda ini…"
-            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-sm resize-none focus:outline-none focus:border-indigo-400"
+            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none focus:outline-none focus:border-indigo-400"
           />
         </label>
 

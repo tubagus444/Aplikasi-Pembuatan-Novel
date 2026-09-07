@@ -66,8 +66,8 @@ function sampleData(): ProjectBackupData {
       { id: 17, projectId: 9, term: 'liga', variants: ['leage'], createdAt: 1, updatedAt: 1 },
     ],
     mapMarkers: [
-      { id: 40, projectId: 9, mapId: 30, kind: 'pin', geometry: { x: 0.5, y: 0.5 }, codexId: 20, createdAt: 1 },
-      { id: 41, projectId: 9, mapId: 31, kind: 'area', geometry: [{ x: 0, y: 0 }], codexId: 999, createdAt: 1 },
+      { id: 40, projectId: 9, mapId: 30, kind: 'pin', geometry: { x: 0.5, y: 0.5 }, codexId: 20, linkedMapId: 31, createdAt: 1 },
+      { id: 41, projectId: 9, mapId: 31, kind: 'area', geometry: [{ x: 0, y: 0 }], codexId: 999, linkedMapId: 999, createdAt: 1 },
       { id: 42, projectId: 9, mapId: 999, kind: 'route', geometry: [{ x: 0, y: 0 }], createdAt: 1 },
     ],
   };
@@ -105,17 +105,19 @@ describe('remapProjectDependents', () => {
     expect(r.plotPromises[1].keywords).toEqual(['ramalan']);
   });
 
-  it('remap mapMarkers: mapId & codexId di-remap, penanda yatim (peta hilang) dibuang', () => {
+  it('remap mapMarkers: mapId, codexId & linkedMapId di-remap, penanda yatim (peta hilang) dibuang', () => {
     const r = remapProjectDependents(sampleData(), maps);
     // M3 (mapId 999 tak dikenal) dibuang → sisa 2.
     expect(r.mapMarkers).toHaveLength(2);
-    // M1: mapId 30→300, codexId 20→200.
+    // M1: mapId 30→300, codexId 20→200, linkedMapId 31→301.
     expect(r.mapMarkers[0].mapId).toBe(300);
     expect(r.mapMarkers[0].codexId).toBe(200);
+    expect(r.mapMarkers[0].linkedMapId).toBe(301);
     expect(r.mapMarkers[0].projectId).toBe(5);
-    // M2: mapId 31→301, codexId 999 tak dikenal → dibuang.
+    // M2: mapId 31→301, codexId 999 tak dikenal → dibuang, linkedMapId 999 tak dikenal → dibuang.
     expect(r.mapMarkers[1].mapId).toBe(301);
     expect(r.mapMarkers[1].codexId).toBeUndefined();
+    expect(r.mapMarkers[1].linkedMapId).toBeUndefined();
     for (const mk of r.mapMarkers) expect('id' in mk).toBe(false);
   });
 

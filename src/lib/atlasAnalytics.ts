@@ -94,3 +94,106 @@ export function analyzeRegions(
     };
   });
 }
+
+export interface OrphanMarkerInfo {
+  markerId: number;
+  kind: 'pin' | 'area' | 'route';
+  name: string;
+  codexId?: number;
+  reason: 'never_mentioned' | 'unlinked';
+}
+
+/**
+ * Mendeteksi penanda yang berstatus "yatim" (orphan):
+ * 1. Penanda yang belum tertaut Codex sama sekali (`unlinked`).
+ * 2. Penanda tipe pin/route yang menautkan Codex tapi tidak pernah muncul di bab mana pun (kemunculan = 0).
+ * 3. Penanda tipe area yang tidak memiliki sebutan Codex dan tidak mengandung pin aktif di dalamnya (score = 0).
+ */
+export function findOrphanMarkers(
+  markers: MapMarker[],
+  presence: PresenceIndex,
+  codexEntries: CodexEntry[],
+  regionAnalytics?: RegionAnalytic[]
+): OrphanMarkerInfo[] {
+  const regions = regionAnalytics ?? analyzeRegions(markers, presence, codexEntries);
+  const regionScoreMap = new Map<number, number>();
+  for (const r of regions) {
+    regionScoreMap.set(r.markerId, r.score);
+  }
+
+  const codexMap = new Map<number, CodexEntry>();
+  for (const entry of codexEntries) {
+    if (entry.id !== undefined) codexMap.set(entry.id, entry);
+  }
+
+  const orphans: OrphanMarkerInfo[] = [];
+
+  for (const marker of markers) {
+    if (!marker.id) continue;
+    const markerName = (marker.codexId ? codexMap.get(marker.codexId)?.name : null) || marker.title || 'Penanda Tanpa Nama';
+
+    if (!marker.codexId) {
+      orphans.push({
+        markerId: marker.id,
+        kind: marker.kind,
+        name: markerName,
+        reason: 'unlinked'
+      });
+      continue;
+    }
+
+    if (marker.kind === 'area') {
+      const score = regionScoreMap.get(marker.id) ?? 0;
+      if (score === 0) {
+        orphans.push({
+          markerId: marker.id,
+          kind: marker.kind,
+          name: markerName,
+          codexId: marker.codexId,
+          reason: 'never_mentioned'
+        });
+      }
+    } else {
+      // pin or route
+      const p = presence.byEntity.get(marker.codexId);
+      const mentions = p?.mentions ?? 0;
+      if (mentions === 0) {
+        orphans.push({
+          markerId: marker.id,
+          kind: marker.kind,
+          name: markerName,
+          codexId: marker.codexId,
+          reason: 'never_mentioned'
+        });
+      }
+    }
+  }
+
+  return orphans;
+}
+
+/**
+ * Menghitung nomor bab (1-based) pertama kali sebuah penanda diperkenalkan di naskah.
+ * Mengembalikan null jika belum pernah muncul di naskah.
+ */
+export function getMarkerFirstAppearanceChapter(
+  marker: MapMarker,
+  presence: PresenceIndex,
+  regionAnalytic?: RegionAnalytic
+): number | null {
+  if (marker.kind === 'area' && regionAnalytic) {
+    if (regionAnalytic.associatedChapters.length > 0) {
+      return regionAnalytic.associatedChapters[0] + 1; // 1-based
+    }
+  }
+
+  if (marker.codexId) {
+    const p = presence.byEntity.get(marker.codexId);
+    if (p && p.indices.length > 0) {
+      return p.indices[0] + 1; // 1-based
+    }
+  }
+
+  return null;
+}
+

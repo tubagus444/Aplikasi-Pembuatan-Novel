@@ -551,6 +551,8 @@ export interface MapMarker {
   /** Warna override (mis. "#e11d48"). Bila kosong, warna diturunkan dari faksi/kategori Codex. */
   color?: string;
   createdAt: number;
+  /** ID peta anak/sub-peta yang ditautkan ke penanda ini (peta bertingkat). */
+  linkedMapId?: number;
   /** Data tambahan inert, mis. speedProfileId untuk kalkulator waktu tempuh rute. */
   meta?: {
     speedProfileId?: string;

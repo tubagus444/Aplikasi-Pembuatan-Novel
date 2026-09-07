@@ -15,7 +15,7 @@ import { useToast } from '@/src/hooks/useToast';
 import { TravelSpeedProfile } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 
-const inputCls = 'bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400';
+const inputCls = 'bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-400';
 const labelCls = 'text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider';
 
 export function TravelSpeedSettingsModal({

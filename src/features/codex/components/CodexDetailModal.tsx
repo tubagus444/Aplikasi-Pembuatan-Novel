@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight, ListChecks } from 'lucide-react';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight, ListChecks, MapPin, Map as MapIcon } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/src/db';
 import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
 import { buildLoreGraph } from '@/src/lib/loreGraph';
 import { effectiveStatus, parseTodos } from '@/src/lib/worldCompleteness';
@@ -62,11 +64,31 @@ export function CodexDetailModal({
     return (backlinks.get(entry.id) || []).filter(l => l.via !== 'relationship');
   }, [entry.id, entries, relationships, promises]);
 
-  const { openWorkshop } = useNavigation();
+  const { openWorkshop, openAtlasMarker } = useNavigation();
   const [bondType, setBondType] = useState('Friend');
   const [bondTarget, setBondTarget] = useState<number | ''>('');
   const [showPromise, setShowPromise] = useState(false);
   const [showForge, setShowForge] = useState(false);
+  const [showMapMenu, setShowMapMenu] = useState(false);
+
+  const linkedMarkers = useLiveQuery(
+    () => entry.id != null ? db.mapMarkers.where('codexId').equals(entry.id).toArray() : Promise.resolve([]),
+    [entry.id]
+  );
+  const maps = useLiveQuery(
+    () => db.maps.where('projectId').equals(projectId).toArray(),
+    [projectId]
+  );
+
+  const mapNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    if (maps) {
+      for (const m of maps) {
+        if (m.id != null) map.set(m.id, m.name);
+      }
+    }
+    return map;
+  }, [maps]);
 
   const handleAddBond = () => {
     if (!bondTarget) return;
@@ -117,6 +139,45 @@ export function CodexDetailModal({
           </div>
           
           <div className="flex items-center gap-2">
+            {linkedMarkers && linkedMarkers.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    if (linkedMarkers.length === 1) {
+                      onClose();
+                      openAtlasMarker(linkedMarkers[0].mapId, linkedMarkers[0].id);
+                    } else {
+                      setShowMapMenu((prev) => !prev);
+                    }
+                  }}
+                  className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded-xl transition-all"
+                  title={linkedMarkers.length === 1 ? `Lihat di Peta (${mapNameById.get(linkedMarkers[0].mapId) || 'Peta'})` : 'Pilih Peta untuk Melihat Lokasi'}
+                >
+                  <MapPin size={20} />
+                </button>
+                {showMapMenu && linkedMarkers.length > 1 && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 z-50 text-xs">
+                    <div className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100 dark:border-slate-700/60">
+                      Lihat di Peta:
+                    </div>
+                    {linkedMarkers.map((mk) => (
+                      <button
+                        key={mk.id}
+                        onClick={() => {
+                          setShowMapMenu(false);
+                          onClose();
+                          openAtlasMarker(mk.mapId, mk.id);
+                        }}
+                        className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-2 transition-colors"
+                      >
+                        <MapIcon size={14} className="text-emerald-500 shrink-0" />
+                        <span className="truncate">{mapNameById.get(mk.mapId) || 'Peta'}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={() => setShowPromise(true)}
               className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-xl transition-all"
