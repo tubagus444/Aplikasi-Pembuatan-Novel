@@ -11,6 +11,7 @@ import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useUI } from '@/src/contexts/UIContext';
 import { NovelEditor } from '@/src/features/editor/components/NovelEditor';
 import { PanelErrorBoundary } from '@/src/components/common/PanelErrorBoundary';
+import { StudioTabBar } from '@/src/components/layout/StudioTabBar';
 import { cn } from '@/src/lib/utils';
 
 // Lazy load heavy components
@@ -70,6 +71,8 @@ export function MainView() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      {!isFocusMode && <StudioTabBar />}
 
       <PanelErrorBoundary resetKey={viewMode}>
       <div className="flex-1 overflow-hidden relative bg-background">
