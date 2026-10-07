@@ -1,18 +1,16 @@
-# Rencana Audit & Perbaikan Kualitas Kode — AetherScribe
+# [ARSIP] Rencana Audit & Perbaikan Kualitas Kode — AetherScribe
 
 > **Arsip memori-proyek.** Audit kualitas kode bertahap atas 12 area inti.
 > Semua pekerjaan berdampak SUDAH SELESAI (per 2026-06-21) — dokumen ini
 > dipertahankan sebagai rekam **keputusan** (termasuk yang sengaja ditolak),
 > bukan backlog aktif. Dirujuk oleh `CLAUDE.md`.
 
-## Status: seluruh pekerjaan berdampak SELESAI
+## Status: Seluruh Pekerjaan Berdampak Selesai
 
 Semua temuan yang menyangkut **correctness, kehilangan data, keandalan, dan
 keamanan-data telah diperbaiki** (area #1–#12). Aplikasi aman dipakai apa adanya.
-Detail per-temuan (kode B/E/P/C/D/SV/BK/RG/L/LQ/ED/UI…) tak lagi direproduksi di
-sini — sudah tertanam di kode + pesan commit; cukup ringkasan per-area di bawah.
 
-## Ringkasan per-area
+## Ringkasan per-Area
 
 | # | Area | File utama | Hasil |
 |---|------|-----------|-------|
@@ -29,7 +27,7 @@ sini — sudah tertanam di kode + pesan commit; cukup ringkasan per-area di bawa
 | 11 | Editor TipTap | `src/features/editor/*` | ✅ ED1 data-loss flush (snapshot terkini), setContent tanpa emit, wiring ref stabil, generasi highlight |
 | 12 | Panel UI raksasa | `SettingsPanel.tsx` dll | ✅ `SettingsPanel` dipecah (shell + tabs + sections + `useAISettings`); BiblePanel/Outline ditunda (besar karena JSX, risiko rendah) |
 
-## Item sengaja TIDAK dikerjakan (keputusan, jangan dianalisis ulang)
+## Item Sengaja TIDAK Dikerjakan (Keputusan Sadar)
 
 | Item | Area | Sifat | Alasan |
 |------|------|-------|--------|
@@ -38,9 +36,5 @@ sini — sudah tertanam di kode + pesan commit; cukup ringkasan per-area di bawa
 | RG2 | #8 | Minor | Race init Orama sangat sempit; path utama tetap menemukan entri. |
 | RG-ARCH | #8 | Dokumentasi | Pembagian peran 3 sistem relevansi; nol dampak runtime. |
 | UI2 | #12 | Refactor | Pecah `BiblePanel`/`OutlinePanel`; besar karena JSX, risiko rendah. |
-| A1 | lanjutan | Nuansa kualitas | Regen chat tak dijamin pakai konteks bab identik dgn kiriman asli; simpan `chapterContext` per-pesan bila kelak mengganggu (commit `6c9bfbe`). |
+| A1 | lanjutan | Nuansa kualitas | Regen chat tak dijamin pakai konteks bab identik dgn kiriman asli; simpan `chapterContext` per-pesan bila kelak mengganggu. |
 | C7, C10, SV-SEC, L3 | #4/#9/#6 | Diterima | Risiko rendah / out-of-scope per `CLAUDE.md`. |
-
-## Catatan
-- Verifikasi standar tiap perubahan kode: `npm run lint` (type-check) + `npx vitest run`.
-- Hardening keamanan proxy (auth, rate-limit, SSRF Ollama) **sengaja out-of-scope** per `CLAUDE.md` (aplikasi pribadi satu-pengguna).

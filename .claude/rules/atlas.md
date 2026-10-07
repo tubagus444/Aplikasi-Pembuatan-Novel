@@ -8,7 +8,7 @@ paths:
 
 # Atlas Dunia (peta interaktif, `viewMode 'atlas'`)
 
-Panel peta interaktif: penulis meng-upload gambar peta sendiri, menandai **pin/area/rute** yang bisa diklik, menautkannya ke Codex, lalu memfilter per jenis/kategori/faksi. Local-first, nol jaringan, analitik nol-token. Panel di-`React.lazy` (`AtlasPanel`), `MapCanvas`/`MarkerSidebar` di-lazy lagi di dalamnya. Spesifikasi & rencana lanjutan di `RENCANA-ATLAS-DUNIA.md`.
+Panel peta interaktif: penulis meng-upload gambar peta sendiri, menandai **pin/area/rute** yang bisa diklik, menautkannya ke Codex, lalu memfilter per jenis/kategori/faksi. Local-first, nol jaringan, analitik nol-token. Panel di-`React.lazy` (`AtlasPanel`), `MapCanvas`/`MarkerSidebar` di-lazy lagi di dalamnya. Spesifikasi & katalog fitur di `docs/features.md` (arsip: `docs/archive/RENCANA-ATLAS-DUNIA.md`).
 
 ## Render = Leaflet MURNI (bukan `react-leaflet`)
 `MapCanvas.tsx` pakai **Leaflet langsung + `useEffect`/ref** (bukan wrapper `react-leaflet`) — sengaja, untuk hindari risiko kompat wrapper di React 19 & kontrol penuh gambar imperatif. Mode **`CRS.Simple`**, peta = satu `L.imageOverlay` dari Blob (bounds `[[0,0],[height,width]]`). **Callback/data terbaru dilewatkan lewat `propsRef`** agar handler Leaflet imperatif tak jadi basi tanpa memasang-ulang listener. Tiga layer group: `markerLayer` (penanda tersimpan), `draftLayer` (menggambar baru), `editLayer` (handle edit).

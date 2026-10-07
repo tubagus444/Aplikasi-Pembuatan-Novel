@@ -1,17 +1,17 @@
-# Rencana Optimasi Penggunaan AI — AetherScribe
+# [ARSIP] Rencana Optimasi Penggunaan AI — AetherScribe
 
 > **Arsip memori-proyek.** Tracker optimasi token/biaya AI: hemat token, kualitas
 > tetap maksimal. **Semua item actionable SELESAI.** Dokumen ini dipertahankan
 > sebagai rekam keputusan; detail mekanisme tiap item hidup di `CLAUDE.md`
-> (bagian "Optimasi penggunaan AI") + di kode. Dirujuk oleh `CLAUDE.md`.
+> dan `.claude/rules/ai.md`.
 
 Konteks: aplikasi pribadi satu-pengguna, BYOK (kunci di klien), local-first.
 Jalur AI: `src/services/ai/index.ts` (facade) → `proxy.ts` → `server.ts` → provider.
 
-## Item selesai
+## 14 Item Optimasi yang Telah Diterapkan
 
-| # | Item | Commit | Inti |
-|---|------|--------|------|
+| # | Item | Commit | Inti Implementasi |
+|---|------|--------|-------------------|
 | #0 | Prompt caching trio (Claude/Google/OpenRouter) | `57ef648` | `cache_control` ephemeral + header beta; Google default `gemini-2.5-flash`; Dashboard kartu "Token dari Cache" |
 | #1 | Plafon `max_tokens` per-aksi | `57ef648` | rewrite adaptif 512–4000, chat 2048, extract 1500, expand 1000, summarize 700 (jaring pengaman) |
 | #2 | Extended TTL cache Claude 1 jam | `7e8aec9` | `ttl:'1h'` + beta `extended-cache-ttl`; kini tunable via #P5 |
@@ -27,8 +27,7 @@ Jalur AI: `src/services/ai/index.ts` (facade) → `proxy.ts` → `server.ts` →
 | #7 | Override model tugas-ringan (UI) | — | `ai_light_model_<provider>` override `LIGHT_MODELS`; Ollama dilewati |
 | #6 | Debounce/dedup panggilan kembar | — | auto-summarizer debounce 8dtk/bab + guard `inFlight`; rewrite dedup in-flight konkuren |
 
-## Catatan verifikasi
-- **Bukti caching bekerja:** `aiUsageLogs.cachedTokens > 0` → cache hit. Lihat kartu "Token dari Cache" di Dashboard.
-- **Bukti routing bekerja:** kartu "Top Model" Dashboard menampilkan model murah (mis. flash-lite) terpisah dari model utama.
-- **Tunable** ada di Settings → "Optimasi AI Lanjutan": cap lore (#5), model ringan (#7), TTL cache Claude (#P5), suhu rewrite (`getRewriteTemperature`, default 0.5, clamp 0–1, hanya jalur rewrite).
-- **Tak perlu disentuh:** RAG hibrida (Aho-Corasick + semantic + Orama), embedding ter-persist di IndexedDB, komputasi berat di worker, terseness prompt template — semua solid.
+## Catatan Verifikasi
+
+- **Bukti caching bekerja:** `aiUsageLogs.cachedTokens > 0` → cache hit. Terlihat di Dashboard.
+- **Pengaturan lanjutan:** Ada di Settings → "Optimasi AI Lanjutan" (cap lore, model ringan, TTL cache Claude, suhu rewrite).
