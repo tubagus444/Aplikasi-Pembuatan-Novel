@@ -125,12 +125,12 @@ Dokumentasi seluruh modul fitur yang ada di dalam aplikasi AetherScribe, mencaku
 ---
 
 ## Kalender Dunia (World Calendar & Era)
-- **Status:** Selesai (v1 Visual); Rencana (Fase 2 Cek Tanggal)
-- **Deskripsi:** Sistem penanggalan in-world multi-era dengan kustomisasi jumlah hari per bulan, nama hari per minggu, dan pita musim.
-- **File terkait:** `src/features/timeline/components/WorldCalendarPanel.tsx`, `src/lib/worldCalendar.ts`, `src/features/timeline/components/CalendarEditorModal.tsx`
-- **Tabel DB:** `projects` (`calendar`), `timeline` (`startDate`, `endDate`)
+- **Status:** Selesai (v1 Visual, Fase 2 Audit Kronologi & Kalkulator Perjalanan, serta Pengayaan Worldbuilding & Navigasi Tahunan)
+- **Deskripsi:** Sistem penanggalan in-world multi-era dengan kustomisasi jumlah hari per bulan, nama hari per minggu, pita musim, festival/hari libur tahunan berulang (*recurring holidays*), pelacak usia karakter dinamis (*dynamic age tracker*), navigasi visual tahunan (*bird's-eye heatmap view*), kalkulator selisih & durasi perjalanan berbagai moda, serta deteksi deterministik anomali urutan tanggal mundur antar-bab.
+- **File terkait:** `src/features/timeline/components/WorldCalendarPanel.tsx`, `src/lib/worldCalendar.ts`, `src/lib/chronologyAudit.ts`, `src/features/timeline/components/CalendarCalculatorModal.tsx`, `src/features/timeline/components/ChronologyAuditModal.tsx`, `src/features/timeline/components/CalendarEditorModal.tsx`, `src/features/timeline/components/CalendarEventModal.tsx`, `src/features/codex/components/CodexForm.tsx`, `src/features/codex/components/CodexDetailModal.tsx`
+- **Tabel DB:** `projects` (`calendar`), `timeline` (`startDate`, `endDate`), `codex` (`birthDate`)
 - **Endpoint:** Tidak ada (lokal)
-- **Catatan:** Kronologi ditentukan oleh urutan array `eras` di mana tiap era mulai dari Tahun 1. Tautan karakter menggunakan ulang field `characterIds` tanpa FK baru. Fase 2 (cek urutan tanggal mundur) tercatat di `ROADMAP.md`.
+- **Catatan:** Kronologi ditentukan oleh urutan array `eras` di mana tiap era mulai dari Tahun 1. Tautan karakter menggunakan ulang field `characterIds` tanpa FK baru. Menggunakan meta-pola field inert JSON sehingga penambahan `holidays` pada kalender dan `birthDate` pada Codex bekerja tanpa migrasi skema Dexie. Perhitungan usia karakter (`calculateCharacterAge`) dan hari libur (`holidaysOnDate`) berjalan murni deterministik di client-side (0 token AI). Tampilan tahunan (Heatmap View) memetakan ritme pacing seluruh bulan dalam setahun dengan navigasi zoom 1-klik ke tampilan bulan dan kartu detail. Antarmuka menggunakan arsitektur 2-kolom bersih: Kalender lega di sisi kiri dan Panel Samping Terpadu (*Collapsible Inspector*) di sisi kanan dengan tab "Detail Tanggal" & "Agenda/Cari" yang dapat disembunyikan kapan saja untuk memaksimalkan ruang pandang. Seluruh modal pop up (Kalkulator, Audit, Editor, Peristiwa) menggunakan `createPortal` ke `document.body` dengan pembatas ketinggian responsif (`max-h-[85vh]` dan `my-auto`) sehingga tidak terpotong atau tertutup oleh header atas aplikasi, serta disempurnakan pewarnaan tema gelapnya (*dark mode*) agar kontras dan serasi.
 
 ---
 
@@ -291,4 +291,14 @@ Dokumentasi seluruh modul fitur yang ada di dalam aplikasi AetherScribe, mencaku
 - **Tabel DB:** Tidak ada (state navigasi lokal)
 - **Endpoint:** Tidak ada
 - **Catatan:** Footer sistem menggunakan dock bar ringkas berbasis ikon dengan label kategori proporsional untuk mengoptimalkan ruang vertikal daftar bab dan menghindari kepadatan teks.
+
+---
+
+## Panduan Pengguna & Direktori Fitur (Guide Panel)
+- **Status:** Selesai
+- **Deskripsi:** Panel bantuan terintegrasi yang menyajikan panduan cara pakai langkah demi langkah, detail arsitektur, dan tips hemat token untuk seluruh fitur AetherScribe dengan pencarian instan, filter kategori pil, serta tautan langsung untuk membuka modul terkait.
+- **File terkait:** `src/components/panels/GuidePanel.tsx`, `src/components/panels/guide/guideContent.tsx`
+- **Tabel DB:** Tidak ada (data-driven statis)
+- **Endpoint:** Tidak ada
+- **Catatan:** Konten panduan selalu disinkronkan dengan fitur aktif, termasuk modul Kalender Dunia (arsitektur 2-kolom, heatmap tahunan, festival tahunan, pelacak usia dinamis, kalkulator perjalanan, audit kronologi), Atlas, Codex, Timeline, Peta Kontinuitas, dan daftar fitur mikro.
 

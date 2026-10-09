@@ -434,6 +434,31 @@ export const FEATURES: Feature[] = [
     tip: 'Seluruh komputasi analitik (skala, jarak, pohon hierarki sub-peta, wilayah yatim, linimasa bab, heatmap) berjalan 100% lokal & gratis token. Gambar peta disimpan lokal di IndexedDB dan disertakan dalam Ekspor Cadangan Novel penuh.',
   },
   {
+    id: 'worldcalendar', group: 'world', Icon: CalendarDays, color: 'violet', view: 'worldcalendar', openLabel: 'Buka Kalender Dunia',
+    title: 'Kalender Dunia (era, festival, usia tokoh, kalkulator & audit)',
+    where: 'Menu: Dunia & Lore → Kalender Dunia',
+    what: 'Rancang penanggalan in-world (bulan, minggu, musim, era, festival tahunan), nikmati layout 2-kolom lapang & heatmap tahunan, pantau usia karakter dinamis, hitung estimasi jarak/waktu tempuh perjalanan, serta audit urutan kronologi secara otomatis.',
+    steps: [
+      'Buka panel — bila belum ada kalender, pilih preset ("Seperti Masehi" / "Fantasi 8-bulan") atau klik "Atur Kalender" untuk menyusun sendiri.',
+      'Lewat Editor Kalender, tentukan nama & jumlah hari tiap bulan, nama hari dalam seminggu, musim (rentang bulan & warna), era berurutan, dan Hari Libur/Festival Tahunan (tanggal, nama, warna & tradisi).',
+      'Pilih mode tampilan: "Bulan" untuk grid bulanan yang lapang dan bernapas lega, atau "Tahun (Heatmap)" untuk memantau kepadatan peristiwa setahun penuh dalam satu layar bird\'s-eye view (klik tanggal untuk zoom langsung).',
+      'Gunakan Panel Samping Terpadu (kanan): Tab "Detail Tanggal" menampilkan festival aktif, daftar peristiwa, usia karakter, dan tombol aksi cepat; Tab "Agenda" menyediakan pencarian instan dan hierarki lipat Era → Tahun → Peristiwa (klik nama peristiwa untuk melompat ke tanggalnya).',
+      'Klik tanggal di grid → "Tambah peristiwa di tanggal ini" (atau tombol "Peristiwa baru" di header) untuk mengisi tanggal serta opsi rentang waktu ("Berlangsung beberapa hari").',
+      'Tautkan tokoh Codex: kalender otomatis menghitung usia karakter saat peristiwa terjadi secara real-time (lengkap dengan penanda ulang tahun "🎂" dan peringatan belum lahir "⚠️").',
+      'Klik "Kalkulator" di header atau "Hitung perjalanan dari tanggal ini" di Detail Tanggal untuk mengukur selisih waktu, estimasi jarak/waktu tempuh 6 moda transportasi fantasi, dan proyeksi tanggal tiba.',
+    ],
+    detail: [
+      'Arsitektur 2-Kolom & Inspector Terpadu: Grid kalender mendapat prioritas ruang visual utama. Anda dapat menyembunyikan/membuka panel samping kapan saja lewat tombol toggle di header (ikon panel) untuk menikmati mode layar penuh 100% (Zen Mode).',
+      'Hari Libur & Festival Tahunan (Recurring Holidays): Festival otomatis berulang setiap tahun dengan lencana berkilau bintang (Sparkles) di kalender bulanan/heatmap dan spanduk perayaan tematik emas di kartu detail tanggal.',
+      'Pelacak Usia Karakter Dinamis (Dynamic Age Tracker): Isi tanggal lahir (birthDate) pada entri Codex kategori Karakter; usia in-world karakter otomatis dihitung di setiap kartu peristiwa kalender secara presisi.',
+      'Kalkulator Jarak Waktu & Perjalanan: Menghitung selisih hari/bulan/tahun in-world antar dua tanggal dan estimasi waktu tempuh berbagai moda (jalan kaki, kereta kafilah, kuda santai, kurir kilat, kapal layar, burung pos) dengan opsi 1-klik membuat peristiwa rentang di linimasa.',
+      'Audit Kronologi Deterministik (Nol Token): Tombol lencana peringatan audit di header mendeteksi tanggal peristiwa bab yang mundur secara tidak logis dari bab sebelumnya, urutan tanggal terbalik di bab yang sama, dan rentang tanggal salah — lengkap dengan deteksi cerdas kilas balik (flashback) agar tidak memicu false alarm.',
+      'Tautan Bab & Codex: Peristiwa kalender terhubung langsung ke Bab dan entri Kamus Data, tersinkronisasi 100% dengan Timeline Cerita dan Peta Kontinuitas tanpa duplikasi data.',
+      'Era bersifat berurutan: urutan di editor (bukan angka tahun) yang menentukan kronologi — tiap era mulai ulang dari Tahun 1.',
+    ],
+    tip: 'Sepenuhnya deterministik & nol token — merancang kalender, visualisasi heatmap, kalkulator perjalanan, dan audit kronologi berjalan 100% lokal tanpa mengonsumsi kuota AI.',
+  },
+  {
     id: 'bible', group: 'world', Icon: Book, color: 'sky', view: 'bible',
     title: 'Buku Cerita (Story Bible)',
     where: 'Menu: Buku Cerita',
@@ -480,26 +505,7 @@ export const FEATURES: Feature[] = [
       '"Catatan waktu (bebas)" = label teks opsional (mis. "Hari 3, Pagi") untuk peristiwa yang tak ditempatkan di kalender. Peristiwa yang punya tanggal terstruktur dari Kalender Dunia menampilkan tanggal itu di sini (chip ungu).',
       'Semakin lengkap Timeline, semakin tajam deteksi kontradiksi kronologi antar bab.',
     ],
-    tip: 'Untuk penanggalan dunia sendiri (bulan/musim/era) + grid visual, lihat Kalender Dunia.',
-  },
-  {
-    id: 'worldcalendar', group: 'analysis', Icon: CalendarDays, color: 'violet', view: 'worldcalendar',
-    title: 'Kalender Dunia (era & kalender kustom)',
-    where: 'Menu: Dunia & Lore → Kalender Dunia',
-    what: 'Rancang penanggalan in-world sendiri (bulan, minggu, musim, era) lalu tata peristiwa Timeline di grid kalender. Ini tampilan visual atas data Timeline yang sama — bukan data terpisah.',
-    steps: [
-      'Buka panel — bila belum ada kalender, pilih preset ("Seperti Masehi" / "Fantasi 8-bulan") atau "Susun sendiri".',
-      'Lewat Editor Kalender, tentukan bulan (nama + jumlah hari), nama hari (kolom grid), musim (rentang bulan + warna), dan era berurutan.',
-      'Klik sebuah tanggal di grid → "Tambah peristiwa di tanggal ini", atau tombol "Peristiwa baru" untuk mengisi era/tahun/bulan/hari langsung.',
-      'Aktifkan "Berlangsung beberapa hari" untuk rentang (mis. Perang Merah, hari 1–10) — sel di antaranya tersorot.',
-    ],
-    detail: [
-      'Era bersifat berurutan: urutan di editor (bukan angka tahun) yang menentukan kronologi — tiap era mulai ulang dari Tahun 1.',
-      'Kartu "Semua peristiwa" punya pencarian (judul/deskripsi/bab/entitas), filter era, dan bagian yang bisa diciutkan per era & tahun; klik nama peristiwa untuk meloncat ke tanggalnya.',
-      'Peristiwa tanpa tanggal terstruktur tetap muncul di panel Timeline Cerita, hanya belum tampil di grid sampai diberi tanggal.',
-      'Tautan ke bab & entitas Codex memakai data yang sama dengan Timeline (nol duplikasi).',
-    ],
-    tip: 'Sepenuhnya deterministik & nol token — merancang kalender dan menata tanggal tidak memakai AI.',
+    tip: 'Untuk penanggalan dunia sendiri (bulan/musim/era/festival), pelacak usia tokoh, dan kalkulator perjalanan, buka modul Kalender Dunia.',
   },
   {
     id: 'continuity', group: 'analysis', Icon: Radar, color: 'indigo', view: 'continuity',
@@ -508,10 +514,11 @@ export const FEATURES: Feature[] = [
     what: 'Scan lintas-bab yang deterministik (nol token) untuk kesalahan kontinuitas menyeluruh.',
     steps: [
       'Buka panel — aplikasi memindai kemunculan seluruh entitas Codex di semua bab sekali jalan.',
-      'Empat cek muncul otomatis: karakter yang menghilang, entitas tak terpakai, relasi tanpa pertemuan, dan Timeline yang tak cocok.',
+      'Lima cek muncul otomatis: karakter yang menghilang, entitas tak terpakai, relasi tanpa pertemuan, timeline yang tak cocok, dan urutan kronologi mundur (tanggal bab terbalik).',
     ],
     detail: [
       'Memakai satu kali pemindaian nama/alias (Aho-Corasick) yang sama dengan Lensa Karakter — cepat dan gratis.',
+      'Pemeriksaan kronologi mundur mengevaluasi tanggal in-world peristiwa kalender antar bab berurutan, dengan toleransi cerdas kilas balik (analepsis/flashback) otomatis.',
       'Cocok dijalankan berkala sebagai "pemeriksaan kesehatan" naskah sebelum menempuh Cek Konsistensi AI yang berbiaya token.',
     ],
     tip: 'Sepenuhnya lokal & gratis token — aman dijalankan sesering apa pun.',
@@ -807,6 +814,12 @@ export const SMALL_FEATURES: SmallFeature[] = [
   { title: 'Linimasa Bab Peta', where: 'Atlas Dunia → Toolbar (ikon Linimasa)', desc: 'Slider kronologis bab untuk melihat wilayah mana saja yang sudah dijelajahi atau aktif hingga bab tertentu dalam cerita novel.' },
   { title: 'Lompat ke Peta dari Codex', where: 'Kamus Data → Header detail entri (ikon MapPin)', desc: 'Satu klik pada ikon pin di entri Codex lokasi untuk membuka modul Atlas dan langsung menyorot kamera ke penanda wilayahnya.' },
   { title: 'Katalog Wilayah Terpadu', where: 'Atlas Dunia → Sidebar kanan / Toolbar "Wilayah"', desc: 'Daftar seluruh wilayah di peta aktif maupun seluruh peta novel dengan pencarian cepat, filter jenis, deteksi yatim, dan teleportasi 1-klik ke lokasi.' },
+  { title: 'Kalkulator Perjalanan In-World', where: 'Kalender Dunia → Toolbar "Kalkulator" / Detail Tanggal', desc: 'Hitung selisih hari in-world, estimasi waktu tempuh 6 moda transportasi fantasi, dan proyeksikan tanggal tiba otomatis tanpa AI.' },
+  { title: 'Hari Libur & Festival Tahunan', where: 'Kalender Dunia → Editor Kalender', desc: 'Rancang festival berulang tahunan dengan lencana berkilau Sparkles di grid bulanan/heatmap dan spanduk perayaan tematik emas.' },
+  { title: 'Pelacak Usia Karakter Dinamis', where: 'Kamus Data → Form Karakter (Tanggal Lahir)', desc: 'Tautkan tanggal lahir karakter di Codex; usia in-world dihitung otomatis di setiap peristiwa kalender, lengkap dengan tanda ulang tahun & belum lahir.' },
+  { title: 'Audit Kronologi Mundur (Nol Token)', where: 'Kalender Dunia → Toolbar "Audit" / Peta Kontinuitas', desc: 'Deteksi otomatis tanggal bab yang mundur atau rentang terbalik dengan toleransi kilas balik cerdas, 100% deterministik tanpa kuota AI.' },
+  { title: 'Tampilan Heatmap Tahunan', where: 'Kalender Dunia → Pengalih tampilan', desc: 'Pantau ritme dan kepadatan peristiwa setahun penuh dalam bird\'s-eye view dengan indikator festival dan zoom 1-klik ke bulan terpilih.' },
+  { title: 'Mode Zen Kalender (Full-Width)', where: 'Kalender Dunia → Toolbar header kanan', desc: 'Tutup panel samping inspector untuk memperluas grid kalender hingga 100% lebar layar, dan klik tanggal kapan saja untuk membukanya kembali.' },
 ];
 
 export const TIPS = [

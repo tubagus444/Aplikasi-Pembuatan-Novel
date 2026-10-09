@@ -9,12 +9,13 @@
 
 Item-item yang memiliki desain jelas dan siap dikerjakan jika diperlukan peningkatan pada area terkait:
 
-### 1.1 Worldbuilding: Fase 2 Kalender Dunia (Cek Tanggal Deterministik)
-- **Status:** v1 Visual sudah dikirim (`worldCalendar.ts`, `viewMode 'worldcalendar'`). Fase 2 terbuka.
-- **Tujuan:** Memanfaatkan `WorldDate` terstruktur (`compareDate`/`daysBetween`) untuk mendeteksi anomali waktu secara deterministik (nol-token):
-  1. **Urutan tanggal mundur antar-bab:** Peristiwa yang memiliki `chapterId` semestinya maju sesuai `Chapter.order`. Jika tanggal mundur tanpa penanda flashback, beri tanda peringatan. *(Prioritas teratas)*
-  2. **Peristiwa di luar rentang induk:** Peristiwa yang terjadi di dalam rentang peristiwa besar (misal "Perang Merah, hari 1–10") tetapi tanggalnya di luar rentang tersebut.
-  3. **Penempatan hasil:** Suplai temuan ke panel yang sudah ada — cek tambahan di `continuity.ts` (Peta Kontinuitas) dan/atau penanda visual di grid Kalender Dunia.
+### 1.1 Worldbuilding: Fase 2 Kalender Dunia & Kalkulator Perjalanan (SELESAI ✅)
+- **Status:** Selesai (`chronologyAudit.ts`, `CalendarCalculatorModal.tsx`, `ChronologyAuditModal.tsx`, integrasi `continuity.ts`).
+- **Pencapaian:**
+  1. **Deteksi Urutan Mundur Waktu Antar-Bab:** Audit deterministik membandingkan tanggal peristiwa dengan `Chapter.order`, mendeteksi urutan tanggal terbalik dalam satu bab, serta rentang tanggal tidak valid.
+  2. **Toleransi Kilas Balik (*Flashback*):** Otomatis mengenali penanda flashback/analepsis tanpa memicu alarm palsu.
+  3. **Kalkulator Jarak Waktu & Perjalanan:** Menghitung selisih hari, pemecah unit waktu ramah-baca (`breakdownDays`), proyeksi tanggal tiba berdasarkan kecepatan moda transportasi fantasi, dan tombol instan membuat peristiwa rentang linimasa.
+  4. **Integrasi Panel:** Terhubung langsung ke Dasbor Peta Kontinuitas (`chronology-retrograde` check) dan lencana peringatan interaktif di header Kalender Dunia.
 
 ### 1.2 Penyimpanan & Performa: Diet Jalur Backup Serialisasi
 - **Status:** Jalur internal sudah dioptimasi (`assembleBackupJson` 1x stringify).

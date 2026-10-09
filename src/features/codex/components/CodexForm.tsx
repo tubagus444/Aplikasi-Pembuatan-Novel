@@ -11,6 +11,8 @@ import { parseCodexMarkdown } from '@/src/lib/codexImport';
 import { fieldValueMap, buildFieldValues } from '@/src/lib/codexFields';
 import { WORLD_STATUSES, STATUS_LABEL, suggestStatus } from '@/src/lib/worldCompleteness';
 import { WORLD_STATUS_META } from '@/src/features/codex/components/WorldStatusBadge';
+import { useProject } from '@/src/contexts/ProjectContext';
+import { formatDate, daysInMonth } from '@/src/lib/worldCalendar';
 
 interface CodexFormProps {
   initialData?: Partial<CodexEntry>;
@@ -27,6 +29,8 @@ interface CodexFormProps {
 export function CodexForm({ initialData, editingId, bibleRules, existingEntries = [], categories = BUILTIN_CATEGORIES, onSave, onBulkCreate, onCancel }: CodexFormProps) {
   const { toast } = useToast();
   const { setViewMode } = useNavigation();
+  const { project } = useProject();
+  const cal = project?.calendar;
   const [formData, setFormData] = useState<Partial<CodexEntry>>({
     name: '',
     category: 'character',
@@ -301,6 +305,104 @@ export function CodexForm({ initialData, editingId, bibleRules, existingEntries 
                 onChange={e => setFormData({...formData, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})}
               />
             </div>
+
+            {formData.category === 'character' && cal && cal.months.length > 0 && (
+              <div className="pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Tanggal Lahir (Kalender Dunia)
+                  </label>
+                  {formData.birthDate && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, birthDate: undefined })}
+                      className="text-[11px] text-rose-500 hover:underline"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+                {formData.birthDate ? (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <select
+                        aria-label="Era Lahir"
+                        value={formData.birthDate.era}
+                        onChange={e => setFormData({
+                          ...formData,
+                          birthDate: { ...formData.birthDate!, era: Number(e.target.value) },
+                        })}
+                        className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+                      >
+                        {cal.eras.map((er, i) => (
+                          <option key={i} value={i}>{er.name}{er.abbr ? ` (${er.abbr})` : ''}</option>
+                        ))}
+                      </select>
+                      <input
+                        aria-label="Tahun Lahir"
+                        type="number"
+                        value={formData.birthDate.year}
+                        onChange={e => setFormData({
+                          ...formData,
+                          birthDate: { ...formData.birthDate!, year: Number(e.target.value) || 1 },
+                        })}
+                        className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+                        placeholder="Tahun"
+                      />
+                      <select
+                        aria-label="Bulan Lahir"
+                        value={formData.birthDate.month}
+                        onChange={e => {
+                          const m = Number(e.target.value);
+                          const curD = formData.birthDate?.day || 1;
+                          const maxD = daysInMonth(cal, m) || 1;
+                          setFormData({
+                            ...formData,
+                            birthDate: { ...formData.birthDate!, month: m, day: Math.min(curD, maxD) },
+                          });
+                        }}
+                        className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+                      >
+                        {cal.months.map((m, i) => (
+                          <option key={i} value={i + 1}>{m.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        aria-label="Hari Lahir"
+                        type="number"
+                        min={1}
+                        max={daysInMonth(cal, formData.birthDate.month) || 1}
+                        value={formData.birthDate.day}
+                        onChange={e => {
+                          const maxD = daysInMonth(cal, formData.birthDate!.month) || 1;
+                          const d = Math.max(1, Math.min(Number(e.target.value) || 1, maxD));
+                          setFormData({
+                            ...formData,
+                            birthDate: { ...formData.birthDate!, day: d },
+                          });
+                        }}
+                        className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+                        placeholder="Hari"
+                      />
+                    </div>
+                    <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                      {formatDate(cal, formData.birthDate)}
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({
+                      ...formData,
+                      birthDate: { era: 0, year: 1, month: 1, day: 1 },
+                    })}
+                    className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 py-1"
+                  >
+                    <Plus size={12} /> Tetapkan tanggal lahir
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2 flex flex-col h-full">

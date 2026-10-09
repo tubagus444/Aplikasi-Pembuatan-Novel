@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight, ListChecks, MapPin, Map as MapIcon } from 'lucide-react';
+import { Tag, Link2, X, Edit2, Trash2, FlaskConical, Crosshair, EyeOff, Dices, Quote, CornerDownRight, ListChecks, MapPin, Map as MapIcon, CalendarDays } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/src/db';
 import { CodexEntry, Relationship, PlotPromise } from '@/src/types';
@@ -16,6 +16,7 @@ import { AppearancesList } from '@/src/features/codex/components/AppearancesList
 import { getRelationshipLabel, RELATIONSHIP_TYPES } from '@/src/features/codex/relationshipTypes';
 import { getCategoryLabel, getCategoryAccent, type CategoryDef } from '@/src/lib/codexCategories';
 import { resolveFieldValues } from '@/src/lib/codexFields';
+import { formatDate } from '@/src/lib/worldCalendar';
 
 interface CodexDetailModalProps {
   entry: CodexEntry;
@@ -46,6 +47,7 @@ export function CodexDetailModal({
   onDeleteRelationship,
   onOpenEntry
 }: CodexDetailModalProps) {
+  const project = useLiveQuery(() => db.projects.get(projectId), [projectId]);
   const entryRelationships = relationships.filter(
     r => r.sourceId === entry.id || r.targetId === entry.id
   );
@@ -247,6 +249,17 @@ export function CodexDetailModal({
                   #{t}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Tanggal Lahir (Karakter) */}
+          {entry.birthDate && project?.calendar && (
+            <div className="mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 text-xs">
+              <CalendarDays size={13} className="text-indigo-500" />
+              <span className="font-semibold text-slate-500 dark:text-slate-400">Tanggal Lahir:</span>
+              <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">
+                {formatDate(project.calendar, entry.birthDate)}
+              </span>
             </div>
           )}
 

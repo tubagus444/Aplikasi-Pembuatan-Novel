@@ -9,12 +9,13 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { CalendarPlus, X, Check, Loader2 } from 'lucide-react';
 import { db } from '@/src/db';
 import { useToast } from '@/src/hooks/useToast';
 import { TimelineEvent, TimelineEventType, WorldCalendar, WorldDate, CodexEntry } from '@/src/types';
-import { compareDate, daysInMonth, formatDate } from '@/src/lib/worldCalendar';
+import { compareDate, daysInMonth, formatDate, calculateCharacterAge } from '@/src/lib/worldCalendar';
 import { cn } from '@/src/lib/utils';
 
 const TYPE_LABELS: Record<TimelineEventType, string> = {
@@ -32,7 +33,7 @@ export interface CalendarEventSeed {
   day: number;
 }
 
-const inputCls = 'w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400';
+const inputCls = 'w-full bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400';
 const labelCls = 'text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider';
 
 /** Batasi hari ke [1, panjang bulan] agar tak keluar rentang setelah ganti bulan. */
@@ -123,16 +124,16 @@ export function CalendarEventModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto"
       onClick={(e) => { e.stopPropagation(); onClose(); }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[90vh]"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[85vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 shrink-0">
@@ -221,12 +222,27 @@ export function CalendarEventModal({
               <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar p-0.5">
                 {sortedCodex.map(c => {
                   const active = c.id != null && characterIds.includes(c.id);
+                  const ageInfo = (c.category === 'character' && c.birthDate)
+                    ? calculateCharacterAge(calendar, c.birthDate, startDate)
+                    : null;
                   return (
                     <button key={c.id} type="button" onClick={() => c.id != null && toggleCharacter(c.id)}
-                      className={cn('px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all active:scale-95',
+                      className={cn('px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all active:scale-95 inline-flex items-center gap-1.5',
                         active ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
                           : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700')}>
-                      {c.name}
+                      <span>{c.name}</span>
+                      {ageInfo && (
+                        <span className={cn('text-[10px] px-1.5 py-0.2 rounded font-normal',
+                          active
+                            ? 'bg-emerald-600/70 text-white'
+                            : ageInfo.isUnborn
+                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                              : ageInfo.isBirthday
+                                ? 'bg-pink-100 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 font-semibold'
+                                : 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300')}>
+                          {ageInfo.isBirthday ? `🎂 ${ageInfo.years} thn` : ageInfo.formatted}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -236,12 +252,13 @@ export function CalendarEventModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
-          <button onClick={save} disabled={!canSave || saving} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors active:scale-95">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">Batal</button>
+          <button onClick={save} disabled={!canSave || saving} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors active:scale-95 cursor-pointer">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {isEdit ? 'Simpan' : 'Tambah'}
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

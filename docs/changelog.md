@@ -6,6 +6,76 @@ Catatan riwayat perubahan arsitektur, fitur, perbaikan bug, dan dokumentasi di r
 
 ## 2026-10-09
 
+### [UI/UX] Perbaikan Tema Gelap & Penataan Pop Up Modal Kalender Dunia
+- **Portal Rendering & Solusi Modal Terpotong**: Membungkus seluruh dialog pop up kalender (`CalendarCalculatorModal.tsx`, `ChronologyAuditModal.tsx`, `CalendarEditorModal.tsx`, `CalendarEventModal.tsx`) menggunakan `createPortal` langsung ke `document.body` dengan layer `z-[9999]`. Menghilangkan batasan stacking context dari `MainView` sehingga modal tidak lagi tertutup atau terpotong oleh header atas aplikasi.
+- **Ketinggian Responsif Modal**: Mengubah batas ketinggian modal menjadi `max-h-[85vh]` dengan pemosisian `my-auto` dan pengguliran internal mandiri (`overflow-y-auto custom-scrollbar`), memberikan margin vertikal yang lega dari batas atas dan bawah layar.
+- **Penyelarasan Tema Gelap (*Dark Mode*)**:
+  - Menghapus kelas warna Tailwind non-standar (`dark:bg-slate-850`, `dark:border-indigo-850`) yang sebelumnya gagal di-render dan menyebabkan header inspector serta kartu estimasi perjalanan tampak putih pudar di mode gelap.
+  - Memperbarui header tab panel samping di `WorldCalendarPanel.tsx` dengan kontras yang harmonis (`dark:bg-slate-900`, wadah tab `dark:bg-slate-950/80`, dan tab aktif `dark:bg-slate-800 text-indigo-400`).
+  - Menyelaraskan kartu moda transportasi di Kalkulator Perjalanan (`dark:bg-slate-800/60`, `dark:border-slate-800`) dan kartu detail tanggal.
+  - Menambahkan kontras teks yang tegas (`text-slate-800 dark:text-slate-100`) pada seluruh field input, select, dan tombol utilitas kalender.
+- **File yang berubah:**
+  - `src/features/timeline/components/WorldCalendarPanel.tsx`
+  - `src/features/timeline/components/CalendarCalculatorModal.tsx`
+  - `src/features/timeline/components/ChronologyAuditModal.tsx`
+  - `src/features/timeline/components/CalendarEditorModal.tsx`
+  - `src/features/timeline/components/CalendarEventModal.tsx`
+  - `docs/features.md`
+  - `docs/changelog.md`
+
+### [Docs] Pembaruan Panduan Kalender Dunia pada Panel Panduan Pengguna
+- **Sinkronisasi Modul Panduan**: Memperbarui kartu panduan utama `Kalender Dunia` (`guideContent.tsx`) agar mencerminkan arsitektur antarmuka 2-kolom terbaru, tombol toggle mode layar penuh/Zen Mode, navigasi tab *Detail Tanggal* & *Agenda*, navigasi *Bird's-Eye Heatmap View*, sistem festival tahunan berulang, pelacak usia dinamis karakter dari Codex, kalkulator perjalanan multi-moda, dan audit kronologi deterministik nol token.
+- **Relokasi Kategori**: Menempatkan fitur Kalender Dunia secara tepat di bawah grup `Dunia, Lore & Codex` (`group: 'world'`) sesuai posisinya di bilah navigasi studio, serta melengkapi tombol aksi cepat *"Buka Kalender Dunia"*.
+- **Pembaruan Fitur Terkait & Fitur Mikro**: Memperbarui panduan `Peta Kontinuitas` untuk mencakup pemeriksaan urutan kronologi mundur, menambahkan tip penanggalan pada `Timeline Cerita`, serta menambahkan 6 entri sorotan fitur baru pada daftar `Fitur Kecil` (`SMALL_FEATURES`).
+- **File yang berubah:**
+  - `src/components/panels/guide/guideContent.tsx`
+  - `docs/features.md`
+  - `docs/changelog.md`
+
+### [UI/UX] Redesain Layout Kalender Dunia: Arsitektur 2-Kolom & Inspector Terpadu
+- **Penyelesaian Masalah Kepadatan Layar**: Menghapus layout kaku 3-kolom (`1fr_300px_300px`) yang sebelumnya mempersempit lebar sel kalender menjadi ~65px. Menggantinya dengan arsitektur **2-Kolom Fleksibel** (`lg:flex-row`) di mana grid kalender mendapatkan prioritas ruang utama (*Hero Area*) yang lapang.
+- **Unified Collapsible Inspector**: Menggabungkan kolom terpisah "Peristiwa di Tanggal Ini" dan "Daftar Semua Peristiwa" menjadi satu panel samping terpadu di kanan (~360px) dengan sistem navigasi tab segmented (`Detail Tanggal` & `Agenda`).
+- **Sidebar Toggle & Full-Width Mode**: Menambahkan tombol toggle expand/collapse panel samping di header kalender (`PanelRightClose` / `PanelRightOpen`) sehingga penulis dapat memperluas kalender ke mode 100% layar penuh (*zen mode*) kapan saja.
+- **Penyederhanaan Sel Kalender Bulanan**: Menata ulang tipografi nomor hari, menyederhanakan indikator hari libur menjadi badge ikon bintang/sparkle yang ringkas tanpa tumpang tindih, serta merapikan pill peristiwa dan bar rentang waktu (*range events*) agar tetap terbaca jelas tanpa memotong ruang sel.
+- **Interaksi Kontekstual Mulus**: Mengklik sel tanggal manapun di kalender bulanan atau heatmap tahunan otomatis membuka panel samping (bila tertutup) dan beralih ke tab `Detail Tanggal`. Mengklik peristiwa di pohon agenda otomatis melompat (*jump to date*) ke tanggal bersangkutan di kalender dan membuka rinciannya.
+- **File yang berubah:**
+  - `src/features/timeline/components/WorldCalendarPanel.tsx`
+  - `docs/features.md`
+  - `docs/changelog.md`
+
+### [Fitur] Kalender Dunia: Hari Libur Tahunan, Pelacak Usia Karakter, & Heatmap Tahunan
+- **Hari Libur & Festival Tahunan (*Recurring Holidays*)**: Menambahkan struktur data `WorldCalendarHoliday` ke `Project.calendar`, manajemen hari libur & swatch warna di `CalendarEditorModal.tsx`, fungsi filter deterministik `holidaysOnDate`, indikator visual berkilau (`Sparkles`) pada sel kalender bulanan dan heatmap tahunan, serta spanduk perayaan tematik di kartu detail hari.
+- **Pelacak Usia Karakter Dinamis (*Dynamic Age Tracker*)**: Menambahkan field `birthDate` pada `CodexEntry` (kategori *character*), picker tanggal lahir terstruktur (Era, Tahun, Bulan, Hari) di `CodexForm.tsx`, chip tanggal lahir di `CodexDetailModal.tsx`, serta kalkulasi usia deterministik (`calculateCharacterAge`) lengkap dengan pendeteksian hari ulang tahun (`🎂 Ulang tahun!`) dan status belum lahir (`⚠️ Belum lahir`). Ditampilkan interaktif pada chip karakter di `CalendarEventModal.tsx` dan kartu peristiwa di `WorldCalendarPanel.tsx`.
+- **Navigasi Tampilan Tahunan (*Bird's-Eye / Heatmap View*)**: Menyediakan pengalih mode `Bulan` vs `Tahun (Heatmap)` di `WorldCalendarPanel.tsx`. Komponen `YearHeatmapView` merender grid seluruh bulan dalam setahun dengan intensitas warna kepadatan peristiwa (0 peristiwa, 1 peristiwa, 2+ peristiwa, rentang waktu, dan hari libur) disertai interaksi zoom 1-klik langsung ke bulan dan tanggal bersangkutan.
+- **File yang berubah:**
+  - `src/types.ts`
+  - `src/lib/worldCalendar.ts` & `src/lib/worldCalendar.test.ts`
+  - `src/features/timeline/components/CalendarEditorModal.tsx`
+  - `src/features/timeline/components/CalendarEventModal.tsx`
+  - `src/features/timeline/components/WorldCalendarPanel.tsx`
+  - `src/features/codex/components/CodexForm.tsx`
+  - `src/features/codex/components/CodexDetailModal.tsx`
+  - `docs/features.md`
+  - `docs/changelog.md`
+
+### [Fitur] Kalender Dunia Fase 2: Audit Kronologi Deterministik & Kalkulator Perjalanan
+- Mengimplementasikan **Kalkulator Jarak Waktu & Perjalanan** (`CalendarCalculatorModal.tsx`) dengan dukungan penghitungan selisih tanggal in-world (`daysBetween`, `breakdownDays`), estimasi jarak tempuh berbagai moda transportasi fantasi (`TRAVEL_MODES`: jalan kaki, kereta kafilah, kuda santai, kurir kilat, kapal layar, burung pos), proyeksi tanggal tiba (`addDays`, `addMonths`), dan pembuatan instan peristiwa rentang linimasa.
+- Mengimplementasikan **Mesin Audit Kronologi Deterministik** (`chronologyAudit.ts`) berbiaya 0 AI token untuk mendeteksi tanggal mundur antar-bab (`retrograde-chapter`), urutan tanggal terbalik di bab yang sama (`retrograde-same-chapter`), dan rentang terbalik (`invalid-range`).
+- Menambahkan **Toleransi Kilas Balik (*Flashback*)**: Otomatis mendeteksi indikasi analepsis/kilas balik pada judul atau deskripsi bab/peristiwa untuk mencegah false positive.
+- Mengintegrasikan hasil audit ke **Dasbor Peta Kontinuitas** (`continuity.ts`, check `'chronology-retrograde'`) lengkap dengan triase (*abaikan/selesaikan*) dan tombol lencana peringatan interaktif di header **Kalender Dunia** (`ChronologyAuditModal.tsx`).
+- Menambahkan tombol aksi cepat *"Hitung perjalanan dari tanggal ini"* pada kartu detail tanggal di `WorldCalendarPanel.tsx`.
+- **File yang berubah:**
+  - `src/lib/worldCalendar.ts` & `src/lib/worldCalendar.test.ts`
+  - `src/lib/chronologyAudit.ts` (baru) & `src/lib/chronologyAudit.test.ts` (baru)
+  - `src/lib/continuity.ts` & `src/lib/continuity.test.ts`
+  - `src/features/consistency/components/ContinuityDashboard.tsx`
+  - `src/features/timeline/components/CalendarCalculatorModal.tsx` (baru)
+  - `src/features/timeline/components/ChronologyAuditModal.tsx` (baru)
+  - `src/features/timeline/components/WorldCalendarPanel.tsx`
+  - `docs/features.md`
+  - `ROADMAP.md`
+  - `docs/changelog.md`
+
 ### [UI/UX] Redesain Footer Utilitas Sistem pada Sidebar
 - Mengubah footer tombol sistem di `Sidebar.tsx` dari 3 tombol teks horizontal yang padat dan berdesakan menjadi **Minimalist Icon Dock Bar** (gaya VS Code/Figma).
 - Menambahkan label section ringkas "SISTEM" dengan tipografi harmonis (`tracking-[0.18em]`) serta tombol ikon proporsional (Pengaturan, Panduan, Log Error) dengan tooltip dan dukungan auto-close pada layar mobile (<768px).

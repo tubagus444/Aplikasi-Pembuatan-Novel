@@ -8,15 +8,16 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { CalendarCog, X, Check, Plus, Trash2, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { db } from '@/src/db';
 import { useToast } from '@/src/hooks/useToast';
 import { WorldCalendar } from '@/src/types';
-import { calendarPreset, CalendarPreset, daysInYear } from '@/src/lib/worldCalendar';
+import { calendarPreset, CalendarPreset, daysInYear, daysInMonth } from '@/src/lib/worldCalendar';
 import { cn } from '@/src/lib/utils';
 
-const inputCls = 'bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400';
+const inputCls = 'bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400';
 const labelCls = 'text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider';
 
 const SEASON_SWATCHES = ['#4ade80', '#fbbf24', '#f97316', '#60a5fa', '#a78bfa', '#f472b6', '#2dd4bf', '#94a3b8'];
@@ -60,6 +61,14 @@ export function CalendarEditorModal({
       weekdays: cal.weekdays.map(w => w.trim()).filter(Boolean),
       months: cal.months.map(m => ({ name: m.name.trim() || 'Bulan', days: Math.max(1, Math.floor(m.days) || 1) })),
       seasons: cal.seasons.map(s => ({ name: s.name.trim() || 'Musim', fromMonth: s.fromMonth, toMonth: s.toMonth, color: s.color })),
+      holidays: (cal.holidays ?? []).map((h, idx) => ({
+        id: h.id || `h-${idx}-${Date.now()}`,
+        name: h.name.trim() || 'Festival',
+        month: h.month,
+        day: Math.max(1, Math.min(h.day, daysInMonth(cal, h.month) || 1)),
+        color: h.color || '#fbbf24',
+        description: h.description?.trim() || undefined,
+      })),
     };
     try {
       await db.projects.update(projectId, { calendar: cleaned });
@@ -71,13 +80,13 @@ export function CalendarEditorModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto" onClick={(e) => { e.stopPropagation(); onClose(); }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[85vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 shrink-0">
@@ -187,18 +196,129 @@ export function CalendarEditorModal({
               ))}
             </div>
           </section>
+
+          {/* Hari Libur & Festival Tahunan */}
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>Hari Libur & Festival <span className="normal-case font-medium text-slate-400">— perayaan tahunan yang berulang</span></label>
+              <button
+                type="button"
+                onClick={() => setCal(c => ({
+                  ...c,
+                  holidays: [
+                    ...(c.holidays ?? []),
+                    {
+                      id: `h-${Date.now()}`,
+                      name: `Festival ${(c.holidays?.length ?? 0) + 1}`,
+                      month: 1,
+                      day: 1,
+                      color: '#fbbf24',
+                      description: '',
+                    },
+                  ],
+                }))}
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                <Plus size={12} /> Hari Libur
+              </button>
+            </div>
+            {(!cal.holidays || cal.holidays.length === 0) && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic">Belum ada hari libur / festival (opsional).</p>
+            )}
+            <div className="space-y-2">
+              {(cal.holidays ?? []).map((h, i) => (
+                <div key={h.id || i} className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/60 space-y-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <input
+                      type="color"
+                      value={h.color || '#fbbf24'}
+                      onChange={ev => setCal(c => ({
+                        ...c,
+                        holidays: (c.holidays ?? []).map((x, j) => j === i ? { ...x, color: ev.target.value } : x),
+                      }))}
+                      className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent"
+                      title="Warna festival"
+                    />
+                    <input
+                      value={h.name}
+                      onChange={ev => setCal(c => ({
+                        ...c,
+                        holidays: (c.holidays ?? []).map((x, j) => j === i ? { ...x, name: ev.target.value } : x),
+                      }))}
+                      placeholder="Nama festival / hari libur"
+                      className={cn(inputCls, 'flex-1 min-w-[140px]')}
+                    />
+                    <span className="text-[11px] text-slate-400">bulan</span>
+                    <select
+                      value={h.month}
+                      onChange={ev => {
+                        const newM = Number(ev.target.value);
+                        setCal(c => ({
+                          ...c,
+                          holidays: (c.holidays ?? []).map((x, j) => j === i ? {
+                            ...x,
+                            month: newM,
+                            day: Math.min(x.day, daysInMonth(c, newM) || 1),
+                          } : x),
+                        }));
+                      }}
+                      className={inputCls}
+                    >
+                      {cal.months.map((m, mi) => <option key={mi} value={mi + 1}>{mi + 1}. {m.name}</option>)}
+                    </select>
+                    <span className="text-[11px] text-slate-400">hari ke</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={daysInMonth(cal, h.month) || 1}
+                      value={h.day}
+                      onChange={ev => setCal(c => ({
+                        ...c,
+                        holidays: (c.holidays ?? []).map((x, j) => j === i ? {
+                          ...x,
+                          day: Math.max(1, Math.min(Number(ev.target.value) || 1, daysInMonth(c, h.month) || 1)),
+                        } : x),
+                      }))}
+                      className={cn(inputCls, 'w-16')}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCal(c => ({
+                        ...c,
+                        holidays: (c.holidays ?? []).filter((_, j) => j !== i),
+                      }))}
+                      className="p-1.5 text-slate-400 hover:text-rose-500"
+                      title="Hapus"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <input
+                    value={h.description ?? ''}
+                    onChange={ev => setCal(c => ({
+                      ...c,
+                      holidays: (c.holidays ?? []).map((x, j) => j === i ? { ...x, description: ev.target.value } : x),
+                    }))}
+                    placeholder="Keterangan singkat perayaan (opsional)..."
+                    className={cn(inputCls, 'w-full text-xs text-slate-600 dark:text-slate-400')}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
 
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
           {!valid && <span className="text-[11px] text-rose-500">Perlu minimal 1 era, 1 hari, dan 1 bulan berisi hari.</span>}
           <div className="flex items-center gap-2 ml-auto">
-            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
-            <button onClick={save} disabled={!valid || saving} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors active:scale-95">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">Batal</button>
+            <button onClick={save} disabled={!valid || saving} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors active:scale-95 cursor-pointer">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Simpan Kalender
             </button>
           </div>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

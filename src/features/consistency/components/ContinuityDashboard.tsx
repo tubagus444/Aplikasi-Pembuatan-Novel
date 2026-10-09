@@ -9,7 +9,7 @@
 import React, { useState, useCallback } from 'react';
 import { db } from '@/src/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Network, ScanSearch, Loader2, CheckCircle2, ArrowUpRight, Sparkles, UserMinus, EyeOff, Users, CalendarClock } from 'lucide-react';
+import { Network, ScanSearch, Loader2, CheckCircle2, ArrowUpRight, Sparkles, UserMinus, EyeOff, Users, CalendarClock, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigation } from '@/src/contexts/NavigationContext';
 import { useProjectData } from '@/src/hooks/useProjectData';
@@ -38,6 +38,7 @@ const CHECK_META: Record<ContinuityCheck, { label: string; icon: React.ReactNode
   'unused-entity': { label: 'Entitas Tak Terpakai', icon: <EyeOff size={13} /> },
   'relationship-gap': { label: 'Relasi Tanpa Pertemuan', icon: <Users size={13} /> },
   'timeline-mismatch': { label: 'Timeline Tak Cocok', icon: <CalendarClock size={13} /> },
+  'chronology-retrograde': { label: 'Kronologi Bab Mundur', icon: <History size={13} /> },
 };
 
 export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
@@ -45,6 +46,7 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
   const { codexEntries, relationships } = useProjectData(projectId);
 
   const chapters = usePlainChapters(projectId);
+  const project = useLiveQuery(() => db.projects.get(projectId), [projectId]);
   const timeline = useLiveQuery(() =>
     db.timeline.where('projectId').equals(projectId).toArray()
   , [projectId]);
@@ -71,10 +73,14 @@ export function ContinuityDashboard({ projectId }: ContinuityDashboardProps) {
     const plain = chapters;
     const index = await buildPresenceIndexAsync(plain, codexEntries);
     setPresenceIndex(index);
-    const result = analyzeContinuity(plain, codexEntries, relationships, timeline || [], { gapThreshold, index });
+    const result = analyzeContinuity(plain, codexEntries, relationships, timeline || [], {
+      gapThreshold,
+      index,
+      calendar: project?.calendar,
+    });
     setReport(result);
     setScanning(false);
-  }, [chapters, codexEntries, relationships, timeline, gapThreshold]);
+  }, [chapters, codexEntries, relationships, timeline, gapThreshold, project?.calendar]);
 
   const totalChapters = chapters?.length ?? 0;
   const characters = report?.presence.filter(p => p.category === 'character').slice(0, 14) ?? [];

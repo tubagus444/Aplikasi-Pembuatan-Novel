@@ -56,6 +56,15 @@ export interface TimelineEvent {
  * field JSON inert `Project.calendar` (tak diindeks, ikut backup via tabel `projects`).
  * Grid/pita musim/pengelompokan diturunkan murni dari sini via `src/lib/worldCalendar.ts`.
  */
+export interface WorldCalendarHoliday {
+  id: string;
+  name: string;
+  month: number; // 1-based
+  day: number;   // 1-based
+  description?: string;
+  color?: string;
+}
+
 export interface WorldCalendar {
   /**
    * Era BERURUTAN: indeks array = urutan kronologis (kecil = lebih tua). Tiap era
@@ -69,6 +78,8 @@ export interface WorldCalendar {
   months: { name: string; days: number }[];
   /** Musim: rentang bulan (1-based, inklusif) + warna untuk pita musim. */
   seasons: { name: string; fromMonth: number; toMonth: number; color: string }[];
+  /** Hari libur / festival tahunan yang berulang setiap tahun. */
+  holidays?: WorldCalendarHoliday[];
 }
 
 /**
@@ -276,6 +287,8 @@ export interface CodexEntry {
   //   "Dunia percaya… / Yang sebenarnya…"). Masuk KB AI, tak pernah ke output pembaca.
   hidden?: boolean;
   secret?: string;
+  /** Tanggal lahir in-world pada kalender dunia (khusus karakter) — pelacak usia dinamis. */
+  birthDate?: WorldDate;
   /**
    * Bengkel Nama (#3): palet fonotaktik + leksikon morfem untuk entri faksi/ras.
    * JSON inert (BUKAN FK, tak diindeks, tak masuk KB AI/ekspor) — dipakai generator

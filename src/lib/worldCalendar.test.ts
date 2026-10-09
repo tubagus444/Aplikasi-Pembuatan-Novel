@@ -8,6 +8,8 @@ import {
   daysInYear, daysInMonth, dayOfYear, compareDate, dayOfWeek, weekdayOfFirst,
   addDays, daysBetween, seasonForMonth, formatDate, formatDateRange,
   eraLabel, eraAbbr, calendarPreset, emptyCalendar,
+  breakdownDays, formatDaysBreakdown, addMonths, TRAVEL_MODES,
+  holidaysOnDate, calculateCharacterAge,
 } from './worldCalendar';
 import type { WorldCalendar } from '@/src/types';
 
@@ -184,3 +186,103 @@ describe('preset & kalender kosong', () => {
     expect(daysInYear(emptyCalendar())).toBeGreaterThan(0);
   });
 });
+
+describe('breakdownDays & formatDaysBreakdown', () => {
+  it('memecah hari menjadi unit tahun, bulan, hari sesuai kalender', () => {
+    // fantasy: 321 hari/tahun, bulan 1 = 40 hari, bulan 2 = 36 hari
+    const bd = breakdownDays(fantasy, 76); // 40 + 36 = 2 bulan pas
+    expect(bd.years).toBe(0);
+    expect(bd.months).toBe(2);
+    expect(bd.days).toBe(0);
+    expect(bd.isNegative).toBe(false);
+
+    const bd2 = breakdownDays(fantasy, 321 + 45); // 1 tahun + 45 hari (40 di bln 1, 5 di bln 2)
+    expect(bd2.years).toBe(1);
+    expect(bd2.months).toBe(1);
+    expect(bd2.days).toBe(5);
+
+    const neg = breakdownDays(fantasy, -50);
+    expect(neg.isNegative).toBe(true);
+    expect(neg.months).toBe(1);
+    expect(neg.days).toBe(10);
+  });
+
+  it('formatDaysBreakdown menghasilkan format string yang rapi', () => {
+    expect(formatDaysBreakdown(fantasy, 76)).toBe('2 bulan');
+    expect(formatDaysBreakdown(fantasy, 321 + 45)).toBe('1 tahun 1 bulan 5 hari');
+    expect(formatDaysBreakdown(fantasy, -20)).toBe('-20 hari');
+  });
+});
+
+describe('addMonths', () => {
+  it('menambah bulan dengan benar dan menggulung tahun bila perlu', () => {
+    const start = { era: 1, year: 812, month: 2, day: 15 };
+    const res = addMonths(fantasy, start, 3);
+    expect(res).toEqual({ era: 1, year: 812, month: 5, day: 15 });
+
+    // Lewat batas 8 bulan (fantasy ada 8 bulan)
+    const roll = addMonths(fantasy, start, 8); // 2 + 8 = 10 -> tahun 813 bulan 2
+    expect(roll).toEqual({ era: 1, year: 813, month: 2, day: 15 });
+
+    // Batasi hari ke panjang bulan baru bila hari melebihi batas
+    // fantasy bulan 2 punya 36 hari, bulan 4 punya 45 hari. Mulai dari hari 40 bulan 4:
+    const startD40 = { era: 1, year: 812, month: 4, day: 40 };
+    const clamped = addMonths(fantasy, startD40, 4); // bulan 8 (Deepnight: 44 hari) -> hari 40
+    expect(clamped.day).toBe(40);
+
+    const clamped2 = addMonths(fantasy, startD40, -2); // bulan 2 (Thawmoon: 36 hari) -> clamp ke 36
+    expect(clamped2.day).toBe(36);
+  });
+});
+
+describe('TRAVEL_MODES', () => {
+  it('menyediakan preset moda transportasi lengkap dengan kecepatan positif', () => {
+    expect(TRAVEL_MODES.length).toBeGreaterThanOrEqual(4);
+    for (const m of TRAVEL_MODES) {
+      expect(m.speedKmPerDay).toBeGreaterThan(0);
+      expect(m.name).toBeTruthy();
+    }
+  });
+});
+
+describe('holidaysOnDate', () => {
+  it('mengambil hari libur yang jatuh pada bulan dan hari tertentu', () => {
+    const h1 = holidaysOnDate(fantasy, 4, 1);
+    expect(h1.length).toBe(1);
+    expect(h1[0].name).toBe('Titik Balik Matahari Panas');
+
+    const empty = holidaysOnDate(fantasy, 1, 10);
+    expect(empty).toEqual([]);
+  });
+});
+
+describe('calculateCharacterAge', () => {
+  it('menghitung usia karakter dan mendeteksi ulang tahun dengan tepat', () => {
+    const birth = { era: 1, year: 793, month: 3, day: 10 };
+
+    // Tepat hari ulang tahun di tahun 812: 812 - 793 = 19 tahun
+    const bday = calculateCharacterAge(fantasy, birth, { era: 1, year: 812, month: 3, day: 10 });
+    expect(bday).toBeTruthy();
+    expect(bday!.years).toBe(19);
+    expect(bday!.isBirthday).toBe(true);
+    expect(bday!.isUnborn).toBe(false);
+    expect(bday!.formatted).toContain('🎂 Ulang tahun');
+
+    // Sebelum bulan ulang tahun di tahun 812 (Bulan 1): baru 18 tahun
+    const beforeBdayMonth = calculateCharacterAge(fantasy, birth, { era: 1, year: 812, month: 1, day: 10 });
+    expect(beforeBdayMonth!.years).toBe(18);
+    expect(beforeBdayMonth!.isBirthday).toBe(false);
+
+    // Setelah bulan ulang tahun di tahun 812 (Bulan 5): sudah 19 tahun
+    const afterBday = calculateCharacterAge(fantasy, birth, { era: 1, year: 812, month: 5, day: 10 });
+    expect(afterBday!.years).toBe(19);
+    expect(afterBday!.isBirthday).toBe(false);
+
+    // Peristiwa sebelum karakter lahir: isUnborn = true
+    const beforeBirth = calculateCharacterAge(fantasy, birth, { era: 1, year: 790, month: 1, day: 1 });
+    expect(beforeBirth!.isUnborn).toBe(true);
+    expect(beforeBirth!.formatted).toContain('Belum lahir');
+  });
+});
+
+

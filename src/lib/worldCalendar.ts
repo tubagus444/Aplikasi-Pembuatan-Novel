@@ -14,7 +14,7 @@
  *   - Tiap era mulai ulang dari Tahun 1; angka tahun TIDAK menentukan urutan lintas-era.
  */
 
-import type { WorldCalendar, WorldDate } from '@/src/types';
+import type { WorldCalendar, WorldDate, WorldCalendarHoliday } from '@/src/types';
 
 // ---------------------------------------------------------------------------
 // Dasar
@@ -128,6 +128,89 @@ export function daysBetween(cal: WorldCalendar, a: WorldDate, b: WorldDate): num
   return eraOrdinal(cal, b) - eraOrdinal(cal, a);
 }
 
+/**
+ * Pecah jumlah hari absolut menjadi unit { years, months, days, isNegative }
+ * berdasarkan panjang tahun dan bulan pada kalender dunia aktif.
+ */
+export function breakdownDays(cal: WorldCalendar, totalDays: number): {
+  years: number;
+  months: number;
+  days: number;
+  isNegative: boolean;
+} {
+  const isNegative = totalDays < 0;
+  const abs = Math.abs(totalDays);
+  const yLen = daysInYear(cal);
+  if (yLen <= 0) return { years: 0, months: 0, days: abs, isNegative };
+
+  const years = Math.floor(abs / yLen);
+  let rem = abs % yLen;
+  let months = 0;
+
+  for (let i = 0; i < cal.months.length; i++) {
+    const mDays = Math.max(1, Math.floor(cal.months[i].days) || 1);
+    if (rem >= mDays) {
+      rem -= mDays;
+      months++;
+    } else {
+      break;
+    }
+  }
+
+  return { years, months, days: rem, isNegative };
+}
+
+/**
+ * Format selisih hari menjadi teks ramah baca (mis. "1 tahun 2 bulan 5 hari").
+ */
+export function formatDaysBreakdown(cal: WorldCalendar, totalDays: number): string {
+  const { years, months, days, isNegative } = breakdownDays(cal, totalDays);
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} tahun`);
+  if (months > 0) parts.push(`${months} bulan`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} hari`);
+  const text = parts.join(' ');
+  return isNegative ? `-${text}` : text;
+}
+
+/**
+ * Tambah/kurang sejumlah bulan dari tanggal, menyesuaikan tahun & membatasi hari ke panjang bulan baru.
+ */
+export function addMonths(cal: WorldCalendar, date: WorldDate, n: number): WorldDate {
+  const mCount = cal.months.length;
+  if (mCount <= 0) return { ...date };
+  const current0 = date.month - 1;
+  const target0 = current0 + n;
+  const yearOffset = Math.floor(target0 / mCount);
+  const newMonth = mod(target0, mCount) + 1;
+  const newYear = Math.max(1, date.year + yearOffset);
+  const maxDay = daysInMonth(cal, newMonth) || 1;
+  const newDay = Math.min(Math.max(1, date.day), maxDay);
+  return { era: date.era, year: newYear, month: newMonth, day: newDay };
+}
+
+// ---------------------------------------------------------------------------
+// Moda Transportasi & Kecepatan Perjalanan Dunia Fantasi
+// ---------------------------------------------------------------------------
+
+export interface TravelModeInfo {
+  id: string;
+  name: string;
+  speedKmPerDay: number;
+  description: string;
+  category: 'land' | 'water' | 'air';
+}
+
+export const TRAVEL_MODES: TravelModeInfo[] = [
+  { id: 'foot', name: 'Jalan Kaki / Pasukan', speedKmPerDay: 20, description: 'Barisan tentara, pengelana tanpa tunggangan, atau pejalan kaki dengan beban ransel', category: 'land' },
+  { id: 'carriage', name: 'Kereta Kuda / Kafilah', speedKmPerDay: 30, description: 'Rombongan pedagang, kereta keluarga bangsawan, atau gerobak logistik', category: 'land' },
+  { id: 'horse', name: 'Kuda Tunggang Santai', speedKmPerDay: 45, description: 'Penunggang kuda tunggal dengan ritme istirahat teratur', category: 'land' },
+  { id: 'courier', name: 'Kurir Kuda Kilat', speedKmPerDay: 80, description: 'Kurir pos istana dengan stamina prima atau pergantian kuda di stasiun perhentian', category: 'land' },
+  { id: 'ship', name: 'Kapal Layar / Perahu Sungai', speedKmPerDay: 120, description: 'Pelayaran pantai atau arus sungai dengan navigasi siang-malam', category: 'water' },
+  { id: 'bird', name: 'Burung Pos / Pesan Udara', speedKmPerDay: 250, description: 'Merpati pos, rajawali pengintai, atau transmisi pesan langsung tanpa hambatan darat', category: 'air' },
+];
+
+
 // ---------------------------------------------------------------------------
 // Musim
 // ---------------------------------------------------------------------------
@@ -190,6 +273,122 @@ export function formatDateRange(cal: WorldCalendar, start: WorldDate, end?: Worl
 }
 
 // ---------------------------------------------------------------------------
+// Hari Libur & Festival Tahunan (Recurring Holidays)
+// ---------------------------------------------------------------------------
+
+/** Dapatkan semua hari libur/festival tahunan yang jatuh pada bulan dan hari tertentu. */
+export function holidaysOnDate(cal: WorldCalendar, month: number, day: number): WorldCalendarHoliday[] {
+  if (!cal.holidays?.length) return [];
+  return cal.holidays.filter(h => h.month === month && h.day === day);
+}
+
+// ---------------------------------------------------------------------------
+// Pelacak Usia Karakter Dinamis (Dynamic Age Tracker)
+// ---------------------------------------------------------------------------
+
+export interface CharacterAgeInfo {
+  years: number;
+  months: number;
+  days: number;
+  isBirthday: boolean;
+  isUnborn: boolean;
+  formatted: string;
+}
+
+/**
+ * Hitung usia karakter pada tanggal peristiwa tertentu secara deterministik.
+ * Mengembalikan informasi tahun, bulan, status ulang tahun, atau status belum lahir.
+ */
+export function calculateCharacterAge(
+  cal: WorldCalendar,
+  birthDate: WorldDate,
+  currentDate: WorldDate
+): CharacterAgeInfo | null {
+  if (birthDate.era !== currentDate.era) {
+    if (currentDate.era < birthDate.era) {
+      return {
+        years: -1,
+        months: 0,
+        days: 0,
+        isBirthday: false,
+        isUnborn: true,
+        formatted: 'Belum lahir (era mendatang)',
+      };
+    }
+    return {
+      years: currentDate.year,
+      months: 0,
+      days: 0,
+      isBirthday: false,
+      isUnborn: false,
+      formatted: `Lahir di ${eraLabel(cal, birthDate.era)}`,
+    };
+  }
+
+  const diff = daysBetween(cal, birthDate, currentDate);
+  if (diff === null) return null;
+
+  if (diff < 0) {
+    const bd = breakdownDays(cal, Math.abs(diff));
+    const formatted = bd.years > 0
+      ? `Belum lahir (-${bd.years} thn)`
+      : `Belum lahir (-${bd.days} hari)`;
+    return {
+      years: -bd.years,
+      months: -bd.months,
+      days: -bd.days,
+      isBirthday: false,
+      isUnborn: true,
+      formatted,
+    };
+  }
+
+  const isBirthday =
+    birthDate.month === currentDate.month &&
+    birthDate.day === currentDate.day &&
+    diff > 0;
+
+  // Hitung selisih tahun kalender
+  let years = currentDate.year - birthDate.year;
+  if (
+    currentDate.month < birthDate.month ||
+    (currentDate.month === birthDate.month && currentDate.day < birthDate.day)
+  ) {
+    years = Math.max(0, years - 1);
+  }
+
+  // Hitung sisa bulan dan hari sejak ulang tahun terakhir di tahun ini
+  const lastBday: WorldDate = {
+    era: birthDate.era,
+    year: birthDate.year + years,
+    month: birthDate.month,
+    day: Math.min(birthDate.day, daysInMonth(cal, birthDate.month) || 1),
+  };
+  const daysSinceBday = Math.max(0, daysBetween(cal, lastBday, currentDate) ?? 0);
+  const bdSince = breakdownDays(cal, daysSinceBday);
+
+  let formatted = `${years} thn`;
+  if (isBirthday) {
+    formatted = `${years} thn (🎂 Ulang tahun!)`;
+  } else if (years === 0) {
+    if (bdSince.months > 0) {
+      formatted = `${bdSince.months} bln ${bdSince.days} hr`;
+    } else {
+      formatted = `${bdSince.days} hari`;
+    }
+  }
+
+  return {
+    years,
+    months: bdSince.months,
+    days: bdSince.days,
+    isBirthday,
+    isUnborn: false,
+    formatted,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Preset kalender
 // ---------------------------------------------------------------------------
 
@@ -223,6 +422,10 @@ export function calendarPreset(preset: CalendarPreset): WorldCalendar {
           { name: 'Gugur', fromMonth: 9, toMonth: 11, color: SEASON_COLORS.autumn },
           { name: 'Dingin', fromMonth: 12, toMonth: 2, color: SEASON_COLORS.winter },
         ],
+        holidays: [
+          { id: 'greg-1', name: 'Tahun Baru', month: 1, day: 1, color: '#60a5fa', description: 'Awal tahun kalender baru' },
+          { id: 'greg-2', name: 'Hari Kemerdekaan', month: 8, day: 17, color: '#f87171', description: 'Peringatan kemerdekaan nasional' },
+        ],
       };
     case 'fantasy':
       return {
@@ -244,6 +447,11 @@ export function calendarPreset(preset: CalendarPreset): WorldCalendar {
           { name: 'Gugur', fromMonth: 5, toMonth: 6, color: SEASON_COLORS.autumn },
           { name: 'Beku', fromMonth: 7, toMonth: 8, color: SEASON_COLORS.winter },
         ],
+        holidays: [
+          { id: 'fan-1', name: 'Titik Balik Matahari Panas', month: 4, day: 1, color: '#fbbf24', description: 'Puncak musim kemarau dan ritual pemujaan matahari' },
+          { id: 'fan-2', name: 'Pesta Panen Raya', month: 6, day: 1, color: '#f97316', description: 'Perayaan lumbung hasil bumi seluruh negeri' },
+          { id: 'fan-3', name: 'Malam Cahaya Beku', month: 8, day: 44, color: '#a78bfa', description: 'Malam terpanjang di pengujung tahun' },
+        ],
       };
     case 'blank':
     default:
@@ -252,6 +460,7 @@ export function calendarPreset(preset: CalendarPreset): WorldCalendar {
         weekdays: ['Hari 1', 'Hari 2', 'Hari 3', 'Hari 4', 'Hari 5', 'Hari 6', 'Hari 7'],
         months: [{ name: 'Bulan 1', days: 30 }],
         seasons: [],
+        holidays: [],
       };
   }
 }

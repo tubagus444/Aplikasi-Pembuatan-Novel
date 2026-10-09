@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeContinuity, ContinuityChapter } from '@/src/lib/continuity';
 import { CodexEntry, Relationship, TimelineEvent } from '@/src/types';
+import { calendarPreset } from './worldCalendar';
 
 const entry = (id: number, name: string, category = 'character', aliases: string[] = []): CodexEntry => ({
   id, projectId: 1, name, aliases, category, description: '', tags: [],
@@ -91,4 +92,24 @@ describe('analyzeContinuity', () => {
     const { presence } = analyzeContinuity(chapters, codex, [], []);
     expect(presence.find(p => p.entityId === 1)?.mentions).toBe(1);
   });
+
+  it('flags chronology retrograde anomalies when calendar is provided', () => {
+    const chapters = [
+      chap(1, 'Bab 1: Keberangkatan', 'Perjalanan dimulai.'),
+      chap(2, 'Bab 2: Tiba', 'Sampai tujuan.'),
+    ];
+    const timeline: TimelineEvent[] = [
+      { id: 1, projectId: 1, chapterId: 1, title: 'Mulai', description: '', type: 'plot', order: 0, startDate: { era: 0, year: 812, month: 5, day: 20 } },
+      { id: 2, projectId: 1, chapterId: 2, title: 'Tiba', description: '', type: 'plot', order: 1, startDate: { era: 0, year: 812, month: 5, day: 10 } },
+    ];
+    const cal = calendarPreset('fantasy');
+
+    const { findings } = analyzeContinuity(chapters, [], [], timeline, { calendar: cal });
+    const retro = findings.find(f => f.check === 'chronology-retrograde');
+    expect(retro).toBeTruthy();
+    expect(retro!.severity).toBe('high');
+    expect(retro!.chapterIds).toContain(1);
+    expect(retro!.chapterIds).toContain(2);
+  });
 });
+

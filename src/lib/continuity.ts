@@ -18,13 +18,15 @@
 
 import { AhoCorasick } from '@/src/lib/ahoCorasick';
 import { extractCodexAcKeywords } from '@/src/lib/codexKeywords';
-import { CodexEntry, Relationship, TimelineEvent } from '@/src/types';
+import { CodexEntry, Relationship, TimelineEvent, WorldCalendar } from '@/src/types';
+import { auditChronology } from '@/src/lib/chronologyAudit';
 
 export type ContinuityCheck =
   | 'presence-gap'
   | 'unused-entity'
   | 'relationship-gap'
-  | 'timeline-mismatch';
+  | 'timeline-mismatch'
+  | 'chronology-retrograde';
 
 export type ContinuitySeverity = 'high' | 'medium' | 'low';
 
@@ -76,6 +78,8 @@ export interface ContinuityOptions {
    * agar scan berat tak berjalan di main thread. Bila kosong, dibangun sinkron di sini.
    */
   index?: PresenceIndex;
+  /** Kalender dunia opsional untuk memeriksa kepatuhan urutan kronologi linimasa. */
+  calendar?: WorldCalendar;
 }
 
 /** Indeks kemunculan entitas Codex di seluruh bab — dasar bersama analitik lokal. */
@@ -224,6 +228,26 @@ export function analyzeContinuity(
       entityIds: missing,
       chapterIds: [ev.chapterId],
     });
+  }
+
+  // 5. Cek urutan kronologi tanggal (bila kalender dunia didefinisikan).
+  if (options?.calendar) {
+    const chapterRefs = chapters.map((ch, idx) => ({ id: ch.id, title: ch.title, order: idx }));
+    const anomalies = auditChronology(chapterRefs, timeline, options.calendar);
+    for (const a of anomalies) {
+      findings.push({
+        id: `chrono-${a.id}`,
+        check: 'chronology-retrograde',
+        severity: a.severity,
+        title: a.title,
+        detail: a.detail,
+        entityIds: a.eventB.characterIds ?? [],
+        chapterIds: [
+          ...(a.chapterA?.id != null ? [a.chapterA.id] : []),
+          ...(a.chapterB?.id != null && a.chapterB.id !== a.chapterA?.id ? [a.chapterB.id] : []),
+        ],
+      });
+    }
   }
 
   const SEV_ORDER: Record<ContinuitySeverity, number> = { high: 0, medium: 1, low: 2 };
