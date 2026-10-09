@@ -197,49 +197,64 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Footer Utilitas Sistem (Pengaturan, Panduan, Log Error) */}
-      <div className="p-2 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/95 shrink-0">
-        <div className="flex items-center justify-around gap-1">
+      {/* Footer Utilitas Sistem (Minimalist Icon Dock Bar) */}
+      <div className="px-3.5 py-2.5 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/95 shrink-0 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+            Sistem
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setViewMode('settings')}
+            onClick={() => {
+              setViewMode('settings');
+              if (window.innerWidth < 768) setSidebarOpen(false);
+            }}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer",
+              "w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer",
               viewMode === 'settings'
-                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs border border-slate-200 dark:border-slate-700"
+                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700 font-semibold"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
             )}
             title="Pengaturan Aplikasi"
+            aria-label="Pengaturan Aplikasi"
           >
-            <Settings size={13} />
-            <span>Pengaturan</span>
+            <Settings size={15} />
           </button>
 
           <button
-            onClick={() => setViewMode('guide')}
+            onClick={() => {
+              setViewMode('guide');
+              if (window.innerWidth < 768) setSidebarOpen(false);
+            }}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer",
+              "w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer",
               viewMode === 'guide'
-                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs border border-slate-200 dark:border-slate-700"
+                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700 font-semibold"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
             )}
             title="Panduan Penggunaan"
+            aria-label="Panduan Penggunaan"
           >
-            <HelpCircle size={13} />
-            <span>Panduan</span>
+            <HelpCircle size={15} />
           </button>
 
           <button
-            onClick={() => setViewMode('errors')}
+            onClick={() => {
+              setViewMode('errors');
+              if (window.innerWidth < 768) setSidebarOpen(false);
+            }}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer",
+              "w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer",
               viewMode === 'errors'
-                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs border border-slate-200 dark:border-slate-700"
+                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700 font-semibold"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
             )}
-            title="Catatan Error"
+            title="Catatan Error & Log"
+            aria-label="Catatan Error & Log"
           >
-            <AlertTriangle size={13} />
-            <span>Log</span>
+            <AlertTriangle size={15} />
           </button>
         </div>
       </div>

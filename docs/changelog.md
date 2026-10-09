@@ -4,6 +4,18 @@ Catatan riwayat perubahan arsitektur, fitur, perbaikan bug, dan dokumentasi di r
 
 ---
 
+## 2026-10-09
+
+### [UI/UX] Redesain Footer Utilitas Sistem pada Sidebar
+- Mengubah footer tombol sistem di `Sidebar.tsx` dari 3 tombol teks horizontal yang padat dan berdesakan menjadi **Minimalist Icon Dock Bar** (gaya VS Code/Figma).
+- Menambahkan label section ringkas "SISTEM" dengan tipografi harmonis (`tracking-[0.18em]`) serta tombol ikon proporsional (Pengaturan, Panduan, Log Error) dengan tooltip dan dukungan auto-close pada layar mobile (<768px).
+- **File yang berubah:**
+  - `src/components/layout/Sidebar.tsx`
+  - `docs/features.md`
+  - `docs/changelog.md`
+
+---
+
 ## 2026-10-08
 
 ### [Refactor] Arsitektur Dokumentasi Modular

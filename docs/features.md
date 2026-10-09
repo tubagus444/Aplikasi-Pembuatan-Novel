@@ -281,3 +281,14 @@ Dokumentasi seluruh modul fitur yang ada di dalam aplikasi AetherScribe, mencaku
 - **Tabel DB:** `projects`, `chapters`, `aiUsageLogs`
 - **Endpoint:** Tidak ada (lokal)
 - **Catatan:** Perhitungan delta kata harian menggunakan tanggal lokal pengguna tanpa ketergantungan timezone server.
+
+---
+
+## Navigasi Studio & Footer Utilitas Sistem
+- **Status:** Selesai
+- **Deskripsi:** Navigasi 5 studio kerja utama (Menulis, Dunia & Lore, Visual & Peta, Analisis & Naskah, Asisten AI) dengan footer dock minimalis untuk utilitas sistem (Pengaturan, Panduan Pengguna, Log Error).
+- **File terkait:** `src/components/layout/Sidebar.tsx`, `src/lib/studioNavigation.ts`
+- **Tabel DB:** Tidak ada (state navigasi lokal)
+- **Endpoint:** Tidak ada
+- **Catatan:** Footer sistem menggunakan dock bar ringkas berbasis ikon dengan label kategori proporsional untuk mengoptimalkan ruang vertikal daftar bab dan menghindari kepadatan teks.
+
